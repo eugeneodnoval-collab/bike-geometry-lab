@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geometry Lab — сравнение геометрий</title>
+<style>
+:root{
+  --c1:#e8543f; --c2:#2b6cb0;
+  --bd:#e2e2e2; --mut:#6b6b6b;
+}
+*{box-sizing:border-box}
+body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:0;padding:20px;background:#f6f6f5;color:#191919}
+h1{font-size:19px;margin:0 0 3px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:18px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+
+.bikehead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.dotc{width:12px;height:12px;border-radius:50%}
+.bikename{font-weight:650;font-size:15px;border:none;background:transparent;width:100%;padding:2px 0;color:inherit;font-family:inherit}
+.bikename:focus{outline:none;border-bottom:1px solid var(--bd)}
+
+.grid{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;font-size:13px}
+.grid label{color:#333}
+.grid input[type=number]{width:88px;padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:13px;text-align:right;font-family:inherit}
+.grid input:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
+
+.travel{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd}
+.travel .row{display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:6px}
+.travel input[type=range]{flex:1;accent-color:currentColor}
+.tval{font-variant-numeric:tabular-nums;font-weight:650;min-width:74px;text-align:right}
+.tdelta{font-size:12px;color:var(--mut);min-width:0}
+
+details{margin-top:8px;font-size:13px}
+summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
+details .grid{margin-top:8px}
+
+.presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;margin-bottom:12px}
+.presets b{color:var(--mut);font-weight:500;margin-right:2px}
+button{font-family:inherit;font-size:12.5px;padding:4px 10px;border:1px solid #d0d0d0;background:#fff;border-radius:6px;cursor:pointer}
+button:hover{background:#f2f2f2}
+
+svg{width:100%;height:auto;display:block}
+
+table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:tabular-nums}
+th,td{border-bottom:1px solid #ededed;padding:5px 8px;text-align:right}
+th:first-child,td:first-child{text-align:left;color:#333}
+thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
+.grp td{background:#fafafa;font-weight:600;text-align:left;color:#555;font-size:11.5px;letter-spacing:.03em;text-transform:uppercase}
+.spec{color:#9a9a9a;font-size:11.5px}
+.pos{color:#0a7d33}.neg{color:#b3261e}
+.dcol{font-weight:600}
+.note{font-size:12px;color:var(--mut);line-height:1.6;margin-top:10px}
+
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.toolbar button{padding:6px 13px;font-size:13px}
+.toolbar .primary{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
+.toolbar .primary:hover{background:#333}
+.toolbar .ok{color:#0a7d33;font-size:12.5px}
+.printonly{display:none}
+
+@media print{
+  @page{ size:A4 landscape; margin:10mm }
+  body{padding:0;background:#fff;font-size:11px}
+  .toolbar,.presets,#inputs,details,.warn{display:none !important}
+  .printonly{display:block}
+  .card{border:none;padding:0;margin:0 0 10px;box-shadow:none}
+  h1{font-size:15px}
+  .sub{font-size:10px;margin-bottom:8px}
+  #chart{page-break-inside:avoid}
+  table{font-size:9.5px;page-break-inside:auto}
+  tr{page-break-inside:avoid}
+  thead{display:table-header-group}
+  .note{font-size:8.5px}
+  .prturl{font-size:8px;color:#999;word-break:break-all;margin-top:6px}
+}
+.warn{font-size:12.5px;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:8px 10px;margin-top:10px;display:none}
+</style>
+</head>
+<body>
+
+<h1>Geometry Lab — наложение геометрий хардтейлов</h1>
+<div class="sub">Колёса на общей земле, задние оси совмещены. Видно, как расходятся перья, куда уезжает каретка и где стоят пятна контакта передних колёс. Меняй любое число — схема пересчитывается на лету.</div>
+
+<div class="toolbar">
+  <button class="primary" onclick="doPrint()">Сохранить в PDF</button>
+  <button onclick="copyLink()">Скопировать ссылку с параметрами</button>
+  <span class="ok" id="copyok" style="visibility:hidden">ссылка скопирована</span>
+</div>
+
+<div class="printonly" id="printhead"></div>
+
+<div class="presets">
+  <b>В слот 1:</b>
+  <button onclick="loadPreset(0,'B1')">Outleap Warhog L 2025</button>
+  <button onclick="loadPreset(0,'B2')">Hagen 4 XL 2025</button>
+  <span style="width:14px"></span>
+  <b>В слот 2:</b>
+  <button onclick="loadPreset(1,'B1')">Outleap Warhog L 2025</button>
+  <button onclick="loadPreset(1,'B2')">Hagen 4 XL 2025</button>
+</div>
+
+<div class="cols" id="inputs"></div>
+
+<div class="card"><div id="chart"></div></div>
+
+<div class="card">
+  <div id="table"></div>
+  <div class="warn" id="warn"></div>
+  <div class="note" id="note"></div>
+</div>
+
+<script>
+/* ================= модель ================= */
+const rad = d => d*Math.PI/180, deg = r => r*180/Math.PI;
+const V = {
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1]],
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1]],
+  mul:(a,k)=>[a[0]*k,a[1]*k],
+  len:a=>Math.hypot(a[0],a[1]),
+  rot:(a,t)=>[a[0]*Math.cos(t)-a[1]*Math.sin(t), a[0]*Math.sin(t)+a[1]*Math.cos(t)]
+};
+
+const PRESETS = {
+  B1:{name:"Outleap Warhog L 2025", reach:465, stack:629, hta:65.8, sta:75.5, ht:115, st:460, cs:435, bbDrop:50,  wb:1213, offset:null, travelRef:130, travel:130, sag:25},
+  B2:{name:"Hagen 4 XL 2025",       reach:440, stack:645.5, hta:68.5, sta:74.3, ht:110, st:508, cs:440, bbDrop:63.5, wb:1159, offset:null, travelRef:120, travel:120, sag:25}
+};
+
+const state = {
+  bikes:[ {...PRESETS.B1}, {...PRESETS.B2} ],
+  wheelR: 368,          // радиус колеса 29" x 2.4
+};
+
+/*
+  solve(b): строит раму по паспортным числам, затем пересчитывает под текущий ход вилки.
+  Логика:
+   1. Паспортная рама в системе каретки (BB = 0,0), передняя ось на высоте bbDrop.
+   2. Из паспортных точек выводим фактическую вилку: составляющую вдоль оси рулевой (d)
+      и офсет (o). Так мы не зависим от того, какую вилку ставил производитель.
+   3. Изменение хода на Δ удлиняет вилку ВДОЛЬ оси рулевой: d' = d + Δ. Офсет не меняется.
+   4. Поворачиваем всю раму вокруг задней оси так, чтобы передняя ось снова оказалась
+      на той же высоте — то есть оба колеса стоят на земле.
+   5. Из повёрнутых точек читаем фактические reach/stack/углы/drop.
+*/
+function solve(b){
+  const hta = rad(b.hta), sta = rad(b.sta);
+  const BB   = [0,0];
+  const htTop= [b.reach, b.stack];
+  const u    = [Math.cos(hta), -Math.sin(hta)];   // вниз-вперёд вдоль оси рулевой
+  const p    = [Math.sin(hta),  Math.cos(hta)];   // перпендикуляр вперёд (офсет)
+  const htBot= V.add(htTop, V.mul(u, b.ht));
+  const rear = [-Math.sqrt(Math.max(b.cs*b.cs - b.bbDrop*b.bbDrop, 1)), b.bbDrop];
+  const stTop= [-b.st*Math.cos(sta), b.st*Math.sin(sta)];
+
+  // Паспортная передняя ось всегда лежит на высоте bbDrop (оба колеса на земле).
+  // Не хватает одного числа: либо колёсная база, либо офсет вилки.
+  //  - задана база  -> офсет выводим из неё;
+  //  - базы нет     -> берём офсет (по умолчанию 44) и выводим базу.
+  let front, dRef, oRef;
+  if (b.wb) {
+    front = [b.wb + rear[0], b.bbDrop];
+    const fk = V.sub(front, htBot);
+    dRef = fk[0]*u[0] + fk[1]*u[1];
+    oRef = fk[0]*p[0] + fk[1]*p[1];
+  } else {
+    oRef = (b.offset!=null ? b.offset : 44);
+    dRef = (b.bbDrop - htBot[1] - oRef*p[1]) / u[1];
+    front = V.add(htBot, V.add(V.mul(u,dRef), V.mul(p,oRef)));
+  }
+
+  const a2cRef = Math.hypot(dRef, oRef);
+
+  // новая вилка: смена хода + просадка (sag) под весом райдера.
+  // Паспортная геометрия измерена с полностью разжатой вилкой -> при sag = 0 всё сходится с паспортом.
+  const sagMM = b.travel * ((b.sag ?? 0)/100);
+  const dNew = dRef + (b.travel - b.travelRef) - sagMM;
+  const fkNew = V.add(V.mul(u, dNew), V.mul(p, oRef));
+
+  // поворот рамы вокруг задней оси до касания земли передним колесом
+  const Wvec = V.add(V.sub(htBot, rear), fkNew);
+  const theta = -Math.atan2(Wvec[1], Wvec[0]);      // > 0 => нос поднимается
+
+  const R = t => q => V.add(rear, V.rot(V.sub(q, rear), t));
+  const r = R(theta);
+  const P = {
+    BB:r(BB), htTop:r(htTop), htBot:r(htBot), stTop:r(stTop), rear:rear.slice(),
+    front:V.add(rear, V.rot(Wvec, theta))
+  };
+  // фактические числа
+  const htaNew = deg(Math.atan2(P.htTop[1]-P.htBot[1], P.htBot[0]-P.htTop[0]));
+  const staNew = deg(Math.atan2(P.stTop[1]-P.BB[1], P.BB[0]-P.stTop[0]));
+  const reach  = P.htTop[0]-P.BB[0];
+  const stack  = P.htTop[1]-P.BB[1];
+  const bbDrop = P.rear[1]-P.BB[1];
+  const wb     = P.front[0]-P.rear[0];
+  const bbH    = state.wheelR - bbDrop;
+  const virt   = [P.BB[0] - stack/Math.tan(rad(staNew)), P.BB[1]+stack];
+  const trail  = (state.wheelR/Math.tan(rad(htaNew))) - oRef/Math.sin(rad(htaNew));
+
+  return {b, P, virt, theta:deg(theta),
+    hta:htaNew, sta:staNew, reach, stack, bbDrop, wb, bbH, trail,
+    ett: P.htTop[0]-virt[0],
+    fc: Math.hypot(P.front[0]-P.BB[0], P.front[1]-P.BB[1]),
+    cs: Math.hypot(P.rear[0]-P.BB[0], P.rear[1]-P.BB[1]),
+    a2cRef, a2cNew: Math.hypot(dNew, oRef), offset:oRef, sagMM,
+    ground: P.rear[1] - state.wheelR
+  };
+}
+
+/* ================= отрисовка ================= */
+function L(a,b,c,w,d){return `<line x1="${a[0].toFixed(1)}" y1="${(-a[1]).toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${(-b[1]).toFixed(1)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"${d?` stroke-dasharray="${d}"`:''}/>`}
+function C(p,r,c,w,d){return `<circle cx="${p[0].toFixed(1)}" cy="${(-p[1]).toFixed(1)}" r="${r}" fill="none" stroke="${c}" stroke-width="${w}"${d?` stroke-dasharray="${d}"`:''}/>`}
+function Dt(p,c,r){return `<circle cx="${p[0].toFixed(1)}" cy="${(-p[1]).toFixed(1)}" r="${r}" fill="${c}"/>`}
+function Tx(p,s,c,sz,an,extra){return `<text x="${p[0].toFixed(1)}" y="${(-p[1]).toFixed(1)}" fill="${c}" font-size="${sz}" text-anchor="${an||'middle'}" font-family="system-ui"${extra||''}>${s}</text>`}
+
+function drawFrame(S, color, thin){
+  const P = S.P, R = state.wheelR, W = thin?9:12;
+  let s = '';
+  s += C(P.rear, R, color, 4, "16 13");
+  s += C(P.front, R, color, 4, "16 13");
+  s += L(P.BB, P.rear, color, W);
+  s += L(P.stTop, P.rear, color, W);
+  s += L(P.BB, P.stTop, color, W);
+  s += L(P.stTop, S.virt, color, 3.5, "12 10");
+  s += L(P.stTop, P.htTop, color, W);
+  s += L(S.virt, P.htTop, color, 3, "8 10");
+  s += L(P.BB, P.htBot, color, W);
+  s += L(P.htBot, P.htTop, color, W+5);
+  s += L(P.htBot, P.front, color, W-3);
+  s += Dt(P.BB, color, 13);
+  return s;
+}
+
+function render(){
+  const S = state.bikes.map(solve);
+  const colors = ["var(--c1)","var(--c2)"];
+  const hex = ["#e8543f","#2b6cb0"];
+
+  // приводим к общей системе: земля = 0, ЗАДНЯЯ ОСЬ на x = 0
+  const shifted = S.map(s=>{
+    const dx = -s.P.rear[0], dy = -s.ground;
+    const mv = q => [q[0]+dx, q[1]+dy];
+    return {...s, P:Object.fromEntries(Object.entries(s.P).map(([k,v])=>[k,mv(v)])), virt:mv(s.virt)};
+  });
+
+  // границы
+  let minX=1e9,maxX=-1e9,maxY=-1e9;
+  shifted.forEach(s=>{
+    minX=Math.min(minX,s.P.rear[0]-state.wheelR);
+    maxX=Math.max(maxX,s.P.front[0]+state.wheelR);
+    maxY=Math.max(maxY,s.P.htTop[1]+120, s.virt[1]+120);
+  });
+  const padL=300, padR=100, padT=170, padB=300;
+  const vbX=minX-padL, vbW=(maxX-minX)+padL+padR;
+  const vbY=-(maxY+padT), vbH=(maxY)+padT+padB;
+  const R = state.wheelR;
+
+  let g = '';
+  // земля
+  g += `<line x1="${vbX}" y1="0" x2="${vbX+vbW}" y2="0" stroke="#333" stroke-width="5"/>`;
+  g += `<text x="${vbX+14}" y="46" font-size="30" font-family="system-ui" fill="#888">земля</text>`;
+  // вертикаль через совмещённую заднюю ось
+  g += `<line x1="0" y1="70" x2="0" y2="${vbY+padT-40}" stroke="#9b9b9b" stroke-width="3.5" stroke-dasharray="16 13"/>`;
+
+  shifted.forEach((s,i)=> g += drawFrame(s, hex[i], i>0));
+
+  // вертикали кареток + подписи смещения каретки от задней оси
+  shifted.forEach((s,i)=>{
+    const bx = s.P.BB[0];
+    g += `<line x1="${bx.toFixed(1)}" y1="20" x2="${bx.toFixed(1)}" y2="${-(s.P.BB[1]+70)}" stroke="${hex[i]}" stroke-width="2.5" stroke-dasharray="9 9" opacity=".75"/>`;
+  });
+
+  // выноски высоты каретки (слева от заднего колеса)
+  let xo = -R-90;
+  shifted.forEach((s,i)=>{
+    g += `<line x1="${xo}" y1="0" x2="${xo}" y2="${-s.bbH}" stroke="${hex[i]}" stroke-width="4"/>`;
+    g += `<line x1="${xo}" y1="${-s.bbH}" x2="${(s.P.BB[0]).toFixed(1)}" y2="${-s.bbH}" stroke="${hex[i]}" stroke-width="2.5" stroke-dasharray="11 9" opacity=".8"/>`;
+    g += Tx([xo-16, s.bbH+14], `BB ${s.bbH.toFixed(1)}`, hex[i], 30, "end");
+    xo -= 110;
+  });
+
+  /* ---- габаритные линейки под землёй ---- */
+  function ruler(y, x1, x2, color, label){
+    const t = 16;
+    return `<line x1="${x1.toFixed(1)}" y1="${-y}" x2="${x2.toFixed(1)}" y2="${-y}" stroke="${color}" stroke-width="4"/>`
+         + `<line x1="${x1.toFixed(1)}" y1="${-y+t}" x2="${x1.toFixed(1)}" y2="${-y-t}" stroke="${color}" stroke-width="4"/>`
+         + `<line x1="${x2.toFixed(1)}" y1="${-y+t}" x2="${x2.toFixed(1)}" y2="${-y-t}" stroke="${color}" stroke-width="4"/>`
+         + Tx([(x1+x2)/2, y+22], label, color, 30);
+  }
+  shifted.forEach((s,i)=>{
+    const y = -(90 + i*95);          // ниже линии земли
+    const x1 = s.P.rear[0]-R, x2 = s.P.front[0]+R;
+    g += ruler(y, x1, x2, hex[i], `габарит ${(x2-x1).toFixed(0)} мм`);
+    // точка контакта переднего колеса
+    g += `<line x1="${s.P.front[0].toFixed(1)}" y1="14" x2="${s.P.front[0].toFixed(1)}" y2="${-y-40}" stroke="${hex[i]}" stroke-width="2.5" stroke-dasharray="9 9" opacity=".7"/>`;
+  });
+  // разница пятен контакта переднего колеса
+  if(shifted.length===2){
+    const dxf = shifted[1].P.front[0]-shifted[0].P.front[0];
+    if(Math.abs(dxf)>0.5){
+      const y = -(90+2*95);
+      const a = Math.min(shifted[0].P.front[0], shifted[1].P.front[0]);
+      const b = Math.max(shifted[0].P.front[0], shifted[1].P.front[0]);
+      g += ruler(y, a, b, "#555", `перед. пятно контакта: разница ${Math.abs(dxf).toFixed(0)} мм`);
+    }
+    // разница положения кареток — над землёй, подпись справа от правой вертикали
+    const dxb = shifted[1].P.BB[0]-shifted[0].P.BB[0];
+    if(Math.abs(dxb)>0.5){
+      const a = Math.min(shifted[0].P.BB[0], shifted[1].P.BB[0]);
+      const b = Math.max(shifted[0].P.BB[0], shifted[1].P.BB[0]);
+      const y = 78, t = 13;
+      g += `<line x1="${a.toFixed(1)}" y1="${-y}" x2="${b.toFixed(1)}" y2="${-y}" stroke="#666" stroke-width="3.5"/>`;
+      g += `<line x1="${a.toFixed(1)}" y1="${-y+t}" x2="${a.toFixed(1)}" y2="${-y-t}" stroke="#666" stroke-width="3.5"/>`;
+      g += `<line x1="${b.toFixed(1)}" y1="${-y+t}" x2="${b.toFixed(1)}" y2="${-y-t}" stroke="#666" stroke-width="3.5"/>`;
+      g += Tx([b+26, y-11], `каретка: ${Math.abs(dxb).toFixed(0)} мм`, "#666", 30, "start");
+    }
+  }
+
+  // заголовки
+  let head = '';
+  shifted.forEach((s,i)=>{
+    const b = s.b;
+    head += `<text x="${vbX+20}" y="${vbY+56+i*52}" font-size="38" font-family="system-ui" fill="${hex[i]}">`
+          + `${esc(b.name)} — ход ${b.travel} мм, sag ${b.sag ?? 0}% · reach ${s.reach.toFixed(0)} · stack ${s.stack.toFixed(0)} · HTA ${s.hta.toFixed(1)}° · WB ${s.wb.toFixed(0)}</text>`;
+  });
+
+  document.getElementById('chart').innerHTML =
+    `<svg viewBox="${vbX.toFixed(0)} ${vbY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}" xmlns="http://www.w3.org/2000/svg">${head}${g}</svg>`;
+
+  buildTable(S);
+  syncHash();
+}
+
+/* ================= таблица ================= */
+const ROWS = [
+  ["__g","Посадка"],
+  ["Reach",        s=>s.reach,  s=>s.b.reach, 0],
+  ["Stack",        s=>s.stack,  s=>s.b.stack, 0],
+  ["Stack / Reach",s=>s.stack/s.reach, null, 2],
+  ["Эфф. верхняя труба", s=>s.ett, null, 0],
+  ["Подседельная труба", s=>s.b.st, null, 0],
+  ["__g","Углы"],
+  ["Угол рулевой, °",     s=>s.hta, s=>s.b.hta, 1],
+  ["Угол подседельной, °",s=>s.sta, s=>s.b.sta, 1],
+  ["__g","Шасси"],
+  ["Колёсная база",  s=>s.wb, null, 0],
+  ["Перья (CS)",     s=>s.cs, null, 0],
+  ["Каретка перед задней осью, гориз.", s=>s.P.BB[0]-s.P.rear[0], null, 0],
+  ["Front center",   s=>s.fc, null, 0],
+  ["Вес на переднем, %", s=>100*(1-s.cs/s.wb), null, 1],
+  ["BB drop",        s=>s.bbDrop, s=>s.b.bbDrop, 1],
+  ["Высота каретки", s=>s.bbH, null, 1],
+  ["Механический трейл", s=>s.trail, null, 0],
+  ["__g","Габариты (для транспорта)"],
+  ["Длина по колёсам (край→край)", s=>s.wb + 2*state.wheelR, null, 0],
+  ["Длина в метрах", s=>(s.wb + 2*state.wheelR)/1000, null, 3],
+  ["Высота руля от земли", s=>s.stack + s.bbH, null, 0],
+  ["__g","Вилка"],
+  ["Ход, мм",      s=>s.b.travel, s=>s.b.travelRef, 0],
+  ["SAG, %",       s=>s.b.sag ?? 0, null, 0],
+  ["Просадка, мм", s=>s.sagMM, null, 0],
+  ["A2C, мм",      s=>s.a2cNew, s=>s.a2cRef, 0],
+  ["Офсет, мм",    s=>s.offset, null, 0],
+  ["Наклон рамы, °", s=>s.theta, null, 2],
+];
+
+function buildTable(S){
+  const names = S.map(s=>esc(s.b.name));
+  let t = `<table><thead><tr><th>Параметр</th>
+      <th style="color:#e8543f">${names[0]}</th>
+      <th style="color:#2b6cb0">${names[1]}</th>
+      <th>Δ (2−1)</th></tr></thead><tbody>`;
+  for(const row of ROWS){
+    if(row[0]==="__g"){ t += `<tr class="grp"><td colspan="4">${row[1]}</td></tr>`; continue; }
+    const [n, f, fSpec, dec] = row;
+    const v = S.map(f);
+    const cells = S.map((s,i)=>{
+      const spec = fSpec ? fSpec(s) : null;
+      const changed = spec!=null && Math.abs(spec - v[i]) > 0.05;
+      return `<td>${v[i].toFixed(dec)}${changed?`<div class="spec">паспорт ${(+spec).toFixed(dec)}</div>`:''}</td>`;
+    }).join('');
+    const d = v[1]-v[0];
+    const cls = Math.abs(d)<0.05 ? '' : (d>0?'pos':'neg');
+    t += `<tr><td>${n}</td>${cells}<td class="dcol ${cls}">${d>0?'+':''}${d.toFixed(dec)}</td></tr>`;
+  }
+  t += '</tbody></table>';
+  document.getElementById('table').innerHTML = t;
+
+  // предупреждение о сильном отходе от паспорта
+  const big = S.filter(s=>Math.abs(s.b.travel-s.b.travelRef)>0).map((s,i)=>s);
+  const w = document.getElementById('warn');
+  const msgs = S.filter(s=>Math.abs(s.b.travel-s.b.travelRef)>30)
+                .map(s=>`«${esc(s.b.name)}»: ход отличается от паспортного на ${(s.b.travel-s.b.travelRef>0?'+':'')}${(s.b.travel-s.b.travelRef).toFixed(0)} мм`);
+  if(msgs.length){ w.style.display='block'; w.innerHTML = msgs.join('<br>') + '<br>Геометрия пересчитана корректно, но такая вилка может не влезть в раму и аннулировать гарантию.'; }
+  else w.style.display='none';
+
+  document.getElementById('note').innerHTML =
+   `Колесо 29" — радиус ${state.wheelR} мм. Вилка выводится из введённой геометрии: её длина вдоль оси рулевой и офсет считаются из паспортных reach / stack / HTA / BB drop / базы,
+    поэтому при базовом ходе цифры точно совпадают с паспортом. Изменение хода удлиняет вилку вдоль оси рулевой, рама поворачивается вокруг задней оси до касания земли передним колесом.
+    <b>SAG</b> — просадка вилки под весом райдера в % от хода. Паспортная геометрия измерена с разжатой вилкой, поэтому при 0% таблица совпадает с паспортом,
+    а при 25% ты видишь рабочую геометрию хардтейла под райдером: сзади жёстко, спереди вилка села, рама доворачивается носом вниз вокруг задней оси.
+    Для хардтейла это полная модель — других степеней свободы нет. Эффективная верхняя труба — горизонталь на высоте стека до линии подседельной трубы (производители меряют её по-разному).
+    Длина по колёсам = колёсная база + два радиуса колеса; при покрышке шире/уже поменяй радиус в общих настройках. Реальная погрузочная длина будет на 20–40 мм больше за счёт покрышки и грязевика.`;
+}
+
+/* ================= интерфейс ================= */
+const FIELDS = [
+  ["reach","Reach",1],["stack","Stack",1],
+  ["hta","Угол рулевой, °",0.1],["sta","Угол подседельной, °",0.1],
+  ["ht","Рулевой стакан",1],["st","Подседельная труба",1],
+  ["cs","Перья (chainstay)",1],["bbDrop","BB drop",0.5],
+];
+const ADV = [["wb","Колёсная база (если знаешь)",1],["offset","Офсет вилки (если базы нет)",1]];
+
+function esc(s){return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+
+function buildInputs(){
+  const host = document.getElementById('inputs');
+  host.innerHTML = state.bikes.map((b,i)=>`
+   <div class="card" style="color:${i?'var(--c2)':'var(--c1)'}">
+     <div class="bikehead">
+       <div class="dotc" style="background:currentColor"></div>
+       <input class="bikename" data-i="${i}" data-k="name" value="${esc(b.name)}">
+     </div>
+     <div class="grid" style="color:#191919">
+       ${FIELDS.map(([k,l,st])=>`<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]}">`).join('')}
+     </div>
+     <div class="travel">
+       <div class="row">
+         <span style="color:#191919;min-width:82px">Ход вилки</span>
+         <input type="range" min="100" max="180" step="5" data-i="${i}" data-k="travel" value="${b.travel}">
+         <span class="tval" id="tv${i}">${b.travel} мм</span>
+       </div>
+       <div class="row">
+         <span style="color:#191919;min-width:82px">SAG вилки</span>
+         <input type="range" min="0" max="40" step="1" data-i="${i}" data-k="sag" value="${b.sag}">
+         <span class="tval" id="sv${i}">${b.sag}%</span>
+       </div>
+       <div class="grid" style="color:#191919">
+         <label>Ход, при котором заявлена геометрия</label>
+         <input type="number" step="5" data-i="${i}" data-k="travelRef" value="${b.travelRef}">
+       </div>
+       <div class="tdelta" id="td${i}"></div>
+     </div>
+     <details>
+       <summary>Дополнительно</summary>
+       <div class="grid" style="color:#191919">
+         ${ADV.map(([k,l,st])=>`<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]??''}" placeholder="авто">`).join('')}
+       </div>
+     </details>
+   </div>`).join('');
+
+  host.querySelectorAll('input').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const i=+el.dataset.i, k=el.dataset.k;
+      if(k==='name') state.bikes[i].name = el.value;
+      else if(el.value==='') state.bikes[i][k] = null;
+      else state.bikes[i][k] = parseFloat(el.value);
+      if(k==='travel') document.getElementById('tv'+i).textContent = el.value+' мм';
+      if(k==='sag')    document.getElementById('sv'+i).textContent = el.value+'%';
+      render(); updateTravelNotes();
+    });
+  });
+  updateTravelNotes();
+}
+
+function updateTravelNotes(){
+  state.bikes.forEach((b,i)=>{
+    const d = b.travel - b.travelRef;
+    const parts = [];
+    parts.push(d===0 ? 'ход паспортный' : `ход ${d>0?'+':''}${d} мм от паспортного (${b.travelRef})`);
+    parts.push(b.sag ? `просадка ${(b.travel*b.sag/100).toFixed(0)} мм` : 'без просадки = паспортная геометрия');
+    document.getElementById('td'+i).textContent = parts.join(' · ');
+  });
+}
+
+function loadPreset(slot, key){
+  state.bikes[slot] = {...PRESETS[key]};
+  buildInputs(); render();
+}
+
+/* ================= сохранение состояния в ссылку ================= */
+const HKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag'];
+
+function stateToHash(){
+  const enc = state.bikes.map(b =>
+    [encodeURIComponent(b.name), ...HKEYS.map(k => b[k]==null||b[k]===''?'':b[k])].join('~')
+  ).join('!');
+  return `#w=${state.wheelR}&b=${enc}`;
+}
+
+function hashToState(){
+  const h = location.hash.replace(/^#/,'');
+  if(!h) return false;
+  try{
+    const q = {};
+    h.split('&').forEach(pair=>{ const i=pair.indexOf('='); q[pair.slice(0,i)] = pair.slice(i+1); });
+    if(q.w) state.wheelR = parseFloat(q.w) || 368;
+    if(!q.b) return false;
+    const bikes = q.b.split('!').slice(0,2).map(chunk=>{
+      const p = chunk.split('~');
+      const b = { name: decodeURIComponent(p[0] || 'Bike') };
+      HKEYS.forEach((k,i)=>{
+        const v = p[i+1];
+        b[k] = (v===undefined || v==='') ? null : parseFloat(v);
+      });
+      // обязательные поля — если пусто, подставляем из первого пресета
+      HKEYS.forEach(k=>{ if(b[k]==null && k!=='wb' && k!=='offset') b[k] = PRESETS.B1[k]; });
+      return b;
+    });
+    if(bikes.length===2){ state.bikes = bikes; return true; }
+  }catch(e){ console.warn('не смог разобрать ссылку', e); }
+  return false;
+}
+
+function syncHash(){
+  // На file:// некоторые браузеры запрещают replaceState — тогда просто молчим,
+  // кнопка «скопировать ссылку» всё равно собирает адрес из состояния.
+  try{
+    const h = stateToHash();
+    if(location.hash !== h) history.replaceState(null, '', h);
+  }catch(e){}
+}
+
+function currentLink(){
+  return location.href.split('#')[0] + stateToHash();
+}
+
+function copyLink(){
+  const url = currentLink();
+  const done = ()=>{
+    const el = document.getElementById('copyok');
+    el.style.visibility='visible';
+    clearTimeout(copyLink._t);
+    copyLink._t = setTimeout(()=>el.style.visibility='hidden', 2200);
+  };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(url).then(done, ()=>fallback(url, done));
+  } else fallback(url, done);
+}
+function fallback(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); done(); }
+  catch(e){ prompt('Скопируй ссылку вручную:', text); }
+  document.body.removeChild(ta);
+}
+
+/* ================= печать ================= */
+function doPrint(){
+  const S = state.bikes.map(solve);
+  document.getElementById('printhead').innerHTML =
+    `<div style="font-size:11px;margin:0 0 8px">` +
+    S.map((s,i)=>`<b style="color:${i?'#2b6cb0':'#e8543f'}">${esc(s.b.name)}</b> — ход ${s.b.travel} мм, sag ${s.b.sag ?? 0}% (просадка ${s.sagMM.toFixed(0)} мм), колесо 29" R${state.wheelR}`).join(' &nbsp;·&nbsp; ') +
+    `</div><div class="prturl">${esc(currentLink())}</div>`;
+  window.print();
+}
+
+// глобальные настройки колеса
+(function(){
+  const d = document.createElement('details');
+  d.innerHTML = `<summary style="margin:-6px 0 12px">Общие настройки (колесо)</summary>
+    <div class="card" style="margin-top:8px"><div class="grid" style="max-width:340px">
+      <label>Радиус колеса 29", мм</label><input type="number" step="1" id="wr" value="${state.wheelR}">
+    </div>
+    <div class="note">368 мм ≈ 29"×2.4. Для 2.6 возьми ~375, для 2.2 ~362.</div></div>`;
+  document.querySelector('.presets').after(d);
+  d.querySelector('#wr').addEventListener('input',e=>{ state.wheelR = parseFloat(e.target.value)||368; render(); });
+})();
+
+// восстановление из ссылки при загрузке
+hashToState();
+const wrEl = document.getElementById('wr');
+if(wrEl) wrEl.value = state.wheelR;
+
+buildInputs();
+render();
+
+// переход по другой ссылке в том же окне
+window.addEventListener('hashchange', ()=>{
+  if(location.hash !== stateToHash() && hashToState()){
+    const w = document.getElementById('wr'); if(w) w.value = state.wheelR;
+    buildInputs(); render();
+  }
+});
+</script>
+</body>
+</html>
