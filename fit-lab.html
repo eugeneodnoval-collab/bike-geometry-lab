@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fit Lab — райдер на геометрии</title>
+<style>
+:root{ --c1:#e8543f; --bd:#e2e2e2; --mut:#6b6b6b; --body:#4f7fe0; }
+*{box-sizing:border-box}
+body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:0;padding:20px;background:#f6f6f5;color:#191919}
+h1{font-size:19px;margin:0 0 3px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:18px;max-width:900px;line-height:1.5}
+.card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.card h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:600}
+
+/* ---- раскладка ----
+   <700      всё в одну колонку
+   700–1159  карточки ввода в два столбца, результаты под ними
+   >=1160    две панели: ввод слева, результаты справа.
+             clamp(330,25%,500) держит ровно 25% в диапазоне ~1360–2040 px,
+             ниже упирается в 330 (минимум, при котором поля не ломаются),
+             выше — в 500, чтобы форма не расползалась на ультравайде. */
+.layout{display:grid;gap:14px;align-items:start}
+.panel,.results{display:grid;gap:14px;align-content:start;min-width:0}
+.cols{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:700px){ .cols{grid-template-columns:1fr 1fr} }
+@media(min-width:1160px){
+  .layout{grid-template-columns:clamp(330px,25%,500px) 1fr}
+  .cols{grid-template-columns:1fr}
+  .panel{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin;padding-right:4px}
+}
+#side svg,#top svg{margin:0 auto}
+.grid{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;font-size:13px}
+.grid label{color:#333}
+.grid input[type=number],.grid select{width:96px;padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:13px;text-align:right;font-family:inherit;background:#fff}
+.grid input:focus,.grid select:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
+.grid .chk{width:auto;justify-self:end;margin-right:38px}
+.slider{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd}
+.slider .row{display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:7px}
+.slider input[type=range]{flex:1;accent-color:var(--c1)}
+.tval{font-variant-numeric:tabular-nums;font-weight:650;min-width:72px;text-align:right}
+.hint{font-size:12px;color:var(--mut);line-height:1.55;margin-top:8px}
+details{margin-top:10px;font-size:13px}
+summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
+details .grid{margin-top:8px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px}
+.presets b{color:var(--mut);font-weight:500;margin-right:2px}
+button{font-family:inherit;font-size:12.5px;padding:4px 10px;border:1px solid #d0d0d0;background:#fff;border-radius:6px;cursor:pointer}
+button:hover{background:#f2f2f2}
+button.on{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
+svg{width:100%;height:auto;display:block}
+table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:tabular-nums}
+th,td{border-bottom:1px solid #ededed;padding:5px 8px;text-align:right}
+th:first-child,td:first-child{text-align:left;color:#333}
+thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
+.grp td{background:#fafafa;font-weight:600;text-align:left;color:#555;font-size:11.5px;letter-spacing:.03em;text-transform:uppercase}
+.spec{color:#9a9a9a;font-size:11.5px;text-align:left}
+.ok{color:#0a7d33}.amb{color:#8a5a00}.bad{color:#b3261e}
+.val{font-weight:650}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.toolbar button{padding:6px 13px;font-size:13px}
+.toolbar .primary{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
+.toolbar .primary:hover{background:#333}
+.toolbar .okmsg{color:#0a7d33;font-size:12.5px}
+.warn{font-size:12.5px;line-height:1.55;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:9px 11px;margin-top:10px}
+.warn.bad{color:#8c1d18;background:#fdecea;border-color:#f3c4bf}
+.warn b{font-weight:650}
+.lg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:9px}
+.printonly{display:none}
+@media print{
+  @page{size:A4 portrait;margin:10mm}
+  body{padding:0;background:#fff;font-size:11px}
+  .toolbar,.presets,#inputs,details{display:none!important}
+  .printonly{display:block}
+  .layout{display:block}
+  .panel{position:static;max-height:none;overflow:visible}
+  #side svg,#top svg{max-width:100%!important}
+  .card{border:none;padding:0;margin:0 0 10px}
+  h1{font-size:15px}.sub{font-size:10px;margin-bottom:8px}
+  table{font-size:9.5px}tr{page-break-inside:avoid}
+  #side,#top{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<h1>Fit Lab — райдер на геометрии</h1>
+<div class="sub">Считает, где именно окажутся седло и ручки руля, и в какую позу это поставит человека с заданными пропорциями. Рама решается под ход вилки и sag, кокпит — цепочкой от рулевого стакана до центра хвата, тело — обратной кинематикой от контактных точек. Свободная степень одна: наклон корпуса. Её задаёшь ты, всё остальное считается.</div>
+
+<div class="toolbar">
+  <button class="primary" onclick="doPrint()">Сохранить в PDF</button>
+  <button onclick="copyLink()">Скопировать ссылку с параметрами</button>
+  <span class="okmsg" id="copyok" style="visibility:hidden">ссылка скопирована</span>
+</div>
+
+<div class="printonly" id="printhead"></div>
+
+<div class="layout">
+<aside class="panel">
+
+<div class="presets">
+  <b>Рама:</b>
+  <button onclick="loadBike('B1')">Outleap Warhog L 2025</button>
+  <button onclick="loadBike('B2')">Hagen 4 XL 2025</button>
+  <span style="width:14px"></span>
+  <b>Райдер:</b>
+  <button onclick="loadRider('R170')">170 см</button>
+  <button onclick="loadRider('R180')">180 см</button>
+  <button onclick="loadRider('R190')">190 см</button>
+</div>
+
+<div class="cols" id="inputs"></div>
+
+</aside>
+<main class="results">
+
+<div class="card"><h3>Вид сбоку</h3><div id="side"></div>
+  <div class="lg">
+    <span><b style="color:#e8543f">━</b> кокпит и контактные точки</span>
+    <span><b style="color:#4f7fe0">━</b> тело: ближняя сторона сплошная, дальняя бледная</span>
+    <span><b style="color:#1f8a52">╌</b> нога в верхней мёртвой точке</span>
+    <span><b style="color:#7c5cd6">━</b> наклон корпуса и центр масс</span>
+  </div>
+</div>
+
+<div class="card"><h3>Вид сверху — ширина руля против плеч</h3><div id="top"></div></div>
+
+<div class="card">
+  <div id="table"></div>
+  <div id="warns"></div>
+  <div class="hint" id="note"></div>
+</div>
+
+</main>
+</div>
+
+<script>
+/* ===================== утилиты ===================== */
+const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ===================== пресеты ===================== */
+const BIKES={
+  B1:{name:"Outleap Warhog L 2025", reach:465,stack:629,hta:65.8,sta:75.5,ht:115,st:460,cs:435,bbDrop:50,  wb:1213,travelRef:130,travel:130,sag:25},
+  B2:{name:"Hagen 4 XL 2025",       reach:440,stack:645.5,hta:68.5,sta:74.3,ht:110,st:508,cs:440,bbDrop:63.5,wb:1159,travelRef:120,travel:120,sag:25}
+};
+const RIDERS={
+  R170:{name:"170 см",height:1700,inseam:790,shoulderW:400,armLen:565},
+  R180:{name:"180 см",height:1800,inseam:840,shoulderW:420,armLen:598},
+  R190:{name:"190 см",height:1900,inseam:890,shoulderW:445,armLen:631}
+};
+
+const state={
+  bike:{...BIKES.B1},
+  wheelR:368,
+  ck:{ headsetStack:15, spacers:20, stemClampH:40, stemLen:50, stemAngle:6, stemFlip:0,
+       barRise:25, barWidth:760, backsweep:8, upsweep:5, barRoll:0, gripInset:70, riserBendHalf:100 },
+  body:{ ...RIDERS.R180, hipW:null, femurPct:50, ankleH:null, soleThk:18, wristGrip:60, hipAbove:35, hipFwd:25 },
+  fit:{ crank:170, qFactor:172, torso:58, kneeTarget:145, postOffset:0, railPos:0, radMult:4.47, pedalUp:null, pedalBack:null }
+};
+
+/* ===================== 1. рама ===================== */
+/* порт solve() из geometry-lab: вилка выводится из паспортной геометрии,
+   смена хода удлиняет её вдоль оси рулевой, sag укорачивает,
+   рама доворачивается вокруг задней оси до касания земли передним колесом.
+   Результат сдвинут так, что земля z=0, каретка x=0. */
+function solveFrame(){
+  const b=state.bike, R=state.wheelR;
+  const hta=rad(b.hta), sta=rad(b.sta);
+  const htTop=[b.reach,b.stack];
+  const u=[Math.cos(hta),-Math.sin(hta)], p=[Math.sin(hta),Math.cos(hta)];
+  const htBot=[htTop[0]+u[0]*b.ht, htTop[1]+u[1]*b.ht];
+  const rear=[-Math.sqrt(Math.max(b.cs*b.cs-b.bbDrop*b.bbDrop,1)), b.bbDrop];
+  const stTop=[-b.st*Math.cos(sta), b.st*Math.sin(sta)];
+  const front=[b.wb+rear[0], b.bbDrop];
+  const fk=[front[0]-htBot[0], front[1]-htBot[1]];
+  const dRef=fk[0]*u[0]+fk[1]*u[1], oRef=fk[0]*p[0]+fk[1]*p[1];
+  const sagMM=b.travel*(b.sag||0)/100;
+  const dNew=dRef+(b.travel-b.travelRef)-sagMM;
+  const fkN=[u[0]*dNew+p[0]*oRef, u[1]*dNew+p[1]*oRef];
+  const W=[htBot[0]-rear[0]+fkN[0], htBot[1]-rear[1]+fkN[1]];
+  const th=-Math.atan2(W[1],W[0]);
+  const rot=q=>{const dx=q[0]-rear[0],dy=q[1]-rear[1];
+    return [rear[0]+dx*Math.cos(th)-dy*Math.sin(th), rear[1]+dx*Math.sin(th)+dy*Math.cos(th)];};
+  let P={BB:rot([0,0]), htTop:rot(htTop), htBot:rot(htBot), stTop:rot(stTop), rear:rear.slice(),
+         front:[rear[0]+W[0]*Math.cos(th)-W[1]*Math.sin(th), rear[1]+W[0]*Math.sin(th)+W[1]*Math.cos(th)]};
+  const htaN=deg(Math.atan2(P.htTop[1]-P.htBot[1], P.htBot[0]-P.htTop[0]));
+  const staN=deg(Math.atan2(P.stTop[1]-P.BB[1], P.BB[0]-P.stTop[0]));
+  const reach=P.htTop[0]-P.BB[0], stack=P.htTop[1]-P.BB[1];
+  const gy=P.rear[1]-R, ox=-P.BB[0], oz=-gy;
+  const shift=q=>[q[0]+ox,q[1]+oz];
+  P=Object.fromEntries(Object.entries(P).map(([k,v])=>[k,shift(v)]));
+  return {P,hta:htaN,sta:staN,reach,stack,bbH:P.BB[1],wb:P.front[0]-P.rear[0],
+          offset:oRef,sagMM,wheelR:R,
+          trail:(R/Math.tan(rad(htaN)))-oRef/Math.sin(rad(htaN))};
+}
+
+/* ===================== 2. кокпит ===================== */
+/* Цепочка: верх стакана -> чашка рулевой -> проставки -> центр обхвата выноса
+   -> вынос -> центр руля -> отгиб -> центр хвата.
+   Ключевое: угол выноса задан от ПЕРПЕНДИКУЛЯРА к штоку.
+   Подъём от горизонта = (90 - HTA) + угол выноса. */
+function solveCockpit(F){
+  const c=state.ck, hta=rad(F.hta), ht=F.P.htTop;
+  const up=[-Math.cos(hta),0,Math.sin(hta)];
+  const h=c.headsetStack+c.spacers+c.stemClampH/2;
+  const steer=[ht[0]+up[0]*h, 0, ht[1]+up[2]*h];
+  const sa=c.stemFlip? -c.stemAngle : c.stemAngle;
+  const elev=(90-F.hta)+sa;
+  const bar=[steer[0]+Math.cos(rad(elev))*c.stemLen, 0, steer[2]+Math.sin(rad(elev))*c.stemLen];
+  const L=c.barWidth/2-c.gripInset;            // центр хвата от центра руля, поперёк
+  const s=Math.max(L-c.riserBendHalf,0);
+  const bs=rad(c.backsweep), us=rad(c.upsweep);
+  // смещение ручки от центра руля до поворота руля в обхвате
+  let d=[ -s*Math.sin(bs)*Math.cos(us), c.riserBendHalf+s*Math.cos(bs)*Math.cos(us), c.barRise+s*Math.sin(us) ];
+  // ролл руля в обхвате: поворот вокруг поперечной оси
+  const r=rad(c.barRoll);
+  d=[ d[0]*Math.cos(r)+d[2]*Math.sin(r), d[1], -d[0]*Math.sin(r)+d[2]*Math.cos(r) ];
+  const grip=[bar[0]+d[0], d[1], bar[2]+d[2]];
+  // край руля и точка отгиба — для вида сверху
+  const e=c.barWidth/2-c.riserBendHalf;
+  let de=[ -e*Math.sin(bs)*Math.cos(us), c.riserBendHalf+e*Math.cos(bs)*Math.cos(us), c.barRise+e*Math.sin(us) ];
+  de=[ de[0]*Math.cos(r)+de[2]*Math.sin(r), de[1], -de[0]*Math.sin(r)+de[2]*Math.cos(r) ];
+  let db=[0, c.riserBendHalf, c.barRise];
+  db=[ db[0]*Math.cos(r)+db[2]*Math.sin(r), db[1], -db[0]*Math.sin(r)+db[2]*Math.cos(r) ];
+  return { steer, bar, grip, elev,
+           barEnd:[bar[0]+de[0], de[1], bar[2]+de[2]],
+           barBend:[bar[0]+db[0], db[1], bar[2]+db[2]] };
+}
+
+/* ===================== 3. сегменты тела ===================== */
+function segments(){
+  const b=state.body, H=b.height, I=b.inseam;
+  const ankleH=(b.ankleH!=null?b.ankleH:0.039*H)+b.soleThk;   // ось голеностопа над подошвой
+  const hipJointH=I+0.055*H;                                   // головка бедра над полом
+  const legTotal=Math.max(hipJointH-ankleH,200);
+  const femur=legTotal*(b.femurPct/100), tibia=legTotal-femur;
+  const trunk=Math.max(0.818*H-hipJointH,200);                 // таз -> плечевой сустав
+  const AL=b.armLen;
+  return { ankleH, femur, tibia, trunk,
+           upperarm:AL*0.56, forearm:AL*0.44, wristGrip:b.wristGrip,
+           neck:0.052*H, headR:0.052*H,
+           hipW:(b.hipW!=null?b.hipW:0.81*b.shoulderW), shoulderW:b.shoulderW,
+           armMax:AL*0.56+AL*0.44+b.wristGrip };
+}
+
+/* двухзвенная обратная кинематика в сагиттальной плоскости.
+   sign=+1 — сустав вперёд (колено), -1 — назад (локоть). */
+function ik(A,B,l1,l2,sign){
+  const dx=B[0]-A[0], dz=B[2]-A[2];
+  const Draw=Math.hypot(dx,dz), D=Math.min(Draw, l1+l2-0.5);
+  const ca=clamp((l1*l1+D*D-l2*l2)/(2*l1*D),-1,1);
+  const a=Math.atan2(dz,dx)+sign*Math.acos(ca);
+  const J=[A[0]+l1*Math.cos(a), A[1], A[2]+l1*Math.sin(a)];
+  const cj=clamp((l1*l1+l2*l2-D*D)/(2*l1*l2),-1,1);
+  return {J, angle:deg(Math.acos(cj)), reach:Draw, over:Draw>l1+l2};
+}
+function ang3(a,b,c){
+  const v1=[a[0]-b[0],a[2]-b[2]], v2=[c[0]-b[0],c[2]-b[2]];
+  return deg(Math.acos(clamp((v1[0]*v2[0]+v1[1]*v2[1])/(Math.hypot(...v1)*Math.hypot(...v2)),-1,1)));
+}
+
+/* ===================== 4. посадка ===================== */
+function solveFit(){
+  const F=solveFrame(), CO=solveCockpit(F), S=segments(), f=state.fit, b=state.body;
+  const BB=F.P.BB, sta=rad(F.sta);
+  const pedalUp = f.pedalUp!=null ? f.pedalUp : S.ankleH;            // лодыжка над осью педали
+  const pedalBack = f.pedalBack!=null ? f.pedalBack : 0.16*b.height*0.28 + 20; // ось педали под подушечкой
+  const foot=(crankDeg,side)=>{
+    const t=rad(crankDeg);
+    const ped=[BB[0]+f.crank*Math.sin(t), side*f.qFactor/2, BB[1]+f.crank*Math.cos(t)];
+    return {ped, ank:[ped[0]-pedalBack, ped[1], ped[2]+pedalUp]};
+  };
+
+  /* высота седла: подбираем так, чтобы в НМТ колено дало целевой угол.
+     Так длина шатуна работает физически, а не через поправку. */
+  const need=Math.sqrt(S.femur**2+S.tibia**2-2*S.femur*S.tibia*Math.cos(rad(f.kneeTarget)));
+  const bdc=foot(180,1);
+  const setback=f.postOffset+f.railPos;    // сетбек седла от оси подседельной трубы
+  const hipOf=q=>[q[0]+b.hipFwd, 0, q[1]+b.hipAbove];
+  const seatAt=m=>[BB[0]-m*Math.cos(sta)-setback, BB[1]+m*Math.sin(sta)];
+  let lo=300, hi=1100;
+  for(let i=0;i<70;i++){
+    const m=(lo+hi)/2, hp=hipOf(seatAt(m));
+    (Math.hypot(hp[0]-bdc.ank[0], hp[2]-bdc.ank[2])<need) ? lo=m : hi=m;
+  }
+  const satH=(lo+hi)/2;                     // по подседельной трубе от каретки до верха седла
+  const sat=seatAt(satH);
+  const HIP=hipOf(sat);
+
+  const legs={};
+  [['near',180,1],['far',0,-1]].forEach(([nm,cd,side])=>{
+    const {ped,ank}=foot(cd,side);
+    const hip=[HIP[0], side*S.hipW*0.28, HIP[2]];
+    const r=ik(hip,ank,S.femur,S.tibia,+1);
+    legs[nm]={ped,ank,hip,knee:r.J,angle:r.angle};
+  });
+  const tdc=foot(0,-1);
+  const kTDC=ik([HIP[0],0,HIP[2]],tdc.ank,S.femur,S.tibia,+1);
+
+  /* корпус задан пользователем -> плечо -> рука -> ручка */
+  const tr=rad(f.torso);
+  const SH=[HIP[0]+S.trunk*Math.cos(tr), 0, HIP[2]+S.trunk*Math.sin(tr)];
+  const gs=[CO.grip[0],0,CO.grip[2]];
+  const arm=ik(SH,gs,S.upperarm,S.forearm+S.wristGrip,-1);
+  const armUse=100*arm.reach/S.armMax;
+  const hipTDC=ang3(SH,[HIP[0],0,HIP[2]],kTDC.J);
+
+  const NECK=[SH[0]+S.neck*Math.cos(tr+rad(25)), 0, SH[2]+S.neck*Math.sin(tr+rad(25))];
+  const HEAD=[NECK[0]+S.headR*1.1*Math.cos(rad(48)), 0, NECK[2]+S.headR*1.1*Math.sin(rad(48))];
+
+  /* центр масс по долям массы сегментов (Winter) */
+  const mid=(a,b2)=>[(a[0]+b2[0])/2,(a[2]+b2[2])/2];
+  const parts=[[mid(HIP,SH),.497],[[HEAD[0],HEAD[2]],.081],
+    [mid(HIP,legs.near.knee),.20],[mid(legs.near.knee,legs.near.ank),.10],
+    [mid(SH,arm.J),.056],[mid(arm.J,CO.grip),.046]];
+  let cx=0,cz=0,tot=0; parts.forEach(([p,w])=>{cx+=p[0]*w;cz+=p[1]*w;tot+=w;});
+  const CoM=[cx/tot,cz/tot];
+  const frontPct=100*(CoM[0]-F.P.rear[0])/(F.P.front[0]-F.P.rear[0]);
+
+  const splay=deg(Math.atan2(CO.grip[1]-S.shoulderW/2, CO.grip[0]-SH[0]));
+
+  /* RAD (Lee McCormack): прямая от каретки до центра хвата — гипотенуза вылета
+     и стека всего кокпита, включая проставки, вынос и rise руля.
+     RAAD — угол этой прямой от горизонта. */
+  /* Эффективные reach и stack — до центра хвата, а не до верха рулевого стакана.
+     Это то, что райдер чувствует руками; RAD — их гипотенуза. */
+  const effReach=CO.grip[0]-BB[0], effStack=CO.grip[2]-BB[1];
+  const rad_=Math.hypot(effReach,effStack), raad=deg(Math.atan2(effStack,effReach));
+  const radTarget=(b.height/10)*f.radMult;
+
+  return {F,CO,S,legs,HIP,SH,EL:arm.J,NECK,HEAD,CoM,sat,satH,setback,
+    rad:rad_, raad, radTarget, radDelta:rad_-radTarget,
+    effReach, effStack, dReach:effReach-F.reach, dStack:effStack-F.stack,
+    elbow:arm.angle, armUse, armOver:arm.over, torso:f.torso,
+    kneeBDC:legs.near.angle, kneeTDC:kTDC.angle, kTDC:kTDC.J, tdcAnk:tdc.ank,
+    hipTDC, frontPct, splay, pedalUp, pedalBack,
+    s2gX:CO.grip[0]-sat[0], s2gZ:CO.grip[2]-sat[1], gripW:2*CO.grip[1]};
+}
+
+/* ===================== 5. отрисовка ===================== */
+const BC='#4f7fe0', BF='#eaf1fd', FR='#2f3640', ACC='#e8543f', MUT='#aeb6c2',
+      GRN='#1f8a52', AMB='#b8860b', VIO='#7c5cd6', TEAL='#0f766e';
+const da=d=>d?` stroke-dasharray="${d}"`:'';
+// сагиттальная плоскость: [x,z] мм -> экран (y вниз)
+function ln(a,b,c,w,dash,op){return `<line x1="${a[0].toFixed(1)}" y1="${(-a[1]).toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${(-b[1]).toFixed(1)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" opacity="${op==null?1:op}"${da(dash)}/>`}
+function tx(x,z,s,c,sz,an,w){return `<text x="${x.toFixed(1)}" y="${(-z).toFixed(1)}" fill="${c}" font-size="${sz}" font-weight="${w||500}" text-anchor="${an||'middle'}" font-family="ui-sans-serif,system-ui">${s}</text>`}
+function limb(a,b,w1,w2,op){
+  const A=[a[0],-a[2]], B=[b[0],-b[2]];
+  const dx=B[0]-A[0], dy=B[1]-A[1], L=Math.hypot(dx,dy)||1, nx=-dy/L, ny=dx/L;
+  const p=[[A[0]+nx*w1/2,A[1]+ny*w1/2],[B[0]+nx*w2/2,B[1]+ny*w2/2],[B[0]-nx*w2/2,B[1]-ny*w2/2],[A[0]-nx*w1/2,A[1]-ny*w1/2]];
+  return `<g opacity="${op==null?1:op}">`
+    +`<circle cx="${A[0].toFixed(1)}" cy="${A[1].toFixed(1)}" r="${(w1/2).toFixed(1)}" fill="${BF}"/>`
+    +`<circle cx="${B[0].toFixed(1)}" cy="${B[1].toFixed(1)}" r="${(w2/2).toFixed(1)}" fill="${BF}"/>`
+    +`<polygon points="${p.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="${BF}"/>`
+    +`<path d="M ${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)} L ${p[1][0].toFixed(1)} ${p[1][1].toFixed(1)} M ${p[2][0].toFixed(1)} ${p[2][1].toFixed(1)} L ${p[3][0].toFixed(1)} ${p[3][1].toFixed(1)}" stroke="${BC}" stroke-width="4" fill="none" stroke-linecap="round"/>`
+    +`<circle cx="${A[0].toFixed(1)}" cy="${A[1].toFixed(1)}" r="${(w1/2).toFixed(1)}" fill="none" stroke="${BC}" stroke-width="4"/>`
+    +`<circle cx="${B[0].toFixed(1)}" cy="${B[1].toFixed(1)}" r="${(w2/2).toFixed(1)}" fill="none" stroke="${BC}" stroke-width="4"/></g>`;
+}
+function arcAt(v,a,b,r,c){
+  const V=[v[0],-v[2]],A=[a[0],-a[2]],B=[b[0],-b[2]];
+  const a1=Math.atan2(A[1]-V[1],A[0]-V[0]), a2=Math.atan2(B[1]-V[1],B[0]-V[0]);
+  const d=((a2-a1+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+  const p1=[V[0]+r*Math.cos(a1),V[1]+r*Math.sin(a1)], p2=[V[0]+r*Math.cos(a2),V[1]+r*Math.sin(a2)];
+  return `<path d="M ${p1[0].toFixed(1)} ${p1[1].toFixed(1)} A ${r} ${r} 0 0 ${d>0?1:0} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}" fill="none" stroke="${c}" stroke-width="5"/>`;
+}
+/* Схема не должна вылезать за экран, иначе смысл раскладки «правки слева, результат справа»
+   теряется. Ширину ограничиваем по высоте вьюпорта с учётом пропорций viewBox. */
+function svgTag(x,y,w,h,title,vhCap,inner){
+  const ratio=(w/h).toFixed(3);
+  return `<svg viewBox="${x.toFixed(0)} ${y.toFixed(0)} ${w.toFixed(0)} ${h.toFixed(0)}" xmlns="http://www.w3.org/2000/svg" role="img"`
+    +` style="width:100%;height:auto;max-width:calc(${vhCap}vh * ${ratio})"><title>${title}</title>${inner}</svg>`;
+}
+function callout(from,to,label,c,anchor){
+  return ln(from,to,c,3.5,null,.85)+tx(to[0]+(anchor==='end'?-15:15),to[1]-14,label,c,36,anchor,700);
+}
+
+function drawSide(M){
+  const F=M.F,P=F.P,R=F.wheelR,G=M.CO.grip,S=M.S,g=[];
+  g.push(`<line x1="-1100" y1="0" x2="1500" y2="0" stroke="${FR}" stroke-width="6"/>`);
+  [P.rear,P.front].forEach(w=>g.push(`<circle cx="${w[0].toFixed(1)}" cy="${(-R).toFixed(1)}" r="${R}" fill="none" stroke="${MUT}" stroke-width="6" stroke-dasharray="26 18"/>`));
+
+  // дальняя сторона тела
+  const lf=M.legs.far;
+  g.push(limb([lf.hip[0],0,lf.hip[2]],[lf.knee[0],0,lf.knee[2]],148,106,.35));
+  g.push(limb([lf.knee[0],0,lf.knee[2]],[lf.ank[0],0,lf.ank[2]],106,64,.35));
+  g.push(limb([M.SH[0],0,M.SH[2]],[M.EL[0],0,M.EL[2]],96,74,.35));
+  g.push(limb([M.EL[0],0,M.EL[2]],[G[0],0,G[2]],74,54,.35));
+
+  // рама
+  [['BB','rear',14],['stTop','rear',14],['BB','stTop',14],['stTop','htTop',14],['BB','htBot',14],['htBot','front',12]]
+    .forEach(([a,b,w])=>g.push(ln(P[a],P[b],FR,w)));
+  g.push(ln(P.htBot,P.htTop,FR,22));
+  g.push(ln(P.stTop,M.sat,FR,12));
+
+  // кокпит
+  const up=[-Math.cos(rad(F.hta)),Math.sin(rad(F.hta))];
+  const hs=[P.htTop[0]+up[0]*state.ck.headsetStack, P.htTop[1]+up[1]*state.ck.headsetStack];
+  const sp=[hs[0]+up[0]*state.ck.spacers, hs[1]+up[1]*state.ck.spacers];
+  g.push(ln(P.htTop,hs,'#8a94a6',18));
+  g.push(ln(hs,sp,ACC,18,'9 7'));
+  g.push(ln(sp,[M.CO.steer[0],M.CO.steer[2]],ACC,20));
+  g.push(ln([M.CO.steer[0],M.CO.steer[2]],[M.CO.bar[0],M.CO.bar[2]],ACC,17));
+  g.push(ln([M.CO.bar[0],M.CO.bar[2]],[G[0],G[2]],ACC,14));
+
+  // седло
+  const sd=[Math.cos(rad(F.sta-90)),Math.sin(rad(F.sta-90))];
+  g.push(ln([M.sat[0]-125*sd[0],M.sat[1]-125*sd[1]],[M.sat[0]+130*sd[0],M.sat[1]+130*sd[1]],FR,17));
+  // шатуны
+  ['far','near'].forEach(nm=>{
+    const op=nm==='far'?.4:1, pd=M.legs[nm].ped;
+    g.push(ln(P.BB,[pd[0],pd[2]],FR,11,null,op));
+    g.push(ln([pd[0]-58,pd[2]],[pd[0]+58,pd[2]],FR,12,null,op));
+  });
+
+  // торс
+  const tr=rad(M.torso), pv=[-Math.sin(tr),Math.cos(tr)], hw=182, sw=196;
+  const q=[[M.HIP[0]+pv[0]*hw/2,M.HIP[2]+pv[1]*hw/2],[M.SH[0]+pv[0]*sw/2,M.SH[2]+pv[1]*sw/2],
+           [M.SH[0]-pv[0]*sw/2,M.SH[2]-pv[1]*sw/2],[M.HIP[0]-pv[0]*hw/2,M.HIP[2]-pv[1]*hw/2]];
+  g.push(`<circle cx="${M.HIP[0].toFixed(1)}" cy="${(-M.HIP[2]).toFixed(1)}" r="${hw/2}" fill="${BF}"/><circle cx="${M.SH[0].toFixed(1)}" cy="${(-M.SH[2]).toFixed(1)}" r="${sw/2}" fill="${BF}"/>`);
+  g.push(`<polygon points="${q.map(p=>p[0].toFixed(1)+','+(-p[1]).toFixed(1)).join(' ')}" fill="${BF}"/>`);
+  g.push(`<path d="M ${q[0][0].toFixed(1)} ${(-q[0][1]).toFixed(1)} L ${q[1][0].toFixed(1)} ${(-q[1][1]).toFixed(1)} M ${q[2][0].toFixed(1)} ${(-q[2][1]).toFixed(1)} L ${q[3][0].toFixed(1)} ${(-q[3][1]).toFixed(1)}" stroke="${BC}" stroke-width="4.5" fill="none"/>`);
+  g.push(`<circle cx="${M.HIP[0].toFixed(1)}" cy="${(-M.HIP[2]).toFixed(1)}" r="${hw/2}" fill="none" stroke="${BC}" stroke-width="4.5"/><circle cx="${M.SH[0].toFixed(1)}" cy="${(-M.SH[2]).toFixed(1)}" r="${sw/2}" fill="none" stroke="${BC}" stroke-width="4.5"/>`);
+  // шея, голова, шлем
+  g.push(limb([M.SH[0],0,M.SH[2]],[M.NECK[0],0,M.NECK[2]],88,78));
+  const hr=S.headR;
+  g.push(`<ellipse cx="${M.HEAD[0].toFixed(1)}" cy="${(-M.HEAD[2]).toFixed(1)}" rx="${(hr*1.12).toFixed(1)}" ry="${(hr*.94).toFixed(1)}" fill="${BF}" stroke="${BC}" stroke-width="4.5" transform="rotate(-24 ${M.HEAD[0].toFixed(1)} ${(-M.HEAD[2]).toFixed(1)})"/>`);
+  g.push(`<path d="M ${(M.HEAD[0]-hr*1.15).toFixed(1)} ${(-M.HEAD[2]-hr*.05).toFixed(1)} A ${(hr*1.25).toFixed(1)} ${(hr*1.15).toFixed(1)} 0 0 1 ${(M.HEAD[0]+hr*1.15).toFixed(1)} ${(-M.HEAD[2]-hr*.62).toFixed(1)}" fill="none" stroke="${BC}" stroke-width="9" stroke-linecap="round"/>`);
+
+  // ближняя сторона
+  const ln_=M.legs.near;
+  g.push(limb([ln_.hip[0],0,ln_.hip[2]],[ln_.knee[0],0,ln_.knee[2]],156,112));
+  g.push(limb([ln_.knee[0],0,ln_.knee[2]],[ln_.ank[0],0,ln_.ank[2]],112,68));
+  g.push(limb([ln_.ank[0],0,ln_.ank[2]],[ln_.ped[0]+42,0,ln_.ped[2]+22],68,48));
+  g.push(limb([M.SH[0],0,M.SH[2]],[M.EL[0],0,M.EL[2]],100,78));
+  g.push(limb([M.EL[0],0,M.EL[2]],[G[0],0,G[2]],78,58));
+
+  // нога в ВМТ
+  g.push(ln([M.HIP[0],M.HIP[2]],[M.kTDC[0],M.kTDC[2]],GRN,5,'18 14',.7));
+  g.push(ln([M.kTDC[0],M.kTDC[2]],[M.tdcAnk[0],M.tdcAnk[2]],GRN,5,'18 14',.7));
+
+  // углы с выносками
+  g.push(arcAt([ln_.knee[0],0,ln_.knee[2]],[ln_.hip[0],0,ln_.hip[2]],[ln_.ank[0],0,ln_.ank[2]],150,GRN));
+  g.push(callout([ln_.knee[0]-95,ln_.knee[2]-60],[ln_.knee[0]-330,ln_.knee[2]-185],`колено ${ln_.angle.toFixed(0)}°`,GRN,'end'));
+  g.push(arcAt([M.HIP[0],0,M.HIP[2]],[M.SH[0],0,M.SH[2]],[M.kTDC[0],0,M.kTDC[2]],205,GRN));
+  g.push(callout([M.HIP[0]-95,M.HIP[2]-95],[M.HIP[0]-300,M.HIP[2]-165],`бедро в ВМТ ${M.hipTDC.toFixed(0)}°`,GRN,'end'));
+  g.push(arcAt([M.EL[0],0,M.EL[2]],[M.SH[0],0,M.SH[2]],[G[0],0,G[2]],135,AMB));
+  g.push(callout([M.EL[0]+70,M.EL[2]+95],[M.EL[0]+200,M.EL[2]+205],`локоть ${M.elbow.toFixed(0)}°`,AMB,'start'));
+  g.push(ln([M.HIP[0],M.HIP[2]],[M.HIP[0]+430,M.HIP[2]],MUT,4,'14 12'));
+  g.push(arcAt([M.HIP[0],0,M.HIP[2]],[M.HIP[0]+430,0,M.HIP[2]],[M.SH[0],0,M.SH[2]],355,VIO));
+  const mx=(M.HIP[0]+M.SH[0])/2-165, mz=(M.HIP[2]+M.SH[2])/2+95;
+  g.push(`<text x="${mx.toFixed(1)}" y="${(-mz).toFixed(1)}" fill="${VIO}" font-size="38" font-weight="700" text-anchor="middle" font-family="ui-sans-serif,system-ui" transform="rotate(${(-M.torso).toFixed(0)} ${mx.toFixed(1)} ${(-mz).toFixed(1)})">корпус ${M.torso.toFixed(0)}°</text>`);
+
+  // контактные точки
+  [[M.sat[0],M.sat[1]+20],[G[0],G[2]],[ln_.ped[0],ln_.ped[2]]].forEach(p=>{
+    g.push(`<circle cx="${p[0].toFixed(1)}" cy="${(-p[1]).toFixed(1)}" r="34" fill="none" stroke="${ACC}" stroke-width="5" stroke-dasharray="9 8"/><circle cx="${p[0].toFixed(1)}" cy="${(-p[1]).toFixed(1)}" r="15" fill="${ACC}"/>`);
+  });
+  // центр масс
+  g.push(`<circle cx="${M.CoM[0].toFixed(1)}" cy="${(-M.CoM[1]).toFixed(1)}" r="40" fill="none" stroke="${VIO}" stroke-width="5"/><circle cx="${M.CoM[0].toFixed(1)}" cy="${(-M.CoM[1]).toFixed(1)}" r="18" fill="${VIO}"/>`);
+  g.push(ln(M.CoM,[M.CoM[0],-260],VIO,4,'16 13',.85));
+  g.push(callout([M.CoM[0]-40,M.CoM[1]-20],[M.CoM[0]-420,M.CoM[1]-330],'центр масс',VIO,'end'));
+
+  // линейки
+  [M.sat[0],G[0]].forEach(x=>g.push(ln([x,20],[x,-300],TEAL,4,'14 11',.7)));
+  const rul=(z,x1,x2,c,lab)=>ln([x1,z],[x2,z],c,5)+ln([x1,z+22],[x1,z-22],c,5)+ln([x2,z+22],[x2,z-22],c,5)+tx((x1+x2)/2,z-46,lab,c,38,'middle',700);
+  g.push(rul(-330,M.sat[0],G[0],TEAL,`седло → ручка, гориз. ${M.s2gX.toFixed(0)} мм`));
+  g.push(rul(-470,P.rear[0]-R,P.front[0]+R,MUT,`база ${F.wb.toFixed(0)} · центр масс: перед ${M.frontPct.toFixed(0)}% / зад ${(100-M.frontPct).toFixed(0)}%`));
+  g.push(ln([G[0],M.sat[1]],[G[0]+150,M.sat[1]],TEAL,4,'12 10',.7));
+  g.push(ln([G[0]+110,M.sat[1]],[G[0]+110,G[2]],TEAL,5));
+  g.push(tx(G[0]+135,(M.sat[1]+G[2])/2-12,`перепад ${M.s2gZ>0?'+':''}${M.s2gZ.toFixed(0)}`,TEAL,36,'start',700));
+  g.push(tx(M.sat[0]-175,M.sat[1]+120,`седло ${M.satH.toFixed(0)}`,FR,34,'end',600));
+  g.push(tx(M.sat[0]-175,M.sat[1]+70,'от каретки',MUT,30,'end',500));
+
+  const top=Math.max(M.HEAD[2]+S.headR+140, G[2]+300);
+  const x0=Math.min(P.rear[0]-R,M.sat[0])-330, x1=Math.max(P.front[0]+R,G[0]+560)+60;
+  return svgTag(x0,-top,x1-x0,top+560,'Посадка райдера, вид сбоку',82,g.join(''));
+}
+
+function drawTop(M){
+  const F=M.F,P=F.P,R=F.wheelR,G=M.CO.grip,S=M.S,f=state.fit,t=[],TW=62;
+  const tl=(a,b,c,w,dash,op)=>`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" opacity="${op==null?1:op}"${da(dash)}/>`;
+  const tlimb=(a,b,w1,w2,op)=>{
+    const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;
+    const p=[[a[0]+nx*w1/2,a[1]+ny*w1/2],[b[0]+nx*w2/2,b[1]+ny*w2/2],[b[0]-nx*w2/2,b[1]-ny*w2/2],[a[0]-nx*w1/2,a[1]-ny*w1/2]];
+    return `<g opacity="${op==null?1:op}"><circle cx="${a[0].toFixed(1)}" cy="${a[1].toFixed(1)}" r="${(w1/2).toFixed(1)}" fill="${BF}"/><circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="${(w2/2).toFixed(1)}" fill="${BF}"/>`
+      +`<polygon points="${p.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="${BF}"/>`
+      +`<path d="M ${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)} L ${p[1][0].toFixed(1)} ${p[1][1].toFixed(1)} M ${p[2][0].toFixed(1)} ${p[2][1].toFixed(1)} L ${p[3][0].toFixed(1)} ${p[3][1].toFixed(1)}" stroke="${BC}" stroke-width="4" fill="none"/>`
+      +`<circle cx="${a[0].toFixed(1)}" cy="${a[1].toFixed(1)}" r="${(w1/2).toFixed(1)}" fill="none" stroke="${BC}" stroke-width="4"/><circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="${(w2/2).toFixed(1)}" fill="none" stroke="${BC}" stroke-width="4"/></g>`;
+  };
+  const ttx=(x,y,s,c,sz,an,w,rot)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="${c}" font-size="${sz}" font-weight="${w||500}" text-anchor="${an||'middle'}" font-family="ui-sans-serif,system-ui"${rot!=null?` transform="rotate(${rot} ${x.toFixed(1)} ${y.toFixed(1)})"`:''}>${s}</text>`;
+
+  // ноги подложкой: положение в среднем ходу шатуна, чтобы читался трек колена
+  const legsTop=[];
+  [1,-1].forEach(sgn=>{
+    const tt=rad(sgn>0?90:270);
+    const ped=[P.BB[0]+f.crank*Math.sin(tt), sgn*f.qFactor/2, P.BB[1]+f.crank*Math.cos(tt)];
+    const ank=[ped[0]-M.pedalBack, ped[1], ped[2]+M.pedalUp];
+    const kn=ik([M.HIP[0],0,M.HIP[2]],ank,S.femur,S.tibia,+1).J;
+    legsTop.push(tlimb([M.HIP[0],sgn*S.hipW*.28],[kn[0],sgn*118],138,102,.30));
+    legsTop.push(tlimb([kn[0],sgn*118],[ped[0],sgn*f.qFactor/2],102,72,.30));
+    legsTop.push(`<circle cx="${kn[0].toFixed(1)}" cy="${sgn*118}" r="12" fill="${BC}" opacity=".6"/>`);
+  });
+  t.push(...legsTop);
+  t.push(tl([P.rear[0]-260,0],[P.front[0]+260,0],MUT,4,'24 18'));
+  [P.rear,P.front].forEach(w=>t.push(`<rect x="${(w[0]-R).toFixed(1)}" y="${-TW}" width="${(2*R).toFixed(1)}" height="${2*TW}" rx="34" fill="none" stroke="${MUT}" stroke-width="6"/>`));
+  t.push(tl([P.rear[0],0],[M.CO.bar[0],0],FR,16));
+  // шатуны и педали
+  [1,-1].forEach(sgn=>{
+    const px=P.BB[0]+sgn*f.crank*0.95;
+    t.push(tl([P.BB[0],0],[px,sgn*f.qFactor/2],FR,11,null,.9));
+    t.push(`<rect x="${(px-52).toFixed(1)}" y="${(sgn*f.qFactor/2-54).toFixed(1)}" width="104" height="108" rx="14" fill="none" stroke="${FR}" stroke-width="8"/>`);
+  });
+  // торс, руки, голова
+  const shW=S.shoulderW, hipW=S.hipW;
+  t.push(`<polygon points="${(M.HIP[0]-60).toFixed(1)},${(-hipW/2).toFixed(1)} ${M.SH[0].toFixed(1)},${(-shW/2).toFixed(1)} ${M.SH[0].toFixed(1)},${(shW/2).toFixed(1)} ${(M.HIP[0]-60).toFixed(1)},${(hipW/2).toFixed(1)}" fill="${BF}" stroke="${BC}" stroke-width="4.5" stroke-linejoin="round"/>`);
+  [1,-1].forEach(sgn=>{
+    t.push(tlimb([M.SH[0],sgn*shW/2*.92],[M.EL[0],sgn*(shW/2+105)],112,86));
+    t.push(tlimb([M.EL[0],sgn*(shW/2+105)],[G[0],sgn*G[1]],86,62));
+  });
+  const hr=S.headR;
+  t.push(`<ellipse cx="${M.HEAD[0].toFixed(1)}" cy="0" rx="${(hr*.92).toFixed(1)}" ry="${(hr*.86).toFixed(1)}" fill="${BF}" stroke="${BC}" stroke-width="4.5"/>`);
+  // руль
+  const bar=M.CO.bar, bb=M.CO.barBend, be=M.CO.barEnd;
+  [1,-1].forEach(sgn=>{
+    t.push(tl([bar[0],0],[bb[0],sgn*bb[1]],ACC,17));
+    t.push(tl([bb[0],sgn*bb[1]],[be[0],sgn*be[1]],ACC,17));
+    t.push(`<circle cx="${G[0].toFixed(1)}" cy="${(sgn*G[1]).toFixed(1)}" r="34" fill="none" stroke="${ACC}" stroke-width="5" stroke-dasharray="9 8"/><circle cx="${G[0].toFixed(1)}" cy="${(sgn*G[1]).toFixed(1)}" r="15" fill="${ACC}"/>`);
+  });
+  const vrul=(x,w,c,lab)=>tl([x,-w/2],[x,w/2],c,5)+tl([x-20,-w/2],[x+20,-w/2],c,5)+tl([x-20,w/2],[x+20,w/2],c,5)+ttx(x-24,0,lab,c,36,'middle',700,-90);
+  t.push(vrul(be[0]+260,state.ck.barWidth,ACC,`руль ${state.ck.barWidth}`));
+  t.push(vrul(be[0]+140,2*G[1],TEAL,`хват ${(2*G[1]).toFixed(0)}`));
+  t.push(vrul(M.SH[0]-165,shW,BC,`плечи ${shW}`));
+  t.push(vrul(P.BB[0]-460,f.qFactor,FR,`Q-factor ${f.qFactor}`));
+  t.push(ttx((M.SH[0]+G[0])/2,-shW/2-215,`разлёт руки ${M.splay.toFixed(0)}° · загиб ручки ${state.ck.backsweep}°`,BC,40,'middle',700));
+
+  const x0=Math.min(P.rear[0]-R, P.BB[0]-560)-70;
+  const x1=Math.max(P.front[0]+R, be[0]+440)+40;
+  const h=Math.max(state.ck.barWidth/2+150, shW/2+330);
+  return svgTag(x0,-h,x1-x0,2*h,'Посадка райдера, вид сверху',38,t.join(''));
+}
+
+/* ===================== 6. таблица и предупреждения ===================== */
+function zone(v,good,okr){
+  if(v>=good[0]&&v<=good[1]) return 'ok';
+  if(v>=okr[0]&&v<=okr[1]) return 'amb';
+  return 'bad';
+}
+function buildTable(M){
+  const F=M.F, G=M.CO.grip, S=M.S;
+  const r=(l,v,n,cls)=>`<tr><td>${l}</td><td class="val ${cls||''}">${v}</td><td class="spec">${n||''}</td></tr>`;
+  const grp=t=>`<tr class="grp"><td colspan="3">${t}</td></tr>`;
+  let h='<table><thead><tr><th>Параметр</th><th>Значение</th><th style="text-align:left">Норма / комментарий</th></tr></thead><tbody>';
+  h+=grp('Рама под ходом и sag');
+  h+=r('Reach факт', F.reach.toFixed(0)+' мм', `паспорт ${state.bike.reach}`);
+  h+=r('Stack факт', F.stack.toFixed(0)+' мм', `паспорт ${state.bike.stack}`);
+  h+=r('Угол рулевой / подседельной', F.hta.toFixed(1)+'° / '+F.sta.toFixed(1)+'°', `паспорт ${state.bike.hta} / ${state.bike.sta}`);
+  h+=r('Высота каретки', F.bbH.toFixed(0)+' мм', `просадка вилки ${F.sagMM.toFixed(0)} мм`);
+  h+=grp('Кокпит');
+  h+=r('Подъём выноса от горизонта', M.CO.elev.toFixed(1)+'°', `(90 − ${F.hta.toFixed(1)}°) + ${state.ck.stemFlip?-state.ck.stemAngle:state.ck.stemAngle}° — вынос «0°» уже смотрит вверх`);
+  h+=r('Ручка от каретки (x / y / z)', `${G[0].toFixed(0)} / ±${G[1].toFixed(0)} / ${G[2].toFixed(0)}`,'начало координат — каретка, земля z=0');
+  h+=r('Высота седла от каретки', M.satH.toFixed(0)+' мм', `по подседельной; LeMond 0.883×inseam = ${(0.883*state.body.inseam).toFixed(0)}`);
+  h+=r('Сетбек седла от каретки', (-M.sat[0]).toFixed(0)+' мм', `штырь ${state.fit.postOffset} + рельсы ${state.fit.railPos>=0?'+':''}${state.fit.railPos}`);
+  h+=r('Седло → ручка, гориз.', M.s2gX.toFixed(0)+' мм','главное число кокпита');
+  h+=r('Перепад седло → ручка', (M.s2gZ>0?'+':'')+M.s2gZ.toFixed(0)+' мм','+ = руль выше седла');
+  h+=grp('Кокпит целиком — от каретки до ручки');
+  const sg=v=>(v>0?'+':'')+v.toFixed(0);
+  h+=r('Эффективный reach', M.effReach.toFixed(0)+' мм', `рама даёт ${F.reach.toFixed(0)}, кокпит ${sg(M.dReach)}`);
+  h+=r('Прибавка кокпита к reach', sg(M.dReach)+' мм','вынос вперёд, загиб руля назад — знак может быть любым');
+  h+=r('Эффективный stack', M.effStack.toFixed(0)+' мм', `рама даёт ${F.stack.toFixed(0)}, кокпит ${sg(M.dStack)}`);
+  h+=r('Прибавка кокпита к stack', sg(M.dStack)+' мм','чашка рулевой + проставки + подъём выноса + rise руля');
+  h+=r('RAD', M.rad.toFixed(0)+' мм','гипотенуза эффективных reach и stack');
+  h+=r('Целевой RAD по росту', M.radTarget.toFixed(0)+' мм', `рост ${(state.body.height/10).toFixed(0)} см × ${state.fit.radMult} (муж. 4.47, жен. 4.60)`);
+  h+=r('Δ от целевого', (M.radDelta>0?'+':'')+M.radDelta.toFixed(0)+' мм','±10 уже ощутимо; длиннее нормы — теряется момент и контроль',
+       zone(Math.abs(M.radDelta),[0,10],[0,25]));
+  h+=r('Угол RAD (RAAD)', M.raad.toFixed(1)+'°','круче — больше запаса хода рук на спуске, положе — выгоднее в подъём');
+  h+=grp('Углы тела');
+  h+=r('Колено в НМТ', M.kneeBDC.toFixed(0)+'°','140–150 — задано целью, проверь что достижимо', zone(M.kneeBDC,[138,152],[130,160]));
+  h+=r('Колено в ВМТ', M.kneeTDC.toFixed(0)+'°','65–80', zone(M.kneeTDC,[65,80],[58,90]));
+  h+=r('Бедро в ВМТ', M.hipTDC.toFixed(0)+'°','&lt;45° — зажим в паху, спина уходит в компенсацию', zone(M.hipTDC,[55,110],[45,120]));
+  h+=r('Наклон корпуса', M.torso.toFixed(0)+'°','задан тобой: 40–45 XC, 50–60 трейл, 65+ комфорт');
+  h+=r('Локоть', M.elbow.toFixed(0)+'°','140–165 рабочий, &lt;110 — очень согнут, &gt;170 — в замок', zone(M.elbow,[130,168],[100,175]));
+  h+=r('Использование длины руки', M.armUse.toFixed(0)+' %','&gt;96% — руки в замок, руль недостижим по-хорошему', zone(M.armUse,[0,92],[0,96]));
+  h+=grp('Плановая геометрия и баланс');
+  h+=r('Ширина хвата', M.gripW.toFixed(0)+' мм', `руль ${state.ck.barWidth}, отступ хвата ${state.ck.gripInset} с каждой стороны`);
+  h+=r('Хват / плечи', (M.gripW/S.shoulderW).toFixed(2)+'×','1.3–1.6 обычный диапазон для МТБ', zone(M.gripW/S.shoulderW,[1.30,1.62],[1.20,1.75]));
+  h+=r('Разлёт руки в плане', M.splay.toFixed(0)+'°', `загиб ручки ${state.ck.backsweep}° — расхождение выкручивает запястье`, zone(Math.abs(M.splay-state.ck.backsweep),[0,7],[0,12]));
+  h+=r('Центр масс: перед / зад', M.frontPct.toFixed(0)+' % / '+(100-M.frontPct).toFixed(0)+' %','сидя, статика, без переноса веса');
+  h+='</tbody></table>';
+  document.getElementById('table').innerHTML=h;
+}
+
+function buildWarns(M){
+  const w=[], S=M.S, F=M.F, b=state.bike;
+  if(M.armOver) w.push(['bad','Руль физически недостижим','при таком наклоне корпуса рука короче, чем расстояние до ручки. Подними корпус, укороти вынос или подними руль.']);
+  else if(M.armUse>96) w.push(['','Руки почти в замок',`использовано ${M.armUse.toFixed(0)}% длины руки. На кочках локоть не отработает — вынос короче, руль выше или корпус ниже.`]);
+  if(M.hipTDC<45) w.push(['bad','Зажим тазобедренного сустава',`${M.hipTDC.toFixed(0)}° в верхней мёртвой точке. Короче шатун, седло назад или корпус выше.`]);
+  else if(M.hipTDC<55) w.push(['','Бедро закрыто',`${M.hipTDC.toFixed(0)}° в ВМТ. Терпимо, но на длинных подъёмах будет мешать. Шатун на 5–10 мм короче заметно откроет угол.`]);
+  const ext=M.satH-b.st;
+  if(ext>290) w.push(['','Штырь сильно выдвинут',`над подседельной трубой нужно ${ext.toFixed(0)} мм. Проверь минимальную вставку штыря — с длинноходным дроппером это часто упирается в изгиб подседельной трубы.`]);
+  if(ext<40) w.push(['','Рама великовата по росту',`седло почти не выступает над трубой (${ext.toFixed(0)} мм). Обычно это признак, что нужен размер меньше.`]);
+  if(M.elbow<110) w.push(['','Локоть очень согнут',`${M.elbow.toFixed(0)}°. Для такого наклона корпуса кокпит короткий — либо наклоняйся сильнее, либо вынос длиннее.`]);
+  if(Math.abs(M.splay-state.ck.backsweep)>12) w.push(['','Загиб ручки не совпадает с разлётом рук',`рука идёт под ${M.splay.toFixed(0)}°, ручка загнута на ${state.ck.backsweep}°. Разница в ${Math.abs(M.splay-state.ck.backsweep).toFixed(0)}° уходит в запястье.`]);
+  if(M.radDelta>25) w.push(['','RAD длиннее целевого',`${M.rad.toFixed(0)} мм против ${M.radTarget.toFixed(0)}, то есть +${M.radDelta.toFixed(0)}. Короче вынос, руль с большим загибом или меньше проставок. По наблюдениям Маккормака, слишком длинный RAD — самая частая ошибка.`]);
+  else if(M.radDelta<-25) w.push(['','RAD короче целевого',`${M.rad.toFixed(0)} мм против ${M.radTarget.toFixed(0)}, то есть ${M.radDelta.toFixed(0)}. Тесно для мощных движений, хотя запас хода рук на спуске больше — некоторые так и делают сознательно.`]);
+  const ratio=M.gripW/S.shoulderW;
+  if(ratio>1.75) w.push(['','Руль широковат под эти плечи',`хват ${ratio.toFixed(2)}× ширины плеч. Плечи раскрываются, грудь проваливается — обычно режут по 10 мм и катают.`]);
+  if(ratio<1.20) w.push(['','Руль узковат',`хват ${ratio.toFixed(2)}× ширины плеч. Мало рычага на руле, нервный руль на скорости.`]);
+  document.getElementById('warns').innerHTML=w.map(([c,t,d])=>`<div class="warn ${c}"><b>${t}.</b> ${d}</div>`).join('');
+}
+
+/* ===================== 7. рендер и ввод ===================== */
+function render(){
+  const M=solveFit();
+  document.getElementById('side').innerHTML=drawSide(M);
+  document.getElementById('top').innerHTML=drawTop(M);
+  buildTable(M); buildWarns(M);
+  document.getElementById('note').innerHTML=
+    'Модель статическая: одна поза сидя, без стойки на педалях и без переноса веса. Позвоночник — прямой отрезок, реально это ротация таза плюс сгиб поясницы. Голеностоп зафиксирован относительно оси педали. '
+    +'Высота седла выводится из целевого угла колена в НМТ, поэтому длина шатуна работает физически, а не через поправочный коэффициент — LeMond рядом показан для сверки. '
+    +'RAD считается на текущей геометрии, то есть с учётом просадки вилки. Опубликованные значения обычно меряют на велосипеде, стоящем у стены, — чтобы сравнивать с ними, поставь sag на 0.';
+  syncHash();
+}
+
+const F_FRAME=[['reach','Reach',1],['stack','Stack',0.5],['hta','Угол рулевой',0.1],['sta','Угол подседельной',0.1],
+  ['ht','Рулевой стакан',1],['st','Подседельная труба',1],['cs','Перья',1],['bbDrop','BB drop',0.5],['wb','Колёсная база',1],['travelRef','Ход по паспорту',5]];
+const F_CK=[['stemLen','Длина выноса',5],['stemAngle','Угол выноса, °',1],['spacers','Проставки',5],
+  ['barWidth','Ширина руля',10],['barRise','Rise руля',5],['backsweep','Загиб назад, °',1]];
+const F_CK_ADV=[['headsetStack','Чашка рулевой над стаканом',1],['stemClampH','Высота обхвата выноса',1],
+  ['upsweep','Подъём руля (upsweep), °',1],['barRoll','Ролл руля в обхвате, °',1],
+  ['gripInset','Отступ хвата от края',5],['riserBendHalf','Начало отгиба от центра',5]];
+const F_BODY=[['height','Рост',10],['inseam','Inseam (шаговый, босиком)',5],['shoulderW','Ширина плеч',5],['armLen','Длина руки (плечо → запястье)',5]];
+const F_BODY_ADV=[['hipW','Ширина таза',5],['femurPct','Доля бедра в ноге, %',1],['ankleH','Голеностоп над полом, босиком',5],
+  ['soleThk','Толщина подошвы',1],['wristGrip','Запястье → центр хвата',5],['hipAbove','Тазобедренный сустав над седлом',5],['hipFwd','…и вперёд от точки опоры',5]];
+const F_FIT=[['crank','Длина шатуна',5],['qFactor','Q-factor',2],['kneeTarget','Целевой угол колена в НМТ, °',1],
+  ['postOffset','Офсет подседельного штыря',5],['railPos','Седло на рельсах (− вперёд)',5],
+  ['radMult','Множитель RAD (муж 4.47 / жен 4.60)',0.01]];
+
+function fields(list,grp){
+  return list.map(([k,l,st])=>{
+    const v=state[grp][k];
+    return `<label>${l}</label><input type="number" step="${st}" data-g="${grp}" data-k="${k}" value="${v==null?'':v}" placeholder="авто">`;
+  }).join('');
+}
+
+function buildInputs(){
+  document.getElementById('inputs').innerHTML=`
+  <div class="card">
+    <h3>Рама</h3>
+    <div class="grid">${fields(F_FRAME,'bike')}</div>
+    <div class="slider">
+      <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="100" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
+      <div class="row"><span style="min-width:82px">SAG вилки</span><input type="range" min="0" max="40" step="1" data-g="bike" data-k="sag" value="${state.bike.sag}"><span class="tval" id="v_sag">${state.bike.sag}%</span></div>
+    </div>
+    <details><summary>Колесо</summary><div class="grid" style="margin-top:8px"><label>Радиус колеса, мм</label><input type="number" step="1" data-g="root" data-k="wheelR" value="${state.wheelR}"></div>
+      <div class="hint">368 ≈ 29"×2.4. Для 2.6 возьми ~375, для 2.2 ~362.</div></details>
+  </div>
+
+  <div class="card">
+    <h3>Кокпит</h3>
+    <div class="grid">${fields(F_CK,'ck')}
+      <label>Вынос перевёрнут</label><input class="chk" type="checkbox" data-g="ck" data-k="stemFlip" ${state.ck.stemFlip?'checked':''}>
+    </div>
+    <div class="hint">Угол выноса задан относительно перпендикуляра к штоку. Подъём от горизонта = (90 − угол рулевой) + угол выноса.</div>
+    <details><summary>Дополнительно</summary><div class="grid">${fields(F_CK_ADV,'ck')}</div></details>
+  </div>
+
+  <div class="card">
+    <h3>Райдер и посадка</h3>
+    <div class="grid">${fields(F_BODY,'body')}${fields(F_FIT,'fit')}</div>
+    <div class="slider">
+      <div class="row"><span style="min-width:110px">Наклон корпуса</span><input type="range" min="30" max="75" step="1" data-g="fit" data-k="torso" value="${state.fit.torso}"><span class="tval" id="v_torso">${state.fit.torso}°</span></div>
+      <div class="row" style="gap:6px">
+        <button onclick="setTorso(43)">XC 43°</button>
+        <button onclick="setTorso(55)">трейл 55°</button>
+        <button onclick="setTorso(66)">комфорт 66°</button>
+      </div>
+    </div>
+    <div class="hint">Наклон корпуса — единственная свободная степень: цепь «таз → плечо → ручка» переопределена. Задаёшь его, модель выдаёт угол локтя и запас по длине руки.</div>
+    <details><summary>Дополнительно</summary><div class="grid">${fields(F_BODY_ADV,'body')}</div>
+      <div class="hint">Пустое поле = считается автоматически из роста и inseam.</div></details>
+  </div>`;
+
+  document.querySelectorAll('#inputs input').forEach(el=>{
+    el.addEventListener('input',()=>{
+      const g=el.dataset.g,k=el.dataset.k;
+      let v;
+      if(el.type==='checkbox') v=el.checked?1:0;
+      else if(el.value==='') v=null;
+      else v=parseFloat(el.value);
+      if(g==='root') state[k]=v||368; else state[g][k]=v;
+      const lbl=document.getElementById('v_'+k);
+      if(lbl) lbl.textContent=el.value+(k==='sag'?'%':k==='torso'?'°':' мм');
+      render();
+    });
+  });
+}
+function setTorso(v){ state.fit.torso=v; buildInputs(); render(); }
+function loadBike(k){ state.bike={...BIKES[k]}; buildInputs(); render(); }
+function loadRider(k){ Object.assign(state.body,RIDERS[k]); buildInputs(); render(); }
+
+/* ===================== 8. ссылка и печать ===================== */
+const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag'],
+  ck:['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth','backsweep','upsweep','barRoll','gripInset','riserBendHalf'],
+  body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove','hipFwd'],
+  fit:['crank','qFactor','torso','kneeTarget','postOffset','railPos','radMult','pedalUp','pedalBack']};
+function stateToHash(){
+  const enc=g=>HK[g].map(k=>state[g][k]==null?'':state[g][k]).join('~');
+  return `#w=${state.wheelR}&n=${encodeURIComponent(state.bike.name||'')}&f=${enc('bike')}&c=${enc('ck')}&b=${enc('body')}&t=${enc('fit')}`;
+}
+function hashToState(){
+  const h=location.hash.replace(/^#/,''); if(!h) return false;
+  try{
+    const q={}; h.split('&').forEach(p=>{const i=p.indexOf('='); q[p.slice(0,i)]=p.slice(i+1);});
+    if(q.w) state.wheelR=parseFloat(q.w)||368;
+    if(q.n) state.bike.name=decodeURIComponent(q.n);
+    [['f','bike'],['c','ck'],['b','body'],['t','fit']].forEach(([key,g])=>{
+      if(!q[key]) return;
+      const parts=q[key].split('~');
+      HK[g].forEach((k,i)=>{ const v=parts[i]; if(v!==undefined) state[g][k]=(v===''?null:parseFloat(v)); });
+    });
+    return true;
+  }catch(e){ console.warn('не смог разобрать ссылку',e); return false; }
+}
+function syncHash(){ try{ const h=stateToHash(); if(location.hash!==h) history.replaceState(null,'',h); }catch(e){} }
+function currentLink(){ return location.href.split('#')[0]+stateToHash(); }
+function copyLink(){
+  const url=currentLink(), done=()=>{const el=document.getElementById('copyok');el.style.visibility='visible';clearTimeout(copyLink._t);copyLink._t=setTimeout(()=>el.style.visibility='hidden',2200);};
+  if(navigator.clipboard&&window.isSecureContext) navigator.clipboard.writeText(url).then(done,()=>fb(url,done)); else fb(url,done);
+}
+function fb(text,done){
+  const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{document.execCommand('copy');done();}catch(e){prompt('Скопируй ссылку вручную:',text);}
+  document.body.removeChild(ta);
+}
+function doPrint(){
+  const M=solveFit();
+  document.getElementById('printhead').innerHTML=
+    `<div style="font-size:11px;margin:0 0 8px"><b>${esc(state.bike.name)}</b> — ход ${state.bike.travel} мм, sag ${state.bike.sag}% · `
+    +`райдер ${state.body.height} мм, inseam ${state.body.inseam} · шатун ${state.fit.crank} · `
+    +`вынос ${state.ck.stemLen}/${state.ck.stemFlip?'−':'+'}${Math.abs(state.ck.stemAngle)}° + ${state.ck.spacers} мм проставок · `
+    +`руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°</div>`
+    +`<div style="font-size:8px;color:#999;word-break:break-all">${esc(currentLink())}</div>`;
+  window.print();
+}
+
+hashToState();
+buildInputs();
+render();
+window.addEventListener('hashchange',()=>{ if(location.hash!==stateToHash()&&hashToState()){ buildInputs(); render(); }});
+</script>
+</body>
+</html>
