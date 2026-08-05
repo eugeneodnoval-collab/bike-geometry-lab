@@ -15,8 +15,22 @@ h1{font-size:19px;margin:0 0 3px}
 .sub{color:var(--mut);font-size:13px;margin-bottom:18px}
 .card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:14px}
 
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:860px){.cols{grid-template-columns:1fr}}
+/* ---- раскладка ----
+   <760      всё в одну колонку
+   760–1159  две карточки ввода рядом, схема под ними
+   >=1160    две панели: ввод слева, схема и таблица справа.
+             clamp(330,25%,500) даёт ровно 25% в диапазоне ~1360–2040 px,
+             ниже упирается в 330 (минимум для полей ввода), выше — в 500. */
+.layout{display:grid;gap:14px;align-items:start}
+.panel,.results{display:grid;gap:14px;align-content:start;min-width:0}
+.cols{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:760px){.cols{grid-template-columns:1fr 1fr}}
+@media(min-width:1160px){
+  .layout{grid-template-columns:clamp(330px,25%,500px) 1fr}
+  .cols{grid-template-columns:1fr}
+  .panel{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin;padding-right:4px}
+}
+#chart svg{margin:0 auto}
 
 .bikehead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .dotc{width:12px;height:12px;border-radius:50%}
@@ -38,7 +52,7 @@ details{margin-top:8px;font-size:13px}
 summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
 details .grid{margin-top:8px}
 
-.presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;margin-bottom:12px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px}
 .presets b{color:var(--mut);font-weight:500;margin-right:2px}
 button{font-family:inherit;font-size:12.5px;padding:4px 10px;border:1px solid #d0d0d0;background:#fff;border-radius:6px;cursor:pointer}
 button:hover{background:#f2f2f2}
@@ -67,6 +81,9 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
   body{padding:0;background:#fff;font-size:11px}
   .toolbar,.presets,#inputs,details,.warn{display:none !important}
   .printonly{display:block}
+  .layout{display:block}
+  .panel{position:static;max-height:none;overflow:visible}
+  #chart svg{max-width:100% !important}
   .card{border:none;padding:0;margin:0 0 10px;box-shadow:none}
   h1{font-size:15px}
   .sub{font-size:10px;margin-bottom:8px}
@@ -93,6 +110,9 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 
 <div class="printonly" id="printhead"></div>
 
+<div class="layout">
+<aside class="panel">
+
 <div class="presets">
   <b>В слот 1:</b>
   <button onclick="loadPreset(0,'B1')">Outleap Warhog L 2025</button>
@@ -105,12 +125,18 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 
 <div class="cols" id="inputs"></div>
 
+</aside>
+<main class="results">
+
 <div class="card"><div id="chart"></div></div>
 
 <div class="card">
   <div id="table"></div>
   <div class="warn" id="warn"></div>
   <div class="note" id="note"></div>
+</div>
+
+</main>
 </div>
 
 <script>
@@ -327,8 +353,12 @@ function render(){
           + `${esc(b.name)} — ход ${b.travel} мм, sag ${b.sag ?? 0}% · reach ${s.reach.toFixed(0)} · stack ${s.stack.toFixed(0)} · HTA ${s.hta.toFixed(1)}° · WB ${s.wb.toFixed(0)}</text>`;
   });
 
+  // ограничиваем высоту схемы, чтобы при раскладке «ввод слева, схема справа»
+  // она целиком помещалась в экран рядом с полями
+  const ratio = (vbW/vbH).toFixed(3);
   document.getElementById('chart').innerHTML =
-    `<svg viewBox="${vbX.toFixed(0)} ${vbY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}" xmlns="http://www.w3.org/2000/svg">${head}${g}</svg>`;
+    `<svg viewBox="${vbX.toFixed(0)} ${vbY.toFixed(0)} ${vbW.toFixed(0)} ${vbH.toFixed(0)}" xmlns="http://www.w3.org/2000/svg"`
+    + ` style="width:100%;height:auto;max-width:calc(80vh * ${ratio})">${head}${g}</svg>`;
 
   buildTable(S);
   syncHash();
