@@ -232,13 +232,16 @@ function solveCockpit(F){
 /* ===================== 3. сегменты тела ===================== */
 function segments(){
   const b=state.body, H=b.height, I=b.inseam;
-  const ankleH=(b.ankleH!=null?b.ankleH:0.039*H)+b.soleThk;   // ось голеностопа над подошвой
+  // inseam меряется босиком, поэтому длину ноги считаем от БОСОЙ высоты голеностопа.
+  // Подошва обуви только поднимает стопу над осью педали и потому поднимает седло 1:1.
+  const ankleBare=(b.ankleH!=null?b.ankleH:0.039*H);
+  const ankleH=ankleBare+b.soleThk;                            // ось голеностопа над осью педали
   const hipJointH=I+0.055*H;                                   // головка бедра над полом
-  const legTotal=Math.max(hipJointH-ankleH,200);
+  const legTotal=Math.max(hipJointH-ankleBare,200);
   const femur=legTotal*(b.femurPct/100), tibia=legTotal-femur;
   const trunk=Math.max(0.818*H-hipJointH,200);                 // таз -> плечевой сустав
   const AL=b.armLen;
-  return { ankleH, femur, tibia, trunk,
+  return { ankleBare, ankleH, femur, tibia, trunk,
            upperarm:AL*0.56, forearm:AL*0.44, wristGrip:b.wristGrip,
            neck:0.052*H, headR:0.052*H,
            hipW:(b.hipW!=null?b.hipW:0.81*b.shoulderW), shoulderW:b.shoulderW,
@@ -285,9 +288,12 @@ function solveFit(){
     const m=(lo+hi)/2, hp=hipOf(seatAt(m));
     (Math.hypot(hp[0]-bdc.ank[0], hp[2]-bdc.ank[2])<need) ? lo=m : hi=m;
   }
-  const satH=(lo+hi)/2;                     // по подседельной трубе от каретки до верха седла
+  const satH=(lo+hi)/2;                     // координата вдоль оси подседельной трубы
   const sat=seatAt(satH);
   const HIP=hipOf(sat);
+  // Сетбек прикладывается горизонтально, уже после хода вдоль трубы, поэтому
+  // прямая каретка -> седло длиннее satH. Рулеткой меряют именно её.
+  const satStraight=Math.hypot(sat[0]-BB[0], sat[1]-BB[1]);
 
   const legs={};
   [['near',180,1],['far',0,-1]].forEach(([nm,cd,side])=>{
@@ -302,9 +308,16 @@ function solveFit(){
   /* корпус задан пользователем -> плечо -> рука -> ручка */
   const tr=rad(f.torso);
   const SH=[HIP[0]+S.trunk*Math.cos(tr), 0, HIP[2]+S.trunk*Math.sin(tr)];
-  const gs=[CO.grip[0],0,CO.grip[2]];
-  const arm=ik(SH,gs,S.upperarm,S.forearm+S.wristGrip,-1);
-  const armUse=100*arm.reach/S.armMax;
+  /* Рука тянется к ручке не в плоскости велосипеда, а вбок: плечевой сустав стоит
+     на полширины плеч, ручка — на полширины хвата. Длину и угол локтя считаем по
+     честному 3D-расстоянию. Для схемы сбоку решаем ту же задачу в проекции:
+     все три стороны треугольника укорачиваются в k раз, значит углы те же. */
+  const D3=Math.hypot(CO.grip[0]-SH[0], CO.grip[1]-S.shoulderW/2, CO.grip[2]-SH[2]);
+  const D2=Math.hypot(CO.grip[0]-SH[0], CO.grip[2]-SH[2]);
+  const k=D3>0?D2/D3:1;
+  const arm=ik(SH,[CO.grip[0],0,CO.grip[2]],S.upperarm*k,(S.forearm+S.wristGrip)*k,-1);
+  arm.over=D3>S.armMax;
+  const armUse=100*D3/S.armMax;
   const hipTDC=ang3(SH,[HIP[0],0,HIP[2]],kTDC.J);
 
   const NECK=[SH[0]+S.neck*Math.cos(tr+rad(25)), 0, SH[2]+S.neck*Math.sin(tr+rad(25))];
@@ -330,10 +343,10 @@ function solveFit(){
   const rad_=Math.hypot(effReach,effStack), raad=deg(Math.atan2(effStack,effReach));
   const radTarget=(b.height/10)*f.radMult;
 
-  return {F,CO,S,legs,HIP,SH,EL:arm.J,NECK,HEAD,CoM,sat,satH,setback,
+  return {F,CO,S,legs,HIP,SH,EL:arm.J,NECK,HEAD,CoM,sat,satH,satStraight,setback,
     rad:rad_, raad, radTarget, radDelta:rad_-radTarget,
     effReach, effStack, dReach:effReach-F.reach, dStack:effStack-F.stack,
-    elbow:arm.angle, armUse, armOver:arm.over, torso:f.torso,
+    elbow:arm.angle, armUse, armD3:D3, armOver:arm.over, torso:f.torso,
     kneeBDC:legs.near.angle, kneeTDC:kTDC.angle, kTDC:kTDC.J, tdcAnk:tdc.ank,
     hipTDC, frontPct, splay, pedalUp, pedalBack,
     s2gX:CO.grip[0]-sat[0], s2gZ:CO.grip[2]-sat[1], gripW:2*CO.grip[1]};
@@ -550,6 +563,7 @@ function buildTable(M){
   const F=M.F, G=M.CO.grip, S=M.S;
   const r=(l,v,n,cls)=>`<tr><td>${l}</td><td class="val ${cls||''}">${v}</td><td class="spec">${n||''}</td></tr>`;
   const grp=t=>`<tr class="grp"><td colspan="3">${t}</td></tr>`;
+  const sg=v=>(v>0?'+':'')+v.toFixed(0);
   let h='<table><thead><tr><th>Параметр</th><th>Значение</th><th style="text-align:left">Норма / комментарий</th></tr></thead><tbody>';
   h+=grp('Рама под ходом и sag');
   h+=r('Reach факт', F.reach.toFixed(0)+' мм', `паспорт ${state.bike.reach}`);
@@ -559,12 +573,14 @@ function buildTable(M){
   h+=grp('Кокпит');
   h+=r('Подъём выноса от горизонта', M.CO.elev.toFixed(1)+'°', `(90 − ${F.hta.toFixed(1)}°) + ${state.ck.stemFlip?-state.ck.stemAngle:state.ck.stemAngle}° — вынос «0°» уже смотрит вверх`);
   h+=r('Ручка от каретки (x / y / z)', `${G[0].toFixed(0)} / ±${G[1].toFixed(0)} / ${G[2].toFixed(0)}`,'начало координат — каретка, земля z=0');
-  h+=r('Высота седла от каретки', M.satH.toFixed(0)+' мм', `по подседельной; LeMond 0.883×inseam = ${(0.883*state.body.inseam).toFixed(0)}`);
+  h+=r('Высота седла вдоль подседельной', M.satH.toFixed(0)+' мм','ход по оси трубы от каретки; подобрана под целевой угол колена в НМТ');
+  h+=r('Прямая каретка → седло', M.satStraight.toFixed(0)+' мм',
+       M.setback ? `то, что меряется рулеткой; сетбек ${sg(M.setback)} смещает на ${sg(M.satStraight-M.satH)} от хода по трубе`
+                 : 'то, что меряется рулеткой; без сетбека совпадает с ходом по трубе');
   h+=r('Сетбек седла от каретки', (-M.sat[0]).toFixed(0)+' мм', `штырь ${state.fit.postOffset} + рельсы ${state.fit.railPos>=0?'+':''}${state.fit.railPos}`);
   h+=r('Седло → ручка, гориз.', M.s2gX.toFixed(0)+' мм','главное число кокпита');
   h+=r('Перепад седло → ручка', (M.s2gZ>0?'+':'')+M.s2gZ.toFixed(0)+' мм','+ = руль выше седла');
   h+=grp('Кокпит целиком — от каретки до ручки');
-  const sg=v=>(v>0?'+':'')+v.toFixed(0);
   h+=r('Эффективный reach', M.effReach.toFixed(0)+' мм', `рама даёт ${F.reach.toFixed(0)}, кокпит ${sg(M.dReach)}`);
   h+=r('Прибавка кокпита к reach', sg(M.dReach)+' мм','вынос вперёд, загиб руля назад — знак может быть любым');
   h+=r('Эффективный stack', M.effStack.toFixed(0)+' мм', `рама даёт ${F.stack.toFixed(0)}, кокпит ${sg(M.dStack)}`);
@@ -580,7 +596,7 @@ function buildTable(M){
   h+=r('Бедро в ВМТ', M.hipTDC.toFixed(0)+'°','&lt;45° — зажим в паху, спина уходит в компенсацию', zone(M.hipTDC,[55,110],[45,120]));
   h+=r('Наклон корпуса', M.torso.toFixed(0)+'°','задан тобой: 40–45 XC, 50–60 трейл, 65+ комфорт');
   h+=r('Локоть', M.elbow.toFixed(0)+'°','140–165 рабочий, &lt;110 — очень согнут, &gt;170 — в замок', zone(M.elbow,[130,168],[100,175]));
-  h+=r('Использование длины руки', M.armUse.toFixed(0)+' %','&gt;96% — руки в замок, руль недостижим по-хорошему', zone(M.armUse,[0,92],[0,96]));
+  h+=r('Использование длины руки', M.armUse.toFixed(0)+' %',`по 3D: плечо → ручка ${M.armD3.toFixed(0)} из ${S.armMax.toFixed(0)}. &gt;96% — руки в замок`, zone(M.armUse,[0,92],[0,96]));
   h+=grp('Плановая геометрия и баланс');
   h+=r('Ширина хвата', M.gripW.toFixed(0)+' мм', `руль ${state.ck.barWidth}, отступ хвата ${state.ck.gripInset} с каждой стороны`);
   h+=r('Хват / плечи', (M.gripW/S.shoulderW).toFixed(2)+'×','1.3–1.6 обычный диапазон для МТБ', zone(M.gripW/S.shoulderW,[1.30,1.62],[1.20,1.75]));
@@ -617,7 +633,7 @@ function render(){
   buildTable(M); buildWarns(M);
   document.getElementById('note').innerHTML=
     'Модель статическая: одна поза сидя, без стойки на педалях и без переноса веса. Позвоночник — прямой отрезок, реально это ротация таза плюс сгиб поясницы. Голеностоп зафиксирован относительно оси педали. '
-    +'Высота седла выводится из целевого угла колена в НМТ, поэтому длина шатуна работает физически, а не через поправочный коэффициент — LeMond рядом показан для сверки. '
+    +'Высота седла выводится из целевого угла колена в НМТ, поэтому длина шатуна работает физически, а не через поправочный коэффициент. '
     +'RAD считается на текущей геометрии, то есть с учётом просадки вилки. Опубликованные значения обычно меряют на велосипеде, стоящем у стены, — чтобы сравнивать с ними, поставь sag на 0.';
   syncHash();
 }
