@@ -6,6 +6,8 @@
 
 **Демо:** `https://eugeneodnoval-collab.github.io/bike-geometry-lab/`
 
+Demo Fit lab: 'https://eugeneodnoval-collab.github.io/bike-geometry-lab/fit-lab.html'
+
 ## Что умеет
 
 - **Наложение двух геометрий** с совмещением по задней оси. Видно, как расходятся перья, куда уезжает каретка и насколько различаются пятна контакта передних колёс.
