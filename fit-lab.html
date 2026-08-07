@@ -73,12 +73,12 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 /* ---- строка пресетов (одинаковая на обеих страницах) ---- */
 .psbox{margin:0 0 12px;padding-bottom:11px;border-bottom:1px dashed #ddd}
 .psrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.psrow select,.psrow .psname{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
+.psrow select{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
   font-family:inherit;background:#fff;color:#191919;min-width:0;flex:1 1 120px}
-.psrow select:focus,.psrow .psname:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
+.psrow select:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
 .psrow button{padding:4px 9px;color:#333;flex:0 0 auto}
 .psrow .psdel{color:#b3261e;font-weight:600}
-.psrow button:disabled,.psrow select:disabled,.psrow input:disabled{opacity:.42;cursor:not-allowed}
+.psrow button:disabled,.psrow select:disabled,.psbox .psname:disabled{opacity:.42;cursor:not-allowed}
 .pshint{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.45}
 .psbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px}
 .psbar b{color:var(--mut);font-weight:500;margin-right:2px}
@@ -713,8 +713,8 @@ function buildInputs(){
   document.getElementById('inputs').innerHTML=`
   <div class="card">
     <h3>Рама</h3>
-    <input class="bikename" id="bikename" value="${esc(state.bike.name||'')}" placeholder="название рамы" aria-label="Название рамы">
-    ${psRowHTML('geo',null,'Сохраняется под названием рамы. Список общий со страницей сравнения геометрий.')}
+    ${psRowHTML('geo',null,'Сохраняется под названием рамы. Список общий со страницей сравнения геометрий.',
+                {id:'bikename', ph:'название рамы', value:state.bike.name})}
     <div class="grid">${fields(F_FRAME,'bike')}</div>
     <div class="slider">
       <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="60" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
@@ -726,7 +726,8 @@ function buildInputs(){
 
   <div class="card">
     <h3>Кокпит</h3>
-    ${psRowHTML('ck',null,'Руль, вынос, проставки и чашка — плюс шатун, Q-factor, офсет штыря и рельсы из блока ниже.',true)}
+    ${psRowHTML('ck',null,'Руль, вынос, проставки и чашка — плюс шатун, Q-factor, офсет штыря и рельсы из блока ниже.',
+                {ph:'название кокпита'})}
     <div class="grid">${fields(F_CK,'ck')}
       <label>Вынос перевёрнут</label><input class="chk" type="checkbox" data-g="ck" data-k="stemFlip" ${state.ck.stemFlip?'checked':''}>
     </div>
@@ -736,7 +737,8 @@ function buildInputs(){
 
   <div class="card">
     <h3>Райдер и посадка</h3>
-    ${psRowHTML('body',null,'Мерки тела плюс наклон корпуса, целевой угол колена и множитель RAD. Шатун, Q-factor и седло живут в пресете кокпита — это железо.',true)}
+    ${psRowHTML('body',null,'Мерки тела плюс наклон корпуса, целевой угол колена и множитель RAD. Шатун, Q-factor и седло живут в пресете кокпита — это железо.',
+                {ph:'имя райдера'})}
     <div class="grid">${fields(F_BODY,'body')}${fields(F_FIT,'fit')}</div>
     <div class="slider">
       <div class="row"><span style="min-width:110px">Наклон корпуса</span><input type="range" min="30" max="75" step="1" data-g="fit" data-k="torso" value="${state.fit.torso}"><span class="tval" id="v_torso">${state.fit.torso}°</span></div>
@@ -823,7 +825,8 @@ const BUILTIN={
         torso:58,kneeTarget:145,radMult:4.47,pedalUp:null,pedalBack:null})]))
 };
 
-const psSel={};
+const psSel={};     // что выбрано в выпадашке: 'b:имя' | 'u:имя' | ''
+const psName={};    // набранное имя, чтобы пережить перестройку карточек
 const psKey=(kind,slot)=>kind+(slot==null?'':slot);
 
 function psOptions(kind,cur){
@@ -834,10 +837,14 @@ function psOptions(kind,cur){
   if(my.length) h+=`<optgroup label="Мои">${my.map(n=>opt('u:'+n,n)).join('')}</optgroup>`;
   return h;
 }
-function psRowHTML(kind,slot,hint,withName){
-  return `<div class="psbox"><div class="psrow" data-kind="${kind}"${slot==null?'':` data-slot="${slot}"`}>
+/* Поле имени стоит НАД строкой заголовком — одинаково во всех трёх карточках.
+   Тогда в самой строке остаются только выпадашка и две кнопки, и она влезает
+   в одну линию даже в узкой панели. */
+function psRowHTML(kind,slot,hint,nm){
+  const name = nm ? `<input class="bikename psname"${nm.id?` id="${nm.id}"`:''}`
+      + ` value="${esc(nm.value||'')}" placeholder="${esc(nm.ph)}" aria-label="${esc(nm.ph)}">` : '';
+  return `<div class="psbox">${name}<div class="psrow" data-kind="${kind}"${slot==null?'':` data-slot="${slot}"`}>
       <select class="pssel" aria-label="Пресет"></select>
-      ${withName?'<input class="psname" placeholder="имя пресета" aria-label="Имя пресета">':''}
       <button class="pssave" type="button">Сохранить</button>
       <button class="psdel" type="button" title="Удалить пресет" disabled>✕</button>
     </div>${hint?`<div class="pshint">${hint}</div>`:''}</div>`;
@@ -846,9 +853,10 @@ function psRefresh(){
   document.querySelectorAll('.psrow').forEach(row=>{
     const kind=row.dataset.kind, k=psKey(kind,row.dataset.slot), cur=psSel[k]||'';
     const sel=row.querySelector('.pssel'), del=row.querySelector('.psdel'), save=row.querySelector('.pssave');
+    const nm=row.closest('.psbox').querySelector('.psname');
     sel.innerHTML=psOptions(kind,cur);
-    const nm=row.querySelector('.psname');
-    if(nm&&cur) nm.value=cur.slice(2);
+    // имя рамы живёт в состоянии и уже отрисовано buildInputs; у кокпита и райдера восстанавливаем набранное
+    if(nm && kind!=='geo') nm.value = psName[k]!=null ? psName[k] : (cur?cur.slice(2):'');
     del.disabled=!(cur.slice(0,2)==='u:');
     if(!PS.ok){ sel.disabled=true; save.disabled=true; del.disabled=true; if(nm) nm.disabled=true; }
   });
@@ -916,9 +924,15 @@ function psApply(kind,slot,d,name){
 }
 function psNameFor(row){
   if(row.dataset.kind==='geo') return (state.bike.name||'').trim();
-  const nm=row.querySelector('.psname');
+  const nm=row.closest('.psbox').querySelector('.psname');
   return nm?nm.value.trim():'';
 }
+// набранное имя запоминаем сразу: buildInputs пересоберёт карточку и сотрёт поле
+document.addEventListener('input',e=>{
+  const nm=e.target.closest&&e.target.closest('.psname'); if(!nm) return;
+  const row=nm.closest('.psbox').querySelector('.psrow');
+  psName[psKey(row.dataset.kind,row.dataset.slot)]=nm.value;
+});
 
 document.addEventListener('change',e=>{
   const sel=e.target.closest&&e.target.closest('.pssel'); if(!sel) return;
@@ -928,6 +942,7 @@ document.addEventListener('change',e=>{
   const name=v.slice(2);
   const data=(v.slice(0,2)==='b:'?BUILTIN[kind]:(PS.read()[kind]||{}))[name];
   if(!data){ psToast('пресет не найден',true); return; }
+  psName[psKey(kind,slot)]=name;
   psApply(kind,slot,psPick(kind,data),name);
   psRefresh(); psToast('загружен: '+name);
 });
@@ -939,7 +954,7 @@ document.addEventListener('click',e=>{
     const name=psNameFor(row);
     if(!name){ psToast('сначала впиши имя',true); return; }
     if(!PS.save(kind,name,psCollect(kind))){ psToast('не удалось сохранить',true); return; }
-    psSel[psKey(kind,slot)]='u:'+name;
+    psSel[psKey(kind,slot)]='u:'+name; psName[psKey(kind,slot)]=name;
     psRefresh(); psToast('сохранено: '+name);
   } else if(del){
     const row=del.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
