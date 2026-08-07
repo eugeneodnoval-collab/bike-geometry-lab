@@ -70,11 +70,24 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 .warn.bad{color:#8c1d18;background:#fdecea;border-color:#f3c4bf}
 .warn b{font-weight:650}
 .lg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:9px}
+/* ---- строка пресетов (одинаковая на обеих страницах) ---- */
+.psbox{margin:0 0 12px;padding-bottom:11px;border-bottom:1px dashed #ddd}
+.psrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.psrow select,.psrow .psname{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
+  font-family:inherit;background:#fff;color:#191919;min-width:0;flex:1 1 120px}
+.psrow select:focus,.psrow .psname:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
+.psrow button{padding:4px 9px;color:#333;flex:0 0 auto}
+.psrow .psdel{color:#b3261e;font-weight:600}
+.psrow button:disabled,.psrow select:disabled,.psrow input:disabled{opacity:.42;cursor:not-allowed}
+.pshint{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.45}
+.psbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.psbar b{color:var(--mut);font-weight:500;margin-right:2px}
+
 .printonly{display:none}
 @media print{
   @page{size:A4 portrait;margin:10mm}
   body{padding:0;background:#fff;font-size:11px}
-  .toolbar,.presets,#inputs,details{display:none!important}
+  .toolbar,.presets,#inputs,details,.psbox,.pshint,.psbar{display:none!important}
   .printonly{display:block}
   .layout{display:block}
   .panel{position:static;max-height:none;overflow:visible}
@@ -122,14 +135,14 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 <aside class="panel">
 
 <div class="presets">
-  <b>Рама:</b>
-  <button onclick="loadBike('B1')">Outleap Warhog L 2025</button>
-  <button onclick="loadBike('B2')">Hagen 4 XL 2025</button>
-  <span style="width:14px"></span>
-  <b>Райдер:</b>
-  <button onclick="loadRider('R170')">170 см</button>
-  <button onclick="loadRider('R180')">180 см</button>
-  <button onclick="loadRider('R190')">190 см</button>
+  <div class="psbar">
+    <b>Пресеты:</b>
+    <button onclick="psExport()">Скачать в файл</button>
+    <button onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
+    <input type="file" id="psfile" accept=".json,application/json" style="display:none"
+           onchange="if(this.files[0])psImport(this.files[0]);this.value=''">
+    <span class="okmsg" id="psok" style="visibility:hidden"></span>
+  </div>
 </div>
 
 <div class="cols" id="inputs"></div>
@@ -701,6 +714,7 @@ function buildInputs(){
   <div class="card">
     <h3>Рама</h3>
     <input class="bikename" id="bikename" value="${esc(state.bike.name||'')}" placeholder="название рамы" aria-label="Название рамы">
+    ${psRowHTML('geo',null,'Сохраняется под названием рамы. Список общий со страницей сравнения геометрий.')}
     <div class="grid">${fields(F_FRAME,'bike')}</div>
     <div class="slider">
       <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="60" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
@@ -712,6 +726,7 @@ function buildInputs(){
 
   <div class="card">
     <h3>Кокпит</h3>
+    ${psRowHTML('ck',null,'Руль, вынос, проставки и чашка — плюс шатун, Q-factor, офсет штыря и рельсы из блока ниже.',true)}
     <div class="grid">${fields(F_CK,'ck')}
       <label>Вынос перевёрнут</label><input class="chk" type="checkbox" data-g="ck" data-k="stemFlip" ${state.ck.stemFlip?'checked':''}>
     </div>
@@ -721,6 +736,7 @@ function buildInputs(){
 
   <div class="card">
     <h3>Райдер и посадка</h3>
+    ${psRowHTML('body',null,'Мерки тела плюс наклон корпуса, целевой угол колена и множитель RAD. Шатун, Q-factor и седло живут в пресете кокпита — это железо.',true)}
     <div class="grid">${fields(F_BODY,'body')}${fields(F_FIT,'fit')}</div>
     <div class="slider">
       <div class="row"><span style="min-width:110px">Наклон корпуса</span><input type="range" min="30" max="75" step="1" data-g="fit" data-k="torso" value="${state.fit.torso}"><span class="tval" id="v_torso">${state.fit.torso}°</span></div>
@@ -751,10 +767,191 @@ function buildInputs(){
       render();
     });
   });
+  psRefresh();
 }
 function setTorso(v){ state.fit.torso=v; buildInputs(); render(); }
-function loadBike(k){ state.bike={...BIKES[k]}; buildInputs(); render(); }
-function loadRider(k){ Object.assign(state.body,RIDERS[k]); buildInputs(); render(); }
+
+/* ==================== пресеты ====================
+   Тот же формат и тот же ключ, что на странице сравнения: пресеты рам,
+   сохранённые там, видны здесь и наоборот. Имя пресета — ключ в объекте,
+   поэтому сохранение под существующим именем обновляет запись.
+   На file:// хранилище может быть запрещено — тогда строки гаснут. */
+const PS_KEY='bikelab.presets.v1';
+const PKEYS={
+  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR'],
+  ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
+        'backsweep','upsweep','barRoll','gripInset','riserBendHalf','crank','qFactor','postOffset','railPos'],
+  body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
+        'hipFwd','torso','kneeTarget','radMult','pedalUp','pedalBack']
+};
+function psPick(kind,src){
+  const o={};
+  (PKEYS[kind]||[]).forEach(k=>{
+    const v=src[k];
+    if(v===undefined||v===null||v===''){ o[k]=null; return; }
+    const n=typeof v==='number'?v:parseFloat(v);
+    o[k]=isFinite(n)?n:null;
+  });
+  return o;
+}
+const PS={
+  ok:(()=>{ try{ localStorage.setItem('__ps','1'); localStorage.removeItem('__ps'); return true; }catch(e){ return false; } })(),
+  read(){ if(!PS.ok) return {}; try{ return JSON.parse(localStorage.getItem(PS_KEY))||{}; }catch(e){ return {}; } },
+  write(o){ if(!PS.ok) return false; try{ localStorage.setItem(PS_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } },
+  list(kind){ return Object.keys(PS.read()[kind]||{}).sort((a,b)=>a.localeCompare(b,'ru')); },
+  save(kind,name,data){ const o=PS.read(); (o[kind]=o[kind]||{})[name]=data; return PS.write(o); },
+  del(kind,name){ const o=PS.read(); if(o[kind]) delete o[kind][name]; return PS.write(o); },
+  merge(inc){
+    if(!inc||typeof inc!=='object') return false;
+    const o=PS.read(); let n=0;
+    Object.keys(PKEYS).forEach(kind=>{
+      const src=inc[kind]; if(!src||typeof src!=='object') return;
+      o[kind]=o[kind]||{};
+      Object.entries(src).forEach(([name,v])=>{ if(v&&typeof v==='object'&&name.trim()){ o[kind][name]=psPick(kind,v); n++; } });
+    });
+    return n>0 && PS.write(o) ? n : false;
+  }
+};
+
+const BUILTIN={
+  geo: Object.fromEntries(Object.values(BIKES).map(b=>[b.name, psPick('geo',{...b,offset:null,wheelR:368})])),
+  ck : {'Базовый трейл': psPick('ck',{headsetStack:15,spacers:20,stemClampH:40,stemLen:50,stemAngle:6,stemFlip:0,
+        barRise:25,barWidth:760,backsweep:8,upsweep:5,barRoll:0,gripInset:70,riserBendHalf:100,
+        crank:170,qFactor:172,postOffset:0,railPos:0})},
+  body: Object.fromEntries(Object.entries(RIDERS).map(([,r])=>['Райдер '+r.name,
+        psPick('body',{...r,hipW:null,femurPct:50,ankleH:null,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,
+        torso:58,kneeTarget:145,radMult:4.47,pedalUp:null,pedalBack:null})]))
+};
+
+const psSel={};
+const psKey=(kind,slot)=>kind+(slot==null?'':slot);
+
+function psOptions(kind,cur){
+  const opt=(v,l)=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(l)}</option>`;
+  const bi=Object.keys(BUILTIN[kind]||{}), my=PS.list(kind);
+  let h=opt('','— выбрать пресет —');
+  if(bi.length) h+=`<optgroup label="Встроенные">${bi.map(n=>opt('b:'+n,n)).join('')}</optgroup>`;
+  if(my.length) h+=`<optgroup label="Мои">${my.map(n=>opt('u:'+n,n)).join('')}</optgroup>`;
+  return h;
+}
+function psRowHTML(kind,slot,hint,withName){
+  return `<div class="psbox"><div class="psrow" data-kind="${kind}"${slot==null?'':` data-slot="${slot}"`}>
+      <select class="pssel" aria-label="Пресет"></select>
+      ${withName?'<input class="psname" placeholder="имя пресета" aria-label="Имя пресета">':''}
+      <button class="pssave" type="button">Сохранить</button>
+      <button class="psdel" type="button" title="Удалить пресет" disabled>✕</button>
+    </div>${hint?`<div class="pshint">${hint}</div>`:''}</div>`;
+}
+function psRefresh(){
+  document.querySelectorAll('.psrow').forEach(row=>{
+    const kind=row.dataset.kind, k=psKey(kind,row.dataset.slot), cur=psSel[k]||'';
+    const sel=row.querySelector('.pssel'), del=row.querySelector('.psdel'), save=row.querySelector('.pssave');
+    sel.innerHTML=psOptions(kind,cur);
+    const nm=row.querySelector('.psname');
+    if(nm&&cur) nm.value=cur.slice(2);
+    del.disabled=!(cur.slice(0,2)==='u:');
+    if(!PS.ok){ sel.disabled=true; save.disabled=true; del.disabled=true; if(nm) nm.disabled=true; }
+  });
+}
+function psToast(msg,bad){
+  const el=document.getElementById('psok'); if(!el) return;
+  el.textContent=msg; el.style.color=bad?'#b3261e':'#0a7d33'; el.style.visibility='visible';
+  clearTimeout(psToast._t); psToast._t=setTimeout(()=>el.style.visibility='hidden',2600);
+}
+function psExport(){
+  const blob=new Blob([JSON.stringify({app:'bikelab',v:1,...PS.read()},null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='bike-presets-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  psToast('файл скачан');
+}
+function psImport(file){
+  const r=new FileReader();
+  r.onload=()=>{ let n=false; try{ n=PS.merge(JSON.parse(r.result)); }catch(e){}
+    if(n){ psRefresh(); psToast(`загружено пресетов: ${n}`); }
+    else psToast('не похоже на файл пресетов',true); };
+  r.onerror=()=>psToast('не смог прочитать файл',true);
+  r.readAsText(file);
+}
+
+/* Паспортная колёсная база из офсета — тот же вывод, что в solveFrame.
+   Нужен, когда пресет пришёл со страницы сравнения с пустой базой:
+   здешний солвер строит вилку из базы и без неё выдал бы NaN. */
+function passportWB(b){
+  if(b.wb) return b.wb;
+  const hta=rad(b.hta), u=[Math.cos(hta),-Math.sin(hta)], p=[Math.sin(hta),Math.cos(hta)];
+  const htBot=[b.reach+u[0]*b.ht, b.stack+u[1]*b.ht];
+  const rearX=-Math.sqrt(Math.max(b.cs*b.cs-b.bbDrop*b.bbDrop,1));
+  const o=(b.offset!=null?b.offset:44);
+  const d=(b.bbDrop-htBot[1]-o*p[1])/u[1];
+  return (htBot[0]+u[0]*d+p[0]*o)-rearX;
+}
+
+const PS_FITKEYS={ck:['crank','qFactor','postOffset','railPos'],
+                  body:['torso','kneeTarget','radMult','pedalUp','pedalBack']};
+
+function psCollect(kind){
+  if(kind==='geo')  return psPick('geo',{...state.bike, offset:null, wheelR:state.wheelR});
+  if(kind==='ck')   return psPick('ck',  {...state.ck,   ...pickFrom(state.fit,PS_FITKEYS.ck)});
+  return              psPick('body',{...state.body, ...pickFrom(state.fit,PS_FITKEYS.body)});
+}
+const pickFrom=(o,ks)=>Object.fromEntries(ks.map(k=>[k,o[k]]));
+
+function psApply(kind,slot,d,name){
+  if(kind==='geo'){
+    HK.bike.forEach(k=>state.bike[k]=d[k]);
+    state.bike.name=name;
+    if(d.wheelR) state.wheelR=d.wheelR;
+    if(state.bike.wb==null) state.bike.wb=+passportWB({...state.bike,offset:d.offset}).toFixed(1);
+  } else if(kind==='ck'){
+    HK.ck.forEach(k=>state.ck[k]=d[k]);
+    PS_FITKEYS.ck.forEach(k=>state.fit[k]=d[k]);
+  } else {
+    HK.body.forEach(k=>state.body[k]=d[k]);
+    PS_FITKEYS.body.forEach(k=>state.fit[k]=d[k]);
+  }
+  buildInputs(); render();
+}
+function psNameFor(row){
+  if(row.dataset.kind==='geo') return (state.bike.name||'').trim();
+  const nm=row.querySelector('.psname');
+  return nm?nm.value.trim():'';
+}
+
+document.addEventListener('change',e=>{
+  const sel=e.target.closest&&e.target.closest('.pssel'); if(!sel) return;
+  const row=sel.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot, v=sel.value;
+  psSel[psKey(kind,slot)]=v;
+  if(!v){ psRefresh(); return; }
+  const name=v.slice(2);
+  const data=(v.slice(0,2)==='b:'?BUILTIN[kind]:(PS.read()[kind]||{}))[name];
+  if(!data){ psToast('пресет не найден',true); return; }
+  psApply(kind,slot,psPick(kind,data),name);
+  psRefresh(); psToast('загружен: '+name);
+});
+document.addEventListener('click',e=>{
+  const t=e.target; if(!t.closest) return;
+  const save=t.closest('.pssave'), del=t.closest('.psdel');
+  if(save){
+    const row=save.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
+    const name=psNameFor(row);
+    if(!name){ psToast('сначала впиши имя',true); return; }
+    if(!PS.save(kind,name,psCollect(kind))){ psToast('не удалось сохранить',true); return; }
+    psSel[psKey(kind,slot)]='u:'+name;
+    psRefresh(); psToast('сохранено: '+name);
+  } else if(del){
+    const row=del.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
+    const cur=psSel[psKey(kind,slot)]||'';
+    if(cur.slice(0,2)!=='u:') return;
+    const name=cur.slice(2);
+    if(!confirm(`Удалить пресет «${name}»?`)) return;
+    PS.del(kind,name); psSel[psKey(kind,slot)]='';
+    psRefresh(); psToast('удалён: '+name);
+  }
+});
+window.addEventListener('storage',e=>{ if(e.key===PS_KEY) psRefresh(); });
 
 /* ===================== 8. ссылка и печать ===================== */
 const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag'],

@@ -48,6 +48,20 @@ h1{font-size:19px;margin:0 0 3px}
 .tval{font-variant-numeric:tabular-nums;font-weight:650;min-width:74px;text-align:right}
 .tdelta{font-size:12px;color:var(--mut);min-width:0}
 
+/* ---- строка пресетов (одинаковая на обеих страницах) ---- */
+.psbox{margin:0 0 12px;padding-bottom:11px;border-bottom:1px dashed #ddd}
+.psrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.psrow select,.psrow .psname{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
+  font-family:inherit;background:#fff;color:#191919;min-width:0;flex:1 1 120px}
+.psrow select:focus,.psrow .psname:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
+.psrow button{padding:4px 9px;color:#333;flex:0 0 auto}
+.psrow .psdel{color:#b3261e;font-weight:600}
+.psrow button:disabled,.psrow select:disabled,.psrow input:disabled{opacity:.42;cursor:not-allowed}
+.pshint{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.45}
+.psbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.psbar b{color:var(--mut);font-weight:500;margin-right:2px}
+@media print{.psbox,.pshint,.psbar{display:none!important}}
+
 .handoff{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
 .handoff .tofit{border-color:currentColor;color:currentColor;background:#fff;font-weight:600;padding:5px 12px}
 .handoff .tofit:hover{background:#f4f4f3}
@@ -139,13 +153,14 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 <aside class="panel">
 
 <div class="presets">
-  <b>В слот 1:</b>
-  <button onclick="loadPreset(0,'B1')">Outleap Warhog L 2025</button>
-  <button onclick="loadPreset(0,'B2')">Hagen 4 XL 2025</button>
-  <span style="width:14px"></span>
-  <b>В слот 2:</b>
-  <button onclick="loadPreset(1,'B1')">Outleap Warhog L 2025</button>
-  <button onclick="loadPreset(1,'B2')">Hagen 4 XL 2025</button>
+  <div class="psbar">
+    <b>Пресеты:</b>
+    <button onclick="psExport()">Скачать в файл</button>
+    <button onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
+    <input type="file" id="psfile" accept=".json,application/json" style="display:none"
+           onchange="if(this.files[0])psImport(this.files[0]);this.value=''">
+    <span class="ok" id="psok" style="visibility:hidden"></span>
+  </div>
 </div>
 
 <div class="cols" id="inputs"></div>
@@ -481,6 +496,7 @@ function buildInputs(){
        <div class="dotc" style="background:currentColor"></div>
        <input class="bikename" data-i="${i}" data-k="name" value="${esc(b.name)}">
      </div>
+     ${psRowHTML('geo',i,'Сохраняется под именем рамы, вписанным выше. Имя уже есть — запись обновится.')}
      <div class="grid" style="color:#191919">
        ${FIELDS.map(([k,l,st])=>`<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]}">`).join('')}
      </div>
@@ -525,6 +541,7 @@ function buildInputs(){
     });
   });
   updateTravelNotes();
+  psRefresh();
 }
 
 function updateTravelNotes(){
@@ -537,10 +554,165 @@ function updateTravelNotes(){
   });
 }
 
-function loadPreset(slot, key){
-  state.bikes[slot] = {...PRESETS[key]};
-  buildInputs(); render();
+
+/* ==================== пресеты ====================
+   Один ключ в localStorage, один блоб, три вида: geo / ck / body.
+   Имя пресета — это ключ в объекте, поэтому сохранение под существующим
+   именем и есть обновление записи. Всё в try/catch: на file:// хранилище
+   может быть запрещено — тогда строки пресетов гаснут, а страница живёт.
+   Списки ключей одинаковы на обеих страницах, чтобы импорт с одной не
+   выбрасывал пресеты, которые нужны другой. */
+const PS_KEY='bikelab.presets.v1';
+const PKEYS={
+  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR'],
+  ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
+        'backsweep','upsweep','barRoll','gripInset','riserBendHalf','crank','qFactor','postOffset','railPos'],
+  body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
+        'hipFwd','torso','kneeTarget','radMult','pedalUp','pedalBack']
+};
+/* всё, что приходит извне, просеиваем по белому списку и приводим к числу или null */
+function psPick(kind,src){
+  const o={};
+  (PKEYS[kind]||[]).forEach(k=>{
+    const v=src[k];
+    if(v===undefined||v===null||v==='') { o[k]=null; return; }
+    const n=typeof v==='number'?v:parseFloat(v);
+    o[k]=isFinite(n)?n:null;
+  });
+  return o;
 }
+const PS={
+  ok:(()=>{ try{ localStorage.setItem('__ps','1'); localStorage.removeItem('__ps'); return true; }catch(e){ return false; } })(),
+  read(){ if(!PS.ok) return {}; try{ return JSON.parse(localStorage.getItem(PS_KEY))||{}; }catch(e){ return {}; } },
+  write(o){ if(!PS.ok) return false; try{ localStorage.setItem(PS_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } },
+  list(kind){ return Object.keys(PS.read()[kind]||{}).sort((a,b)=>a.localeCompare(b,'ru')); },
+  get(kind,name){ return (PS.read()[kind]||{})[name]||null; },
+  save(kind,name,data){ const o=PS.read(); (o[kind]=o[kind]||{})[name]=data; return PS.write(o); },
+  del(kind,name){ const o=PS.read(); if(o[kind]) delete o[kind][name]; return PS.write(o); },
+  merge(inc){
+    if(!inc||typeof inc!=='object') return false;
+    const o=PS.read(); let n=0;
+    Object.keys(PKEYS).forEach(kind=>{
+      const src=inc[kind]; if(!src||typeof src!=='object') return;
+      o[kind]=o[kind]||{};
+      Object.entries(src).forEach(([name,v])=>{ if(v&&typeof v==='object'&&name.trim()){ o[kind][name]=psPick(kind,v); n++; } });
+    });
+    return n>0 && PS.write(o) ? n : false;
+  }
+};
+
+// встроенные — только для чтения, удалить нельзя
+const BUILTIN={
+  geo: Object.fromEntries(Object.values(PRESETS).map(b=>[b.name, psPick('geo',{...b,wheelR:368})])),
+  ck:{}, body:{}
+};
+
+const psSel={};                                   // что выбрано в каждой строке: 'b:имя' | 'u:имя' | ''
+const psKey=(kind,slot)=>kind+(slot==null?'':slot);
+
+function psOptions(kind,cur){
+  const opt=(v,l)=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(l)}</option>`;
+  const bi=Object.keys(BUILTIN[kind]||{}), my=PS.list(kind);
+  let h=opt('','— выбрать пресет —');
+  if(bi.length) h+=`<optgroup label="Встроенные">${bi.map(n=>opt('b:'+n,n)).join('')}</optgroup>`;
+  if(my.length) h+=`<optgroup label="Мои">${my.map(n=>opt('u:'+n,n)).join('')}</optgroup>`;
+  return h;
+}
+function psRowHTML(kind,slot,hint){
+  return `<div class="psbox"><div class="psrow" data-kind="${kind}"${slot==null?'':` data-slot="${slot}"`}>
+      <select class="pssel" aria-label="Пресет"></select>
+      <button class="pssave" type="button">Сохранить</button>
+      <button class="psdel" type="button" title="Удалить пресет" disabled>✕</button>
+    </div>${hint?`<div class="pshint">${hint}</div>`:''}</div>`;
+}
+/* Перерисовка списков. Вызывается после каждого buildInputs(), потому что
+   тот сносит разметку карточек вместе со строками пресетов. */
+function psRefresh(){
+  document.querySelectorAll('.psrow').forEach(row=>{
+    const kind=row.dataset.kind, k=psKey(kind,row.dataset.slot), cur=psSel[k]||'';
+    const sel=row.querySelector('.pssel'), del=row.querySelector('.psdel'), save=row.querySelector('.pssave');
+    sel.innerHTML=psOptions(kind,cur);
+    const nm=row.querySelector('.psname');
+    if(nm && cur) nm.value=cur.slice(2);
+    del.disabled=!(cur.slice(0,2)==='u:');
+    if(!PS.ok){ sel.disabled=true; save.disabled=true; del.disabled=true; }
+  });
+}
+function psToast(msg,bad){
+  const el=document.getElementById('psok'); if(!el) return;
+  el.textContent=msg; el.style.color=bad?'#b3261e':'#0a7d33'; el.style.visibility='visible';
+  clearTimeout(psToast._t); psToast._t=setTimeout(()=>el.style.visibility='hidden',2600);
+}
+function psExport(){
+  const blob=new Blob([JSON.stringify({app:'bikelab',v:1,...PS.read()},null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='bike-presets-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  psToast('файл скачан');
+}
+function psImport(file){
+  const r=new FileReader();
+  r.onload=()=>{ let n=false; try{ n=PS.merge(JSON.parse(r.result)); }catch(e){}
+    if(n){ psRefresh(); psToast(`загружено пресетов: ${n}`); }
+    else psToast('не похоже на файл пресетов',true); };
+  r.onerror=()=>psToast('не смог прочитать файл',true);
+  r.readAsText(file);
+}
+
+/* ---- то, что своё на каждой странице ---- */
+function psCollect(kind,slot){                    // текущее состояние -> пресет
+  return psPick('geo',{...state.bikes[+slot], wheelR:state.wheelR});
+}
+function psApply(kind,slot,d,name){               // пресет -> состояние
+  const i=+slot, b={...state.bikes[i]};
+  PKEYS.geo.forEach(k=>{ if(k!=='wheelR') b[k]=d[k]; });
+  b.name=name;
+  state.bikes[i]=b;
+  if(d.wheelR) state.wheelR=d.wheelR;
+  buildInputs();
+  const wr=document.getElementById('wr'); if(wr) wr.value=state.wheelR;
+  render();
+}
+function psNameFor(row){                          // имя пресета = имя рамы в карточке
+  return (state.bikes[+row.dataset.slot].name||'').trim();
+}
+
+/* ---- обработчики: делегированные, чтобы пережить перестройку карточек ---- */
+document.addEventListener('change',e=>{
+  const sel=e.target.closest&&e.target.closest('.pssel'); if(!sel) return;
+  const row=sel.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot, v=sel.value;
+  psSel[psKey(kind,slot)]=v;
+  if(!v){ psRefresh(); return; }
+  const name=v.slice(2);
+  const data=(v.slice(0,2)==='b:'?BUILTIN[kind]:(PS.read()[kind]||{}))[name];
+  if(!data){ psToast('пресет не найден',true); return; }
+  psApply(kind,slot,psPick(kind,data),name);
+  psRefresh(); psToast('загружен: '+name);
+});
+document.addEventListener('click',e=>{
+  const t=e.target; if(!t.closest) return;
+  const save=t.closest('.pssave'), del=t.closest('.psdel');
+  if(save){
+    const row=save.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
+    const name=psNameFor(row);
+    if(!name){ psToast('сначала впиши имя',true); return; }
+    if(!PS.save(kind,name,psCollect(kind,slot))){ psToast('не удалось сохранить',true); return; }
+    psSel[psKey(kind,slot)]='u:'+name;
+    psRefresh(); psToast('сохранено: '+name);
+  } else if(del){
+    const row=del.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
+    const cur=psSel[psKey(kind,slot)]||'';
+    if(cur.slice(0,2)!=='u:') return;
+    const name=cur.slice(2);
+    if(!confirm(`Удалить пресет «${name}»?`)) return;
+    PS.del(kind,name); psSel[psKey(kind,slot)]='';
+    psRefresh(); psToast('удалён: '+name);
+  }
+});
+// другая вкладка изменила пресеты — подхватываем список
+window.addEventListener('storage',e=>{ if(e.key===PS_KEY) psRefresh(); });
 
 /* ============ передача геометрии в Fit Lab ============
    Fit Lab читает состояние из хэша вида
