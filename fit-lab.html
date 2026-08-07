@@ -12,6 +12,10 @@ h1{font-size:19px;margin:0 0 3px}
 .sub{color:var(--mut);font-size:13px;margin-bottom:18px;max-width:900px;line-height:1.5}
 .card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:14px}
 .card h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:600}
+.bikename{font-weight:650;font-size:15px;border:none;background:transparent;width:100%;padding:0 0 8px;
+          color:var(--c1);font-family:inherit}
+.bikename:focus{outline:none;border-bottom:1px solid var(--bd)}
+.bikename::placeholder{color:#c0c0c0;font-weight:400}
 
 /* ---- раскладка ----
    <700      всё в одну колонку
@@ -79,10 +83,29 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
   h1{font-size:15px}.sub{font-size:10px;margin-bottom:8px}
   table{font-size:9.5px}tr{page-break-inside:avoid}
   #side,#top{page-break-inside:avoid}
+  .nav{display:none!important}
 }
+
+/* ---- общая навигация (одинаковая на всех трёх страницах) ---- */
+.nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--bd);
+     border-radius:10px;padding:5px;margin:0 0 16px}
+.nav a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:#3a3a3a;font-size:13px;
+       padding:7px 13px;border-radius:7px;line-height:1.3;white-space:nowrap}
+.nav a:hover{background:#f0f0ef}
+.nav a[aria-current]{background:#1f1f1f;color:#fff}
+.nav a[aria-current]:hover{background:#1f1f1f}
+.nav a .nsub{font-size:11.5px;color:#8d8d8d}
+.nav a[aria-current] .nsub{color:#b9b9b9}
+@media(max-width:600px){.nav a .nsub{display:none}}
 </style>
 </head>
 <body>
+
+<nav class="nav">
+  <a href="index.html">Сравнение геометрий <span class="nsub">две рамы рядом</span></a>
+  <a href="fit-lab.html" aria-current="page">Посадка <span class="nsub">райдер на раме</span></a>
+  <a href="help.html">Как это мерить <span class="nsub">справка по параметрам</span></a>
+</nav>
 
 <h1>Fit Lab — райдер на геометрии</h1>
 <div class="sub">Считает, где именно окажутся седло и ручки руля, и в какую позу это поставит человека с заданными пропорциями. Рама решается под ход вилки и sag, кокпит — цепочкой от рулевого стакана до центра хвата, тело — обратной кинематикой от контактных точек. Свободная степень одна: наклон корпуса. Её задаёшь ты, всё остальное считается.</div>
@@ -638,6 +661,20 @@ function render(){
   syncHash();
 }
 
+/* Радиусы посчитаны как BSD/2 + высота покрышки над ободом; 29"×2.4 = 368. */
+const WHEEL_HINT=(()=>{
+  const rows=[['2.1–2.2',327,343,362],['2.4',337,349,368],['2.6',343,356,375],['2.8','—',362,381]];
+  const c='padding:2px 13px 2px 0;border:none;text-align:right';
+  return 'Радиус накачанного колеса вместе с покрышкой. 26 / 27.5 / 29 считаются одинаково корректно.'
+   + '<table style="width:auto;margin:8px 0 6px;font-size:11.5px;border-collapse:collapse">'
+   + `<tr><td style="${c};text-align:left;color:#999">покрышка</td>`
+   + ['26"','27.5"','29"'].map(h=>`<td style="${c};color:#999">${h}</td>`).join('') + '</tr>'
+   + rows.map(r=>`<tr><td style="${c};text-align:left">${r[0]}</td>`
+       + r.slice(1).map(v=>`<td style="${c};font-variant-numeric:tabular-nums">${v}</td>`).join('') + '</tr>').join('')
+   + '</table>'
+   + 'На посадку радиус не влияет вообще — только на высоту каретки, трейл и рисунок. Все углы тела, RAD и высота седла считаются относительно каретки.';
+})();
+
 const F_FRAME=[['reach','Reach',1],['stack','Stack',0.5],['hta','Угол рулевой',0.1],['sta','Угол подседельной',0.1],
   ['ht','Рулевой стакан',1],['st','Подседельная труба',1],['cs','Перья',1],['bbDrop','BB drop',0.5],['wb','Колёсная база',1],['travelRef','Ход по паспорту',5]];
 const F_CK=[['stemLen','Длина выноса',5],['stemAngle','Угол выноса, °',1],['spacers','Проставки',5],
@@ -663,13 +700,14 @@ function buildInputs(){
   document.getElementById('inputs').innerHTML=`
   <div class="card">
     <h3>Рама</h3>
+    <input class="bikename" id="bikename" value="${esc(state.bike.name||'')}" placeholder="название рамы" aria-label="Название рамы">
     <div class="grid">${fields(F_FRAME,'bike')}</div>
     <div class="slider">
-      <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="100" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
+      <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="60" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
       <div class="row"><span style="min-width:82px">SAG вилки</span><input type="range" min="0" max="40" step="1" data-g="bike" data-k="sag" value="${state.bike.sag}"><span class="tval" id="v_sag">${state.bike.sag}%</span></div>
     </div>
     <details><summary>Колесо</summary><div class="grid" style="margin-top:8px"><label>Радиус колеса, мм</label><input type="number" step="1" data-g="root" data-k="wheelR" value="${state.wheelR}"></div>
-      <div class="hint">368 ≈ 29"×2.4. Для 2.6 возьми ~375, для 2.2 ~362.</div></details>
+      <div class="hint">${WHEEL_HINT}</div></details>
   </div>
 
   <div class="card">
@@ -697,7 +735,10 @@ function buildInputs(){
       <div class="hint">Пустое поле = считается автоматически из роста и inseam.</div></details>
   </div>`;
 
-  document.querySelectorAll('#inputs input').forEach(el=>{
+  const nm=document.getElementById('bikename');
+  nm.addEventListener('input',()=>{ state.bike.name=nm.value; syncHash(); });
+
+  document.querySelectorAll('#inputs input[data-k]').forEach(el=>{
     el.addEventListener('input',()=>{
       const g=el.dataset.g,k=el.dataset.k;
       let v;

@@ -48,6 +48,12 @@ h1{font-size:19px;margin:0 0 3px}
 .tval{font-variant-numeric:tabular-nums;font-weight:650;min-width:74px;text-align:right}
 .tdelta{font-size:12px;color:var(--mut);min-width:0}
 
+.handoff{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.handoff .tofit{border-color:currentColor;color:currentColor;background:#fff;font-weight:600;padding:5px 12px}
+.handoff .tofit:hover{background:#f4f4f3}
+.handoff .hoff{font-size:11.5px;color:var(--mut);flex:1;min-width:0}
+@media print{.handoff{display:none!important}}
+
 details{margin-top:8px;font-size:13px}
 summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
 details .grid{margin-top:8px}
@@ -95,9 +101,28 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
   .prturl{font-size:8px;color:#999;word-break:break-all;margin-top:6px}
 }
 .warn{font-size:12.5px;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:8px 10px;margin-top:10px;display:none}
+
+/* ---- общая навигация (одинаковая на всех трёх страницах) ---- */
+.nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--bd);
+     border-radius:10px;padding:5px;margin:0 0 16px}
+.nav a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:#3a3a3a;font-size:13px;
+       padding:7px 13px;border-radius:7px;line-height:1.3;white-space:nowrap}
+.nav a:hover{background:#f0f0ef}
+.nav a[aria-current]{background:#1f1f1f;color:#fff}
+.nav a[aria-current]:hover{background:#1f1f1f}
+.nav a .nsub{font-size:11.5px;color:#8d8d8d}
+.nav a[aria-current] .nsub{color:#b9b9b9}
+@media(max-width:600px){.nav a .nsub{display:none}}
+@media print{.nav{display:none!important}}
 </style>
 </head>
 <body>
+
+<nav class="nav">
+  <a href="index.html" aria-current="page">Сравнение геометрий <span class="nsub">две рамы рядом</span></a>
+  <a href="fit-lab.html">Посадка <span class="nsub">райдер на раме</span></a>
+  <a href="help.html">Как это мерить <span class="nsub">справка по параметрам</span></a>
+</nav>
 
 <h1>Geometry Lab — наложение геометрий хардтейлов</h1>
 <div class="sub">Колёса на общей земле, задние оси совмещены. Видно, как расходятся перья, куда уезжает каретка и где стоят пятна контакта передних колёс. Меняй любое число — схема пересчитывается на лету.</div>
@@ -428,12 +453,13 @@ function buildTable(S){
   else w.style.display='none';
 
   document.getElementById('note').innerHTML =
-   `Колесо 29" — радиус ${state.wheelR} мм. Вилка выводится из введённой геометрии: её длина вдоль оси рулевой и офсет считаются из паспортных reach / stack / HTA / BB drop / базы,
+   `Радиус колеса ${state.wheelR} мм — задаётся в общих настройках, 26 / 27.5 / 29 считаются одинаково корректно. Вилка выводится из введённой геометрии: её длина вдоль оси рулевой и офсет считаются из паспортных reach / stack / HTA / BB drop / базы,
     поэтому при базовом ходе цифры точно совпадают с паспортом. Изменение хода удлиняет вилку вдоль оси рулевой, рама поворачивается вокруг задней оси до касания земли передним колесом.
     <b>SAG</b> — просадка вилки под весом райдера в % от хода. Паспортная геометрия измерена с разжатой вилкой, поэтому при 0% таблица совпадает с паспортом,
     а при 25% ты видишь рабочую геометрию хардтейла под райдером: сзади жёстко, спереди вилка села, рама доворачивается носом вниз вокруг задней оси.
     Для хардтейла это полная модель — других степеней свободы нет. Эффективная верхняя труба — горизонталь на высоте стека до линии подседельной трубы (производители меряют её по-разному).
-    Длина по колёсам = колёсная база + два радиуса колеса; при покрышке шире/уже поменяй радиус в общих настройках. Реальная погрузочная длина будет на 20–40 мм больше за счёт покрышки и грязевика.`;
+    Длина по колёсам = колёсная база + два радиуса колеса; при покрышке шире/уже поменяй радиус в общих настройках. Реальная погрузочная длина будет на 20–40 мм больше за счёт покрышки и грязевика.
+    <br><b>Важно про радиус:</b> он один на обе рамы и на оба колеса. Сравнивать 29 с 27.5 можно — reach, stack, углы и база верны для обеих, — но высота каретки, трейл и габарит будут посчитаны по одному радиусу. Маллет (разные колёса спереди и сзади) модель не выражает вовсе: обе оси принудительно стоят на высоте BB drop. Подробности — <a href="help.html#limits" style="color:inherit">в разделе об ограничениях</a>.`;
 }
 
 /* ================= интерфейс ================= */
@@ -461,7 +487,7 @@ function buildInputs(){
      <div class="travel">
        <div class="row">
          <span style="color:#191919;min-width:82px">Ход вилки</span>
-         <input type="range" min="100" max="180" step="5" data-i="${i}" data-k="travel" value="${b.travel}">
+         <input type="range" min="60" max="180" step="5" data-i="${i}" data-k="travel" value="${b.travel}">
          <span class="tval" id="tv${i}">${b.travel} мм</span>
        </div>
        <div class="row">
@@ -481,6 +507,10 @@ function buildInputs(){
          ${ADV.map(([k,l,st])=>`<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]??''}" placeholder="авто">`).join('')}
        </div>
      </details>
+     <div class="handoff">
+       <button class="tofit" onclick="openInFit(${i})">Открыть в Fit Lab ↗</button>
+       <span class="hoff">геометрия уедет как есть — вводить заново не надо</span>
+     </div>
    </div>`).join('');
 
   host.querySelectorAll('input').forEach(el=>{
@@ -510,6 +540,37 @@ function updateTravelNotes(){
 function loadPreset(slot, key){
   state.bikes[slot] = {...PRESETS[key]};
   buildInputs(); render();
+}
+
+/* ============ передача геометрии в Fit Lab ============
+   Fit Lab читает состояние из хэша вида
+     #w=<радиус колеса>&n=<имя>&f=reach~stack~hta~sta~ht~st~cs~bbDrop~wb~travelRef~travel~sag
+   Ключи c/b/t (кокпит, тело, посадка) не передаём — там останутся дефолты Fit Lab.
+   Важно: солвер Fit Lab строит вилку из колёсной базы, поэтому если база не задана
+   руками, считаем её из офсета ровно так же, как solve() делает это здесь. */
+const FITKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag'];
+
+function passportWB(b){
+  if(b.wb) return b.wb;
+  const hta = rad(b.hta);
+  const u = [Math.cos(hta), -Math.sin(hta)];
+  const p = [Math.sin(hta),  Math.cos(hta)];
+  const htBot = [b.reach + u[0]*b.ht, b.stack + u[1]*b.ht];
+  const rearX = -Math.sqrt(Math.max(b.cs*b.cs - b.bbDrop*b.bbDrop, 1));
+  const o = (b.offset!=null ? b.offset : 44);
+  const d = (b.bbDrop - htBot[1] - o*p[1]) / u[1];
+  return (htBot[0] + u[0]*d + p[0]*o) - rearX;
+}
+
+function fitLabLink(i){
+  const b = state.bikes[i];
+  const wb = passportWB(b);
+  const f = FITKEYS.map(k => k==='wb' ? +wb.toFixed(1) : (b[k]==null?'':b[k])).join('~');
+  return `fit-lab.html#w=${state.wheelR}&n=${encodeURIComponent(b.name||'Bike '+(i+1))}&f=${f}`;
+}
+
+function openInFit(i){
+  window.open(fitLabLink(i), '_blank', 'noopener');
 }
 
 /* ================= сохранение состояния в ссылку ================= */
@@ -585,19 +646,34 @@ function doPrint(){
   const S = state.bikes.map(solve);
   document.getElementById('printhead').innerHTML =
     `<div style="font-size:11px;margin:0 0 8px">` +
-    S.map((s,i)=>`<b style="color:${i?'#2b6cb0':'#e8543f'}">${esc(s.b.name)}</b> — ход ${s.b.travel} мм, sag ${s.b.sag ?? 0}% (просадка ${s.sagMM.toFixed(0)} мм), колесо 29" R${state.wheelR}`).join(' &nbsp;·&nbsp; ') +
+    S.map((s,i)=>`<b style="color:${i?'#2b6cb0':'#e8543f'}">${esc(s.b.name)}</b> — ход ${s.b.travel} мм, sag ${s.b.sag ?? 0}% (просадка ${s.sagMM.toFixed(0)} мм), колесо R${state.wheelR}`).join(' &nbsp;·&nbsp; ') +
     `</div><div class="prturl">${esc(currentLink())}</div>`;
   window.print();
 }
+
+/* Радиусы посчитаны как BSD/2 + высота покрышки над ободом; 29"×2.4 = 368 —
+   та же калибровка, что была зашита раньше, просто продлённая на 27.5 и 26. */
+const WHEEL_HINT = (()=>{
+  const rows=[['2.1–2.2',327,343,362],['2.4',337,349,368],['2.6',343,356,375],['2.8','—',362,381]];
+  const c='padding:2px 13px 2px 0;border:none;text-align:right';
+  return 'Радиус накачанного колеса вместе с покрышкой. 26 / 27.5 / 29 модель считает одинаково корректно — важно только задать правильное число.'
+   + '<table style="width:auto;margin:8px 0 6px;font-size:11.5px;border-collapse:collapse">'
+   + `<tr><td style="${c};text-align:left;color:#999">покрышка</td>`
+   + ['26"','27.5"','29"'].map(h=>`<td style="${c};color:#999">${h}</td>`).join('') + '</tr>'
+   + rows.map(r=>`<tr><td style="${c};text-align:left">${r[0]}</td>`
+       + r.slice(1).map(v=>`<td style="${c};font-variant-numeric:tabular-nums">${v}</td>`).join('') + '</tr>').join('')
+   + '</table>'
+   + 'Точнее — обмерь покрышку ниткой по кругу и подели на 6.28. Значение одно на обе рамы и на оба колеса.';
+})();
 
 // глобальные настройки колеса
 (function(){
   const d = document.createElement('details');
   d.innerHTML = `<summary style="margin:-6px 0 12px">Общие настройки (колесо)</summary>
     <div class="card" style="margin-top:8px"><div class="grid" style="max-width:340px">
-      <label>Радиус колеса 29", мм</label><input type="number" step="1" id="wr" value="${state.wheelR}">
+      <label>Радиус колеса, мм</label><input type="number" step="1" id="wr" value="${state.wheelR}">
     </div>
-    <div class="note">368 мм ≈ 29"×2.4. Для 2.6 возьми ~375, для 2.2 ~362.</div></div>`;
+    <div class="note">${WHEEL_HINT}</div></div>`;
   document.querySelector('.presets').after(d);
   d.querySelector('#wr').addEventListener('input',e=>{ state.wheelR = parseFloat(e.target.value)||368; render(); });
 })();
