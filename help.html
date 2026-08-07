@@ -88,6 +88,23 @@ h3.sec{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;m
 
 @media print{ .nav,.toc,.chips{display:none!important} .layout{display:block} .card{border:none;padding:0;margin:0 0 14px} body{padding:0;background:#fff} }
 </style>
+
+<script>
+/* Отключить аналитику для себя: открыть любую страницу с #toggle-goatcounter.
+   Обрабатываем здесь, а не в count.js: наши страницы переписывают хеш своим
+   состоянием раньше, чем успевает догрузиться асинхронный count.js, и его
+   собственная проверка переключателя до хеша уже не доживает. */
+(function(){
+  if (location.hash !== '#toggle-goatcounter') return;
+  var off;
+  try{
+    off = localStorage.getItem('skipgc') !== 't';
+    if (off) localStorage.setItem('skipgc','t'); else localStorage.removeItem('skipgc');
+  }catch(e){ return; }
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){ location.hash=''; }
+  alert('Аналитика в этом браузере ' + (off ? 'ВЫКЛЮЧЕНА' : 'ВКЛЮЧЕНА') + '.');
+})();
+</script>
 </head>
 <body>
 
@@ -478,8 +495,8 @@ h3.sec{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;m
     <li><b>Проверка.</b> Поставь SAG на 0 и сверь таблицу с паспортом: reach, stack и углы обязаны совпасть. Если не совпали — где-то опечатка во вводе.</li>
   </ol>
   <div class="chips">
-    <a href="index.html">→ Ввести геометрию рамы</a>
-    <a href="fit-lab.html">→ Смоделировать посадку</a>
+    <a href="index.html" data-goatcounter-click="help-to-geometry">→ Ввести геометрию рамы</a>
+    <a href="fit-lab.html" data-goatcounter-click="help-to-fitlab">→ Смоделировать посадку</a>
   </div>
 </div>
 
@@ -771,5 +788,8 @@ function drawBodyFig(){
 
 drawFrameFig(); drawCkFig(); drawBodyFig();
 </script>
+
+<script data-goatcounter="https://evo-expirience.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

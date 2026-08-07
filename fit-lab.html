@@ -111,6 +111,23 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 .nav a[aria-current] .nsub{color:#b9b9b9}
 @media(max-width:600px){.nav a .nsub{display:none}}
 </style>
+
+<script>
+/* Отключить аналитику для себя: открыть любую страницу с #toggle-goatcounter.
+   Обрабатываем здесь, а не в count.js: наши страницы переписывают хеш своим
+   состоянием раньше, чем успевает догрузиться асинхронный count.js, и его
+   собственная проверка переключателя до хеша уже не доживает. */
+(function(){
+  if (location.hash !== '#toggle-goatcounter') return;
+  var off;
+  try{
+    off = localStorage.getItem('skipgc') !== 't';
+    if (off) localStorage.setItem('skipgc','t'); else localStorage.removeItem('skipgc');
+  }catch(e){ return; }
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){ location.hash=''; }
+  alert('Аналитика в этом браузере ' + (off ? 'ВЫКЛЮЧЕНА' : 'ВКЛЮЧЕНА') + '.');
+})();
+</script>
 </head>
 <body>
 
@@ -171,6 +188,16 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 </div>
 
 <script>
+/* Событие в GoatCounter. Скрипт грузится async и может не загрузиться вовсе
+   (блокировщик), поэтому вызов всегда защищён и молча ничего не делает.
+   no_session — чтобы считался каждый клик, а не первый за сессию. */
+function track(name){
+  try{
+    if(window.goatcounter && window.goatcounter.count)
+      window.goatcounter.count({path:name, event:true, no_session:true});
+  }catch(e){}
+}
+
 /* ===================== утилиты ===================== */
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
@@ -771,7 +798,7 @@ function buildInputs(){
   });
   psRefresh();
 }
-function setTorso(v){ state.fit.torso=v; buildInputs(); render(); }
+function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; buildInputs(); render(); }
 
 /* ==================== пресеты ====================
    Тот же формат и тот же ключ, что на странице сравнения: пресеты рам,
@@ -873,12 +900,12 @@ function psExport(){
   a.download='bike-presets-'+new Date().toISOString().slice(0,10)+'.json';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  psToast('файл скачан');
+  track('preset-export'); psToast('файл скачан');
 }
 function psImport(file){
   const r=new FileReader();
   r.onload=()=>{ let n=false; try{ n=PS.merge(JSON.parse(r.result)); }catch(e){}
-    if(n){ psRefresh(); psToast(`загружено пресетов: ${n}`); }
+    if(n){ psRefresh(); track('preset-import'); psToast(`загружено пресетов: ${n}`); }
     else psToast('не похоже на файл пресетов',true); };
   r.onerror=()=>psToast('не смог прочитать файл',true);
   r.readAsText(file);
@@ -944,7 +971,7 @@ document.addEventListener('change',e=>{
   if(!data){ psToast('пресет не найден',true); return; }
   psName[psKey(kind,slot)]=name;
   psApply(kind,slot,psPick(kind,data),name);
-  psRefresh(); psToast('загружен: '+name);
+  psRefresh(); track('preset-load-'+kind); psToast('загружен: '+name);
 });
 document.addEventListener('click',e=>{
   const t=e.target; if(!t.closest) return;
@@ -955,7 +982,7 @@ document.addEventListener('click',e=>{
     if(!name){ psToast('сначала впиши имя',true); return; }
     if(!PS.save(kind,name,psCollect(kind))){ psToast('не удалось сохранить',true); return; }
     psSel[psKey(kind,slot)]='u:'+name; psName[psKey(kind,slot)]=name;
-    psRefresh(); psToast('сохранено: '+name);
+    psRefresh(); track('preset-save-'+kind); psToast('сохранено: '+name);
   } else if(del){
     const row=del.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
     const cur=psSel[psKey(kind,slot)]||'';
@@ -963,7 +990,7 @@ document.addEventListener('click',e=>{
     const name=cur.slice(2);
     if(!confirm(`Удалить пресет «${name}»?`)) return;
     PS.del(kind,name); psSel[psKey(kind,slot)]='';
-    psRefresh(); psToast('удалён: '+name);
+    psRefresh(); track('preset-delete-'+kind); psToast('удалён: '+name);
   }
 });
 window.addEventListener('storage',e=>{ if(e.key===PS_KEY) psRefresh(); });
@@ -994,6 +1021,7 @@ function hashToState(){
 function syncHash(){ try{ const h=stateToHash(); if(location.hash!==h) history.replaceState(null,'',h); }catch(e){} }
 function currentLink(){ return location.href.split('#')[0]+stateToHash(); }
 function copyLink(){
+  track('fit-copy-link');
   const url=currentLink(), done=()=>{const el=document.getElementById('copyok');el.style.visibility='visible';clearTimeout(copyLink._t);copyLink._t=setTimeout(()=>el.style.visibility='hidden',2200);};
   if(navigator.clipboard&&window.isSecureContext) navigator.clipboard.writeText(url).then(done,()=>fb(url,done)); else fb(url,done);
 }
@@ -1004,6 +1032,7 @@ function fb(text,done){
   document.body.removeChild(ta);
 }
 function doPrint(){
+  track('fit-pdf');
   const M=solveFit();
   document.getElementById('printhead').innerHTML=
     `<div style="font-size:11px;margin:0 0 8px"><b>${esc(state.bike.name)}</b> — ход ${state.bike.travel} мм, sag ${state.bike.sag}% · `
@@ -1019,5 +1048,8 @@ buildInputs();
 render();
 window.addEventListener('hashchange',()=>{ if(location.hash!==stateToHash()&&hashToState()){ buildInputs(); render(); }});
 </script>
+
+<script data-goatcounter="https://evo-expirience.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

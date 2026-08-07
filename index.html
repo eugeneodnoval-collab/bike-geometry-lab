@@ -129,6 +129,23 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 @media(max-width:600px){.nav a .nsub{display:none}}
 @media print{.nav{display:none!important}}
 </style>
+
+<script>
+/* Отключить аналитику для себя: открыть любую страницу с #toggle-goatcounter.
+   Обрабатываем здесь, а не в count.js: наши страницы переписывают хеш своим
+   состоянием раньше, чем успевает догрузиться асинхронный count.js, и его
+   собственная проверка переключателя до хеша уже не доживает. */
+(function(){
+  if (location.hash !== '#toggle-goatcounter') return;
+  var off;
+  try{
+    off = localStorage.getItem('skipgc') !== 't';
+    if (off) localStorage.setItem('skipgc','t'); else localStorage.removeItem('skipgc');
+  }catch(e){ return; }
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){ location.hash=''; }
+  alert('Аналитика в этом браузере ' + (off ? 'ВЫКЛЮЧЕНА' : 'ВКЛЮЧЕНА') + '.');
+})();
+</script>
 </head>
 <body>
 
@@ -180,6 +197,16 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 </div>
 
 <script>
+/* Событие в GoatCounter. Скрипт грузится async и может не загрузиться вовсе
+   (блокировщик), поэтому вызов всегда защищён и молча ничего не делает.
+   no_session — чтобы считался каждый клик, а не первый за сессию. */
+function track(name){
+  try{
+    if(window.goatcounter && window.goatcounter.count)
+      window.goatcounter.count({path:name, event:true, no_session:true});
+  }catch(e){}
+}
+
 /* ================= модель ================= */
 const rad = d => d*Math.PI/180, deg = r => r*180/Math.PI;
 const V = {
@@ -650,12 +677,12 @@ function psExport(){
   a.download='bike-presets-'+new Date().toISOString().slice(0,10)+'.json';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  psToast('файл скачан');
+  track('preset-export'); psToast('файл скачан');
 }
 function psImport(file){
   const r=new FileReader();
   r.onload=()=>{ let n=false; try{ n=PS.merge(JSON.parse(r.result)); }catch(e){}
-    if(n){ psRefresh(); psToast(`загружено пресетов: ${n}`); }
+    if(n){ psRefresh(); track('preset-import'); psToast(`загружено пресетов: ${n}`); }
     else psToast('не похоже на файл пресетов',true); };
   r.onerror=()=>psToast('не смог прочитать файл',true);
   r.readAsText(file);
@@ -689,7 +716,7 @@ document.addEventListener('change',e=>{
   const data=(v.slice(0,2)==='b:'?BUILTIN[kind]:(PS.read()[kind]||{}))[name];
   if(!data){ psToast('пресет не найден',true); return; }
   psApply(kind,slot,psPick(kind,data),name);
-  psRefresh(); psToast('загружен: '+name);
+  psRefresh(); track('preset-load-'+kind); psToast('загружен: '+name);
 });
 document.addEventListener('click',e=>{
   const t=e.target; if(!t.closest) return;
@@ -700,7 +727,7 @@ document.addEventListener('click',e=>{
     if(!name){ psToast('сначала впиши имя',true); return; }
     if(!PS.save(kind,name,psCollect(kind,slot))){ psToast('не удалось сохранить',true); return; }
     psSel[psKey(kind,slot)]='u:'+name;
-    psRefresh(); psToast('сохранено: '+name);
+    psRefresh(); track('preset-save-'+kind); psToast('сохранено: '+name);
   } else if(del){
     const row=del.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
     const cur=psSel[psKey(kind,slot)]||'';
@@ -708,7 +735,7 @@ document.addEventListener('click',e=>{
     const name=cur.slice(2);
     if(!confirm(`Удалить пресет «${name}»?`)) return;
     PS.del(kind,name); psSel[psKey(kind,slot)]='';
-    psRefresh(); psToast('удалён: '+name);
+    psRefresh(); track('preset-delete-'+kind); psToast('удалён: '+name);
   }
 });
 // другая вкладка изменила пресеты — подхватываем список
@@ -742,6 +769,7 @@ function fitLabLink(i){
 }
 
 function openInFit(i){
+  track('geo-open-fitlab');
   window.open(fitLabLink(i), '_blank', 'noopener');
 }
 
@@ -793,6 +821,7 @@ function currentLink(){
 }
 
 function copyLink(){
+  track('geo-copy-link');
   const url = currentLink();
   const done = ()=>{
     const el = document.getElementById('copyok');
@@ -815,6 +844,7 @@ function fallback(text, done){
 
 /* ================= печать ================= */
 function doPrint(){
+  track('geo-pdf');
   const S = state.bikes.map(solve);
   document.getElementById('printhead').innerHTML =
     `<div style="font-size:11px;margin:0 0 8px">` +
@@ -866,5 +896,8 @@ window.addEventListener('hashchange', ()=>{
   }
 });
 </script>
+
+<script data-goatcounter="https://evo-expirience.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
