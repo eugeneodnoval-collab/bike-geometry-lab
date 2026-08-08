@@ -746,19 +746,27 @@ function drawFrameFig(){
   g.push(ln(P.front,[P.front[0],gy-200],MUT,3,'12 10',.75));
   g.push(hRul(gy-155,P.rear[0],P.front[0],'#666',`колёсная база ${BK.wb}`,S));
   // перья и подседельная — внутри заднего треугольника
-  g.push(tx([-262,100],`перья ${BK.cs}`,'#666',S));
-  g.push(tx([-208,236],`подседельная ${BK.st}`,'#666',S,'middle',600,-74));
+  g.push(tx([-268,118],`перья ${BK.cs}`,'#666',S));
+  // подседельная — вдоль трубы, но внутри переднего треугольника (справа от неё)
+  const staR=rad(BK.sta), stNrm=[Math.sin(staR),Math.cos(staR)];   // нормаль вправо от подседельной
+  const stOff=56-S*0.35;   // 56 — зазор до трубы, поправка на базовую линию текста
+  const stLab=[P.stTop[0]/2+stNrm[0]*stOff, P.stTop[1]/2+stNrm[1]*stOff];
+  g.push(tx(stLab,`подседельная ${BK.st}`,'#666',S,'middle',600,BK.sta));
   // рулевой стакан
   g.push(ln([525,568],[558,510],'#666',3,'8 7',.8));
   g.push(tx([566,492],`стакан ${BK.ht}`,'#666',S,'start'));
-  // угол рулевой
-  g.push(ln(P.htBot,[P.htBot[0]+340,P.htBot[1]],MUT,3,'12 10',.8));
-  g.push(arc(P.htBot,[P.htBot[0]+340,P.htBot[1]],P.htTop,195,ACC));
-  g.push(tx([P.htBot[0]+250,P.htBot[1]+82],`рулевая ${BK.hta}°`,ACC,S,'start'));
+  // угол рулевой — ось рулевой продлена вниз до уровня осей колёс, угол снизу слева от неё
+  const uD=[Math.cos(rad(BK.hta)),-Math.sin(rad(BK.hta))];        // вниз по оси рулевой
+  const tA=(P.htTop[1]-P.front[1])/Math.sin(rad(BK.hta));
+  const axB=[P.htTop[0]+uD[0]*tA, P.front[1]];                    // ось на высоте осей колёс
+  g.push(ln(P.htBot,axB,MUT,3,'12 10',.8));
+  g.push(ln(axB,[axB[0]-300,axB[1]],MUT,3,'12 10',.8));
+  g.push(arc(axB,[axB[0]-300,axB[1]],P.htTop,150,ACC));
+  g.push(tx([axB[0]-160,axB[1]+112],`рулевая ${BK.hta}°`,ACC,S,'middle'));
   // угол подседельной
   g.push(ln(P.BB,[-400,0],MUT,3,'12 10',.8));
-  g.push(arc(P.BB,[-400,0],P.stTop,220,BLU));
-  g.push(tx([-300,-62],`подседельная ${BK.sta}°`,BLU,S,'end'));
+  g.push(arc(P.BB,[-400,0],P.stTop,150,BLU));
+  g.push(tx([-250,-62],`подседельная ${BK.sta}°`,BLU,S,'end'));
   // подписи ключевых точек
   g.push(tx([P.htTop[0]+22,P.htTop[1]+62],'верх рулевого стакана — сюда идут reach и stack',ACC,29,'start'));
   g.push(tx([-48,-62],'каретка',FR,29,'end'));
