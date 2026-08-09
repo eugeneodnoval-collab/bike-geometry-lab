@@ -314,7 +314,7 @@ const state={
    смена хода удлиняет её вдоль оси рулевой, sag укорачивает,
    рама доворачивается вокруг задней оси до касания земли передним колесом.
    Результат сдвинут так, что земля z=0, каретка x=0. */
-function solveFrame(){
+function solveFrame(sagOverride){
   const b=state.bike, R=state.wheelR;
   const hta=rad(b.hta), sta=rad(b.sta);
   const htTop=[b.reach,b.stack];
@@ -325,7 +325,7 @@ function solveFrame(){
   const front=[b.wb+rear[0], b.bbDrop];
   const fk=[front[0]-htBot[0], front[1]-htBot[1]];
   const dRef=fk[0]*u[0]+fk[1]*u[1], oRef=fk[0]*p[0]+fk[1]*p[1];
-  const sagMM=b.travel*(b.sag||0)/100;
+  const sagMM=b.travel*(sagOverride!=null?sagOverride:(b.sag||0))/100;
   const dNew=dRef+(b.travel-b.travelRef)-sagMM;
   const fkN=[u[0]*dNew+p[0]*oRef, u[1]*dNew+p[1]*oRef];
   const W=[htBot[0]-rear[0]+fkN[0], htBot[1]-rear[1]+fkN[1]];
@@ -340,8 +340,17 @@ function solveFrame(){
   const gy=P.rear[1]-R, ox=-P.BB[0], oz=-gy;
   const shift=q=>[q[0]+ox,q[1]+oz];
   P=Object.fromEntries(Object.entries(P).map(([k,v])=>[k,shift(v)]));
+  /* theta — доворот рамы вокруг задней оси относительно паспортной ориентации,
+     против часовой (нос вверх). Всё, что жёстко закреплено на раме, поворачивается
+     вместе с ней: вынос это уже получает через фактический угол рулевой, а рулю
+     нужен явный угол — см. solveCockpit.
+     pitchSag — доворот относительно СТОЯЩЕГО велосипеда (тот же ход, sag 0):
+     именно в этом состоянии руль выставляют по уровню. Знак переведён в конвенцию
+     ролла: плюс = руль клюнул вперёд. */
+  const theta=deg(th);
+  const pitchSag = sagOverride!=null ? 0 : -(theta - solveFrame(0).theta);
   return {P,hta:htaN,sta:staN,reach,stack,bbH:P.BB[1],wb:P.front[0]-P.rear[0],
-          offset:oRef,sagMM,wheelR:R,
+          offset:oRef,sagMM,wheelR:R,theta,pitchSag,
           trail:(R/Math.tan(rad(htaN)))-oRef/Math.sin(rad(htaN))};
 }
 
@@ -363,8 +372,12 @@ function solveCockpit(F){
   const bs=rad(c.backsweep), us=rad(c.upsweep);
   // смещение ручки от центра руля до поворота руля в обхвате
   let d=[ -s*Math.sin(bs)*Math.cos(us), c.riserBendHalf+s*Math.cos(bs)*Math.cos(us), c.barRise+s*Math.sin(us) ];
-  // ролл руля в обхвате: поворот вокруг поперечной оси
-  const r=rad(c.barRoll);
+  /* Поворот вокруг поперечной оси, два слагаемых:
+     barRoll — как ты провернул руль в обхвате, выставляя его на СТОЯЩЕМ велосипеде;
+     pitchSag — доворот рамы под просадкой вилки. Руль закреплён на раме жёстко,
+     поэтому клюёт вперёд вместе с ней; без этого члена он вёл бы себя так, будто
+     подвешен в кардане и сам подкручивается обратно по мере просадки. */
+  const r=rad(c.barRoll + (F.pitchSag||0));
   d=[ d[0]*Math.cos(r)+d[2]*Math.sin(r), d[1], -d[0]*Math.sin(r)+d[2]*Math.cos(r) ];
   const grip=[bar[0]+d[0], d[1], bar[2]+d[2]];
   // край руля и точка отгиба — для вида сверху
@@ -637,10 +650,16 @@ function solveStand(M){
        а земля наклоняется вместе с ним — рисуется касательной к обоим колёсам.
      В обоих случаях шатуны горизонтальны в мировых координатах (стопы держат
      уровень относительно гравитации), гравитация вертикальна. */
-  let P2,steer2,bar2,grip3,sat2,sta2;
+  let P2,steer2,bar2,grip3,sat2,sta2,gax3;
+  /* Ось грипсы — направление, а не точка: поворачивается тем же углом, но без
+     переноса. Боковая координата на оси вращения не меняется. Нужна, чтобы залом
+     запястья можно было считать и в стойке: при наклоне до 45° невращённая ось
+     дала бы ошибку в те же 45°. */
+  const axOf=C=>[C.barEnd[0]-C.barBend[0], C.barEnd[1]-C.barBend[1], C.barEnd[2]-C.barBend[2]];
+  const rotAx=(a,c,s)=>[a[0]*c-a[2]*s, a[1], a[0]*s+a[2]*c];
   if(!pitch){
     P2=F.P; steer2=[CO.steer[0],CO.steer[2]]; bar2=[CO.bar[0],CO.bar[2]];
-    grip3=CO.grip; sat2=M.sat; sta2=F.sta;
+    grip3=CO.grip; sat2=M.sat; sta2=F.sta; gax3=axOf(CO);
   } else if(pitch<0){
     // спуск: рама как есть (рабочий sag), жёсткий поворот вокруг задней оси
     const th=rad(pitch), c=Math.cos(th), s=Math.sin(th), Pv=F.P.rear;
@@ -649,11 +668,10 @@ function solveStand(M){
     steer2=rot([CO.steer[0],CO.steer[2]]); bar2=rot([CO.bar[0],CO.bar[2]]);
     const g2=rot([CO.grip[0],CO.grip[2]]);
     grip3=[g2[0],CO.grip[1],g2[1]];
-    sat2=rot([M.sat[0],M.sat[1]]); sta2=F.sta+pitch;
+    sat2=rot([M.sat[0],M.sat[1]]); sta2=F.sta+pitch; gax3=rotAx(axOf(CO),c,s);
   } else {
-    const sagSave=state.bike.sag; let F0,CO0;
-    try{ state.bike.sag=0; F0=solveFrame(); CO0=solveCockpit(F0); }
-    finally{ state.bike.sag=sagSave; }
+    // отрыв: вилка разгружена, поэтому кокпит пересобираем на разжатой раме
+    const F0=solveFrame(0), CO0=solveCockpit(F0);
     const sta0=rad(F0.sta);   // седло на разжатой раме: тот же вылет штыря и сетбек
     const sat0=[F0.P.BB[0]-M.satH*Math.cos(sta0)-M.setback, F0.P.BB[1]+M.satH*Math.sin(sta0)];
     const th=rad(pitch), c=Math.cos(th), s=Math.sin(th), Pv=F0.P.rear;
@@ -662,7 +680,7 @@ function solveStand(M){
     steer2=rot([CO0.steer[0],CO0.steer[2]]); bar2=rot([CO0.bar[0],CO0.bar[2]]);
     const g2=rot([CO0.grip[0],CO0.grip[2]]);
     grip3=[g2[0],CO0.grip[1],g2[1]];
-    sat2=rot(sat0); sta2=F0.sta+pitch;
+    sat2=rot(sat0); sta2=F0.sta+pitch; gax3=rotAx(axOf(CO0),c,s);
   }
   const BB=P2.BB;
   const ankF=[BB[0]+f.crank-M.pedalBack, BB[1]+M.pedalUp];
@@ -776,7 +794,7 @@ function solveStand(M){
   P.lamOut=armX>100 ? 100*clamp((P.CoM[0]-BB[0])/armX,-0.99,0.99) : null;
   P.clear=P.hip[1]-(state.body.hipAbove||35)-sat2[1];   // промежность ≈ таз − hipAbove
   P.frontPct=100*(P.CoM[0]-P2.rear[0])/(P2.front[0]-P2.rear[0]);
-  P.P=P2; P.steer=steer2; P.bar=bar2; P.grip3=grip3; P.sat=sat2; P.sta=sta2; P.pitch=pitch;
+  P.P=P2; P.steer=steer2; P.bar=bar2; P.grip3=grip3; P.gax3=gax3; P.sat=sat2; P.sta=sta2; P.pitch=pitch;
   return P;
 }
 
@@ -1258,7 +1276,7 @@ const F_FRAME=[['reach','Reach',1],['stack','Stack',0.5],['hta','Угол рул
 const F_CK=[['stemLen','Длина выноса',5],['stemAngle','Угол выноса, °',1],['spacers','Проставки',5],
   ['barWidth','Ширина руля',10],['barRise','Rise руля',5],['backsweep','Загиб назад, °',1]];
 const F_CK_ADV=[['headsetStack','Чашка рулевой над стаканом',1],['stemClampH','Высота обхвата выноса',1],
-  ['upsweep','Подъём руля (upsweep), °',1],['barRoll','Ролл руля в обхвате, °',1],
+  ['upsweep','Подъём руля (upsweep), °',1],['barRoll','Ролл руля, на стоящем байке, °',1],
   ['gripInset','Отступ хвата от края',5],['riserBendHalf','Начало отгиба от центра',5]];
 const F_BODY=[['height','Рост',10],['inseam','Inseam (шаговый, босиком)',5],['shoulderW','Ширина плеч',5],['armLen','Длина руки (плечо → запястье)',5],['weight','Вес, кг',1]];
 const F_BODY_MEAS=[['sitHeight','Рост сидя',5],['trunkLen','Торс: вертел → акромион',5],
