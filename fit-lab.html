@@ -70,6 +70,17 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 .warn.bad{color:#8c1d18;background:#fdecea;border-color:#f3c4bf}
 .warn b{font-weight:650}
 .srcline{font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.45}
+/* ---- управление стойкой ---- */
+.standctl{display:grid;gap:7px;margin:0 0 10px}
+.standctl .srow{display:flex;align-items:center;gap:10px;font-size:13px}
+.standctl .slbl{min-width:168px;display:flex;align-items:baseline;gap:6px}
+.standctl .slbl .tval{min-width:0;text-align:left}
+.standctl input[type=range]{flex:1;accent-color:var(--c1)}
+.stauto{color:#0a7d33;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.standwrap{display:flex;align-items:stretch;gap:4px}
+.standwrap #stand{flex:1;min-width:0}
+.vslid{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--mut);flex:0 0 auto}
+input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex:1;min-height:230px;accent-color:var(--c1)}
 .lg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:9px}
 /* ---- строка пресетов (одинаковая на обеих страницах) ---- */
 .psbox{margin:0 0 12px;padding-bottom:11px;border-bottom:1px dashed #ddd}
@@ -177,11 +188,37 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
   </div>
 </div>
 
-<div class="card"><h3>Стойка на педалях — атакующая</h3><div id="stand"></div>
-  <div class="hint">Шатуны горизонтально, таз оторван от седла. Ты задаёшь средний угол колена (высоту стойки)
-  и угол локтя — слайдеры в блоке «Стойка» карточки райдера. Продольное положение таза модель находит из равновесия:
-  центр масс встаёт между педалями и ручками с заданной долей веса на руках. Наклон корпуса стоя — результат, а не настройка.
-  Именно в этой позе имеет смысл RAD: сверь строку RAD в таблице с ощущением запаса хода рук здесь.</div></div>
+<div class="card"><h3>Стойка на педалях — атакующая</h3>
+  <div class="standctl noprint">
+    <div class="srow">
+      <span class="slbl">Колено (среднее) <span class="tval" id="st_knee_v"></span><em class="stauto" id="st_knee_a">авто</em></span>
+      <input type="range" id="st_knee" min="90" max="175" step="1">
+    </div>
+    <div class="srow">
+      <span class="slbl">Локоть <span class="tval" id="st_elbow_v"></span><em class="stauto" id="st_elbow_a">авто</em></span>
+      <input type="range" id="st_elbow" min="60" max="178" step="1">
+    </div>
+    <div class="srow">
+      <span class="slbl">Таз: вперёд ⇄ назад <span class="tval" id="st_hip_v"></span><em class="stauto" id="st_hip_a">авто</em></span>
+      <input type="range" id="st_hip" step="10" style="direction:rtl">
+      <button id="st_auto" title="Колено, локоть и таз — в автоматический режим">Авто</button>
+    </div>
+  </div>
+  <div class="standwrap">
+    <div id="stand"></div>
+    <div class="vslid noprint"><span>отрыв ↑</span><input type="range" id="st_pitch" class="vslider" min="-45" max="45" step="1"><span id="st_pitch_v"></span><span>↓ спуск</span></div>
+  </div>
+  <details class="noprint" open><summary>Как это работает</summary>
+  <div class="hint">Шатуны горизонтально, таз оторван от седла. Колено (среднее двух ног) задаёт высоту стойки:
+  130–135° — низкая атакующая, 140–145 — обычная, 150+ — высокая. Локоть 120–135° — рабочий запас хода рук.
+  Таз — главная ручка развесовки: границы слайдера считаются из габаритов велосипеда и длин твоих ног и рук;
+  в режиме «авто» на ровной стойке таз встаёт из равновесия (~10% веса на руках), при наклоне — берётся вынос
+  из ровной стойки. Двигаешь любой из трёх слайдеров — он выходит из «авто», остальные остаются автоматическими;
+  кнопка «Авто» возвращает все три. Наклон корпуса стоя — результат, а не настройка.
+  Вертикальный слайдер — наклон велосипеда: вверх — отрыв (переднее колесо в воздухе, вилка разжата;
+  15–25° прыжок, 30–45° мануал), вниз — спуск (земля наклоняется вместе с велосипедом, оба колеса на склоне,
+  вилка под sag). Именно в стойке имеет смысл RAD — сверь строку RAD в таблице с запасом хода рук здесь.</div></details>
+</div>
 
 <div class="card"><h3>Вид сверху — ширина руля против плеч</h3><div id="top"></div></div>
 
@@ -269,7 +306,7 @@ const state={
          footLen:null, heelToMet:null, sitBoneW:null, weight:null, shExt:null,
          spineFlex:null, lumbarPivot:null, palmDiag:null },
   fit:{ crank:170, qFactor:172, torso:58, kneeTarget:145, postOffset:0, railPos:0, radMult:4.47, pedalUp:null, pedalBack:null, pedalShare:20,
-        kneeStand:140, elbowStand:130, handShareStand:10, bikePitch:0, hipBackStand:null, elbowFlare:30 }
+        kneeStand:null, elbowStand:null, handShareStand:10, bikePitch:0, hipBackStand:null, elbowFlare:30 }
 };
 
 /* ===================== 1. рама ===================== */
@@ -719,6 +756,18 @@ function solveStand(M){
   }
   P.ankF=ankF; P.ankR=ankR; P.lam=lam; P.kneeT=kneeT; P.elbowT=elbowT;
   P.hipBack=BB[0]-P.hip[0]; P.hipBackSet=f.hipBackStand!=null;
+  /* Границы продольного положения таза — где поза остаётся физичной:
+     руки дотягиваются, торс между 5° и 102°, ни одно колено не в замке.
+     Считаются из габаритов велосипеда и длин конечностей — для слайдера. */
+  {
+    const feas=x=>{ const q=pose(x);
+      return !q.over && q.torso>5 && q.torso<102 && Math.max(q.kneeF,q.kneeR)<174; };
+    let xMin=null,xMax=null;
+    for(let x=BB[0]-650;x<=BB[0]+250;x+=25){ if(feas(x)){ if(xMin==null)xMin=x; xMax=x; } }
+    if(xMin==null){ xMin=BB[0]-300; xMax=BB[0]; }
+    P.hipBackMin=Math.ceil((BB[0]-xMax)/10)*10;
+    P.hipBackMax=Math.floor((BB[0]-xMin)/10)*10;
+  }
   /* Подразумеваемая доля веса на руках: где ЦМ стоит между педалями и ручками.
      Отрицательная = ЦМ позади каретки, руки подтягивают руль (мануал).
      Если ручки почти над кареткой (сильный наклон), продольное плечо вырождается
@@ -924,7 +973,7 @@ function drawStand(M,ST){
   // центр масс
   g.push(`<circle cx="${ST.CoM[0].toFixed(1)}" cy="${(-ST.CoM[1]).toFixed(1)}" r="40" fill="none" stroke="${VIO}" stroke-width="5"/><circle cx="${ST.CoM[0].toFixed(1)}" cy="${(-ST.CoM[1]).toFixed(1)}" r="18" fill="${VIO}"/>`);
   g.push(ln(ST.CoM,[ST.CoM[0],-200],VIO,4,'16 13',.85));
-  const lamTxt=(ST.hipBackSet||ST.pitch)?(ST.lamOut==null?'—':ST.lamOut.toFixed(0)+'% (выход)'):(ST.lam*100).toFixed(0)+'% (задано)';
+  const lamTxt=(ST.hipBackSet||ST.pitch)?(ST.lamOut==null?'—':ST.lamOut.toFixed(0)+'% (выход)'):(ST.lam*100).toFixed(0)+'% (авто)';
   g.push(tx(ST.CoM[0],-260,`ЦМ: перед ${ST.frontPct.toFixed(0)}% / зад ${(100-ST.frontPct).toFixed(0)}% · на руках ${lamTxt}`,VIO,34,'middle',600));
   const top=Math.max(ST.HEAD[1]+S.headR+140, G[2]+300, P.front[1]+R+140);
   const bot=Math.max(340, -(P.front[1]-R)+200);   // на спуске земля уходит ниже нуля
@@ -1047,7 +1096,7 @@ function buildTable(M,ST){
   h+=r('Колено: переднее / заднее', ST.kneeF.toFixed(0)+'° / '+ST.kneeR.toFixed(0)+'°',
        `цель по среднему ${ST.kneeT}°; заднее прямее, потому что таз позади каретки`);
   h+=r('Таз назад от каретки', ST.hipBack.toFixed(0)+' мм',
-       ST.hipBackSet?'задан тобой — главная ручка развесовки':(ST.pitch?'авто: вынос таза из ровной стойки':'авто: из равновесия с заданным весом на руках'));
+       ST.hipBackSet?'задан слайдером — главная ручка развесовки':(ST.pitch?'авто: вынос таза из ровной стойки':'авто: из равновесия, ~10% веса на руках'));
   h+=r('Наклон корпуса стоя', ST.torso.toFixed(0)+'°','выход модели — из целевых колена, локтя и положения таза');
   h+=r('Локоть стоя', ST.elbow.toFixed(0)+'°',
        ST.stretch?'целевой угол недостижим — рука распрямлена до предела':'задан целью; это запас хода рук на кочках',
@@ -1060,7 +1109,7 @@ function buildTable(M,ST){
          ? (ST.lamOut==null?'ручки почти над кареткой — продольная развесовка через руки не определена'
            :ST.lamOut<0?`ЦМ позади каретки: руки подтягивают руль (${ST.lamOut.toFixed(0)}%) — мануальное положение`
                        :`на руках получается ${ST.lamOut.toFixed(0)}% веса — выход, а не задание`)
-         : `при ${(ST.lam*100).toFixed(0)}% веса на руках (поле «Вес на руках стоя»)`);
+         : `из равновесия при ${(ST.lam*100).toFixed(0)}% веса на руках (допущение авто-режима)`);
   if(state.body.weight!=null&&state.body.weight>0&&ST.lamOut!=null){
     const Wt=state.body.weight, lm=clamp(ST.lamOut/100,-0.99,0.99);
     const Fh2=Wt*lm, Fp2=Wt-Fh2;
@@ -1174,6 +1223,7 @@ function render(){
   const M=solveFit(), ST=solveStand(M);
   document.getElementById('side').innerHTML=drawSide(M);
   document.getElementById('stand').innerHTML=drawStand(M,ST);
+  try{ stSync(ST); }catch(e){}
   document.getElementById('top').innerHTML=drawTop(M);
   buildTable(M,ST); buildWarns(M,ST);
   try{ buildSetup(M); sensRender(); }catch(e){}
@@ -1282,15 +1332,6 @@ function buildInputs(){
       Каждый введённый замер заменяет свою долю: рост сидя или прямой замер торса уточняет наклон и вылет,
       бедро и голень — высоту седла и сетбек, сегменты руки — угол локтя, стопа — положение лодыжки над педалью.
       Как снимать замеры — на странице справки.</div></details>
-    <details><summary>Стойка на педалях</summary><div class="grid">${fields(F_STAND,'fit')}</div>
-      <div class="hint">Колено 130–135° — низкая атакующая стойка, 140–145 — обычная, 150+ — высокая прогулочная.
-      Локоть 120–135 — рабочий запас. <b>Таз назад от каретки — главная ручка развесовки:</b> пустое поле = авто
-      (в ровной стойке — из равновесия с заданным весом на руках; в наклоне — вынос таза из ровной стойки),
-      число = ставишь таз сам, а доля веса на руках становится выходом в таблице. Ориентиры: 100–200 — нейтральная
-      стойка, 250–400 — таз за седлом на крутом спуске или в мануале.
-      Наклон велосипеда: <b>плюс</b> — отрыв (переднее колесо в воздухе, вилка разжимается; 15–25° прыжок,
-      30–45° мануал), <b>минус</b> — спуск (земля наклоняется вместе с велосипедом, оба колеса на склоне,
-      вилка под sag; −10…−15° — крутая тропа, −20…−25° — очень крутой спуск).</div></details>
     <details><summary>Дополнительно</summary><div class="grid">${fields(F_BODY_ADV,'body')}${fields(F_FIT_ADV,'fit')}</div>
       <div class="hint">Пустое поле = считается автоматически из роста и inseam. «Вес на педалях» — допущение для развесовки:
       ~20% при спокойном педалировании сидя, ~10% если ноги совсем расслаблены, больше — если активно давишь.</div></details>
@@ -1901,8 +1942,42 @@ function buildSetup(M){
   box.innerHTML=h;
 }
 
+/* ===================== 13. управление стойкой ===================== */
+/* Статические слайдеры (не пересобираются при render — иначе рвётся drag).
+   Колено/локоть/таз: null = авто; сдвиг слайдера выводит из авто только его.
+   Наклон — вертикальный слайдер: вверх отрыв, вниз спуск. */
+function stCtlInit(){
+  const on=(id,fn)=>{ const q=document.getElementById(id); if(q) q.addEventListener('input',()=>{ fn(q); render(); }); };
+  on('st_knee', q=>{ state.fit.kneeStand=+q.value; });
+  on('st_elbow',q=>{ state.fit.elbowStand=+q.value; });
+  on('st_hip',  q=>{ state.fit.hipBackStand=+q.value; });
+  on('st_pitch',q=>{ state.fit.bikePitch=+q.value; });
+  const a=document.getElementById('st_auto');
+  if(a) a.addEventListener('click',()=>{ state.fit.kneeStand=null; state.fit.elbowStand=null; state.fit.hipBackStand=null; track('fit-stand-auto'); render(); });
+}
+function stSync(ST){
+  const set=(id,val,txt,auto)=>{
+    const s=document.getElementById(id), v=document.getElementById(id+'_v'), ab=document.getElementById(id+'_a');
+    if(!s) return;
+    if(document.activeElement!==s) s.value=val;
+    if(v) v.textContent=txt;
+    if(ab) ab.style.display=auto?'':'none';
+  };
+  const hipEl=document.getElementById('st_hip');
+  if(hipEl){
+    const mn=Math.min(ST.hipBackMin, Math.round(ST.hipBack)), mx=Math.max(ST.hipBackMax, Math.round(ST.hipBack));
+    if(+hipEl.min!==mn) hipEl.min=mn;
+    if(+hipEl.max!==mx) hipEl.max=mx;
+  }
+  set('st_knee', Math.round(ST.kneeT), ST.kneeT.toFixed(0)+'°', state.fit.kneeStand==null);
+  set('st_elbow',Math.round(ST.elbowT),ST.elbowT.toFixed(0)+'°'+(ST.stretch?' → '+ST.elbow.toFixed(0)+'°':''), state.fit.elbowStand==null);
+  set('st_hip',  Math.round(ST.hipBack), ST.hipBack.toFixed(0)+' мм', state.fit.hipBackStand==null);
+  set('st_pitch',ST.pitch, (ST.pitch>0?'+':'')+ST.pitch+'°', false);
+}
+
 hashToState();
 buildInputs();
+stCtlInit();
 render();
 jrRender();
 window.addEventListener('hashchange',()=>{ if(location.hash!==stateToHash()&&hashToState()){ buildInputs(); render(); }});
