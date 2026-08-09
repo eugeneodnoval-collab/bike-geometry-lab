@@ -82,6 +82,17 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 .vslid{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--mut);flex:0 0 auto}
 input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex:1;min-height:230px;accent-color:var(--c1)}
 .lg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:9px}
+
+/* сводка под видом сбоку — то, на что смотришь чаще всего */
+/* 300px минимума дают 3 колонки на широкой правой панели (3+3 при шести блоках),
+   2 на средней и 1 на телефоне — без отдельных брейкпоинтов */
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;align-content:start}
+.sumg{border:1px solid #e8eaee;border-radius:9px;padding:9px 11px;background:#fcfcfd}
+.sumg .gt{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;margin-bottom:5px}
+.sumr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:2px 0}
+.sumr .k{font-size:12.5px;color:#4a4f57}
+.sumr .v{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sumn{font-size:11.5px;color:#9aa1ac;margin-top:5px;line-height:1.45}
 /* ---- строка пресетов (одинаковая на обеих страницах) ---- */
 .psbox{margin:0 0 12px;padding-bottom:11px;border-bottom:1px dashed #ddd}
 .psrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -188,6 +199,29 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
   </div>
 </div>
 
+<div class="card"><h3>Сводка — то, на что смотришь чаще всего</h3>
+  <div id="summary"></div>
+  <div class="hint" style="margin-top:10px">Все эти числа есть и в полной таблице внизу — здесь они собраны наверх и сгруппированы по смыслу.</div>
+</div>
+
+<div class="card noprint" id="photocard">
+  <h3>Фото-калибровка — модель против факта</h3>
+  <div class="hint" style="margin:0 0 10px">Загрузи фото <b>строго сбоку</b>, сидя на велосипеде в рабочей позе,
+    ближняя к камере нога в нижней мёртвой точке. Камера на высоте каретки, подальше от велосипеда (зумом ближе) —
+    так меньше перспективных искажений. Фото никуда не отправляется и не сохраняется: обрабатывается только в браузере.</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <button onclick="document.getElementById('phfile').click()">Загрузить фото</button>
+    <input type="file" id="phfile" accept="image/*" style="display:none"
+           onchange="if(this.files[0])phLoad(this.files[0]);this.value=''">
+    <button onclick="phReset()" id="phreset" style="display:none">Сбросить точки</button>
+    <span class="hint" style="margin:0" id="phstatus"></span>
+  </div>
+  <div id="phwrap" style="display:none;touch-action:none"><svg id="phsvg"></svg></div>
+  <div id="phout"></div>
+</div>
+
+<div class="card"><h3>Вид сверху — ширина руля против плеч</h3><div id="top"></div></div>
+
 <div class="card"><h3>Стойка на педалях — атакующая</h3>
   <div class="standctl noprint">
     <div class="srow">
@@ -218,24 +252,7 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
   Вертикальный слайдер — наклон велосипеда: вверх — отрыв (переднее колесо в воздухе, вилка разжата;
   15–25° прыжок, 30–45° мануал), вниз — спуск (земля наклоняется вместе с велосипедом, оба колеса на склоне,
   вилка под sag). Именно в стойке имеет смысл RAD — сверь строку RAD в таблице с запасом хода рук здесь.</div></details>
-</div>
-
-<div class="card"><h3>Вид сверху — ширина руля против плеч</h3><div id="top"></div></div>
-
-<div class="card noprint" id="photocard">
-  <h3>Фото-калибровка — модель против факта</h3>
-  <div class="hint" style="margin:0 0 10px">Загрузи фото <b>строго сбоку</b>, сидя на велосипеде в рабочей позе,
-    ближняя к камере нога в нижней мёртвой точке. Камера на высоте каретки, подальше от велосипеда (зумом ближе) —
-    так меньше перспективных искажений. Фото никуда не отправляется и не сохраняется: обрабатывается только в браузере.</div>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-    <button onclick="document.getElementById('phfile').click()">Загрузить фото</button>
-    <input type="file" id="phfile" accept="image/*" style="display:none"
-           onchange="if(this.files[0])phLoad(this.files[0]);this.value=''">
-    <button onclick="phReset()" id="phreset" style="display:none">Сбросить точки</button>
-    <span class="hint" style="margin:0" id="phstatus"></span>
-  </div>
-  <div id="phwrap" style="display:none;touch-action:none"><svg id="phsvg"></svg></div>
-  <div id="phout"></div>
+  <div id="standtable" style="margin-top:12px"></div>
 </div>
 
 <div class="card">
@@ -1130,41 +1147,6 @@ function buildTable(M,ST){
   h+=r('Локоть вбок от плеча', M.elbowOut.toFixed(0)+' мм', `физический смысл разведения ${M.flare.toFixed(0)}°: при разгибе руки орбита локтя схлопывается и те же градусы дают меньший вынос`);
   h+=r('Отведение плеча', M.abduction.toFixed(0)+'°','&gt;45–50° под нагрузкой — зона импинджмента плеча', zone(Math.abs(M.abduction),[0,40],[0,50]));
   h+=r('Использование длины руки', M.armUse.toFixed(0)+' %',`по 3D: плечо → ручка ${M.armD3.toFixed(0)} − протракция ${M.shExtUsed.toFixed(0)} при руке ${S.armMax.toFixed(0)}. &gt;96% — руки в замок`, zone(M.armUse,[0,92],[0,96]));
-  h+=grp('Стойка на педалях — шатуны горизонтально');
-  if(ST.pitch>0) h+=r('Наклон велосипеда', '+'+ST.pitch+'°','отрыв: вращение вокруг задней оси, вилка разжата (sag 0); поза — форма стойки, не физика полёта');
-  else if(ST.pitch<0) h+=r('Спуск', (-ST.pitch)+'°','земля наклонена вместе с велосипедом, оба колеса на склоне, вилка под рабочим sag; статика без торможения');
-  h+=r('Колено: переднее / заднее', ST.kneeF.toFixed(0)+'° / '+ST.kneeR.toFixed(0)+'°',
-       `цель по среднему ${ST.kneeT}°; заднее прямее, потому что таз позади каретки`);
-  h+=r('Таз назад от каретки', ST.hipBack.toFixed(0)+' мм',
-       ST.hipBackSet?'задан слайдером — главная ручка развесовки':(ST.pitch?'авто: вынос таза из ровной стойки':'авто: из равновесия, ~10% веса на руках'));
-  h+=r('Наклон корпуса стоя', ST.torso.toFixed(0)+'°','выход модели — из целевых колена, локтя и положения таза');
-  h+=r('Локоть стоя, анатомический', ST.elbow.toFixed(0)+'°',
-       ST.stretch?'целевой угол недостижим — рука распрямлена до предела':'задан целью; это запас хода рук на кочках',
-       zone(ST.elbow,[100,150],[85,165]));
-  h+=r('Локоть стоя, в профиль', ST.elbowProj.toFixed(0)+'°',
-       Math.abs(ST.elbowProj-ST.elbow)>=1.5
-         ? `${sg(ST.elbowProj-ST.elbow)}° к анатомическому — разводит их разведение локтей ${M.flare.toFixed(0)}°`
-         : 'то, что видно сбоку; при слабом разведении почти совпадает');
-  h+=r('Локоть стоя вбок / отведение', `${ST.elbowOut.toFixed(0)} мм / ${ST.abduction.toFixed(0)}°`,
-       'разведение берётся из того же параметра, что и сидя — в атакующей стойке локти обычно шире',
-       zone(Math.abs(ST.abduction),[0,40],[0,50]));
-  h+=r('Таз над седлом (клиренс)', (ST.clear>0?'+':'')+ST.clear.toFixed(0)+' мм',
-       'промежность ≈ таз − hipAbove; меньше 60 мм — седло мешает стойке, нужен дроппер или ниже',
-       zone(ST.clear,[60,10000],[20,10000]));
-  h+=r('Центр масс стоя: перед / зад', ST.frontPct.toFixed(0)+' % / '+(100-ST.frontPct).toFixed(0)+' %',
-       (ST.hipBackSet||ST.pitch)
-         ? (ST.lamOut==null?'ручки почти над кареткой — продольная развесовка через руки не определена'
-           :ST.lamOut<0?`ЦМ позади каретки: руки подтягивают руль (${ST.lamOut.toFixed(0)}%) — мануальное положение`
-                       :`на руках получается ${ST.lamOut.toFixed(0)}% веса — выход, а не задание`)
-         : `из равновесия при ${(ST.lam*100).toFixed(0)}% веса на руках (допущение авто-режима)`);
-  if(state.body.weight!=null&&state.body.weight>0&&ST.lamOut!=null){
-    const Wt=state.body.weight, lm=clamp(ST.lamOut/100,-0.99,0.99);
-    const Fh2=Wt*lm, Fp2=Wt-Fh2;
-    h+=r('Руки / педали стоя', `${Fh2.toFixed(1)} / ${Fp2.toFixed(1)} кг`,
-         (Fh2<0?'руки тянут руль вверх, педали несут больше полного веса; ':'')
-         +'из положения таза и торса; статика'+(ST.pitch<0?' без торможения — на тормозах перед догрузится ощутимо сильнее':''),
-         Fh2>=0?zone(100*lm,[5,25],[0,32]):undefined);
-  }
   h+=grp('Плановая геометрия и баланс');
   h+=r('Ширина хвата', M.gripW.toFixed(0)+' мм', `руль ${state.ck.barWidth}, отступ хвата ${state.ck.gripInset} с каждой стороны`);
   h+=r('Хват / плечи', (M.gripW/S.shoulderW).toFixed(2)+'×','1.3–1.6 обычный диапазон для МТБ', zone(M.gripW/S.shoulderW,[1.30,1.62],[1.20,1.75]));
@@ -1187,6 +1169,83 @@ function buildTable(M,ST){
   }
   h+='</tbody></table>';
   document.getElementById('table').innerHTML=h;
+}
+
+/* Сводка под видом сбоку: то, на что смотришь при каждой итерации. Всё это есть
+   и в полной таблице ниже — здесь просто вынесено наверх и сгруппировано по смыслу. */
+function buildSummary(M,ST){
+  const el=document.getElementById('summary'); if(!el) return;
+  const sg=v=>(v>0?'+':'')+v.toFixed(0);
+  const row=(k,v,cls)=>`<div class="sumr"><span class="k">${k}</span><span class="v ${cls||''}">${v}</span></div>`;
+  const grp=(t,rows,note)=>`<div class="sumg"><div class="gt">${t}</div>${rows}${note?`<div class="sumn">${note}</div>`:''}</div>`;
+  let h='<div class="sum">';
+  h+=grp('Вынос', row('Подъём от горизонта', M.CO.elev.toFixed(1)+'°'),
+    `(90 − ${M.F.hta.toFixed(1)}° рулевой) + ${state.ck.stemFlip?-state.ck.stemAngle:state.ck.stemAngle}° выноса. Если выставляешь ролл руля по выносу, а не по горизонту — отсчитывай от этого угла.`);
+  h+=grp('Седло', row('Прямая каретка → седло', M.satStraight.toFixed(0)+' мм'),
+    'то, что меряется рулеткой от каретки до верха седла');
+  h+=grp('Вылет',
+    row('Седло → ручка, гориз.', M.s2gX.toFixed(0)+' мм')+row('Эффективный reach', M.effReach.toFixed(0)+' мм'),
+    'первое — тесно или длинно сидя, второе — насколько далеко ручка от каретки, когда наклоняешься');
+  h+=grp('RAD',
+    row('RAD', M.rad.toFixed(0)+' мм')
+    +row('Цель по росту', M.radTarget.toFixed(0)+' мм')
+    +row('Δ', sg(M.radDelta)+' мм', zone(Math.abs(M.radDelta),[0,10],[0,25]))
+    +row('RAAD', M.raad.toFixed(1)+'°'),
+    'считается на текущей просадке; для сверки с опубликованными ставь sag 0');
+  h+=grp('Поза',
+    row('Наклон корпуса', M.torso.toFixed(0)+'°')
+    +row('Длина руки', M.armUse.toFixed(0)+' %', zone(M.armUse,[0,92],[0,96])),
+    '&gt;96% — руки в замок, локоть не отработает кочку');
+  h+=grp('Кисти и баланс',
+    row('Предплечье / загиб', `${M.forearmPlan.toFixed(0)}° / ${M.sweepPlan.toFixed(0)}°`)
+    +row('Залом запястья', sg(M.wristDev)+'°', zone(Math.abs(M.wristDev),[0,6],[0,12]))
+    +row('Центр масс', M.frontPct.toFixed(0)+' / '+(100-M.frontPct).toFixed(0)+' %')
+    +row('На ладонях', M.load?`${M.load.Fh.toFixed(1)} кг (${M.load.hPct.toFixed(0)} %)`:'—',
+         M.load?zone(M.load.hPct,[8,22],[4,28]):''),
+    M.load?'ладони: 8–22% комфортно':'введи вес райдера, чтобы увидеть нагрузку на ладони');
+  el.innerHTML=h+'</div>';
+}
+
+/* Блок стойки живёт под своей схемой, а не в общей таблице. */
+function buildStandTable(M,ST){
+  const el=document.getElementById('standtable'); if(!el) return;
+  const r=(l,v,n,cls)=>`<tr><td>${l}</td><td class="val ${cls||''}">${v}</td><td class="spec">${n||''}</td></tr>`;
+  let h='<table><thead><tr><th>Параметр</th><th>Значение</th><th style="text-align:left">Норма / комментарий</th></tr></thead><tbody>';
+  if(ST.pitch>0) h+=r('Наклон велосипеда', '+'+ST.pitch+'°','отрыв: вращение вокруг задней оси, вилка разжата (sag 0); поза — форма стойки, не физика полёта');
+  else if(ST.pitch<0) h+=r('Спуск', (-ST.pitch)+'°','земля наклонена вместе с велосипедом, оба колеса на склоне, вилка под рабочим sag; статика без торможения');
+  h+=r('Колено: переднее / заднее', ST.kneeF.toFixed(0)+'° / '+ST.kneeR.toFixed(0)+'°',
+       `цель по среднему ${ST.kneeT}°; заднее прямее, потому что таз позади каретки`);
+  h+=r('Таз назад от каретки', ST.hipBack.toFixed(0)+' мм',
+       ST.hipBackSet?'задан слайдером — главная ручка развесовки':(ST.pitch?'авто: вынос таза из ровной стойки':'авто: из равновесия, ~10% веса на руках'));
+  h+=r('Наклон корпуса стоя', ST.torso.toFixed(0)+'°','выход модели — из целевых колена, локтя и положения таза');
+  h+=r('Локоть стоя, анатомический', ST.elbow.toFixed(0)+'°',
+       ST.stretch?'целевой угол недостижим — рука распрямлена до предела':'задан целью; это запас хода рук на кочках',
+       zone(ST.elbow,[100,150],[85,165]));
+  h+=r('Локоть стоя, в профиль', ST.elbowProj.toFixed(0)+'°',
+       Math.abs(ST.elbowProj-ST.elbow)>=1.5
+         ? `${(ST.elbowProj-ST.elbow>0?'+':'')+(ST.elbowProj-ST.elbow).toFixed(0)}° к анатомическому — разводит их разведение локтей ${M.flare.toFixed(0)}°`
+         : 'то, что видно сбоку; при слабом разведении почти совпадает');
+  h+=r('Локоть стоя вбок / отведение', `${ST.elbowOut.toFixed(0)} мм / ${ST.abduction.toFixed(0)}°`,
+       'разведение берётся из того же параметра, что и сидя — в атакующей стойке локти обычно шире',
+       zone(Math.abs(ST.abduction),[0,40],[0,50]));
+  h+=r('Таз над седлом (клиренс)', (ST.clear>0?'+':'')+ST.clear.toFixed(0)+' мм',
+       'промежность ≈ таз − hipAbove; меньше 60 мм — седло мешает стойке, нужен дроппер или ниже',
+       zone(ST.clear,[60,10000],[20,10000]));
+  h+=r('Центр масс стоя: перед / зад', ST.frontPct.toFixed(0)+' % / '+(100-ST.frontPct).toFixed(0)+' %',
+       (ST.hipBackSet||ST.pitch)
+         ? (ST.lamOut==null?'ручки почти над кареткой — продольная развесовка через руки не определена'
+           :ST.lamOut<0?`ЦМ позади каретки: руки подтягивают руль (${ST.lamOut.toFixed(0)}%) — мануальное положение`
+                       :`на руках получается ${ST.lamOut.toFixed(0)}% веса — выход, а не задание`)
+         : `из равновесия при ${(ST.lam*100).toFixed(0)}% веса на руках (допущение авто-режима)`);
+  if(state.body.weight!=null&&state.body.weight>0&&ST.lamOut!=null){
+    const Wt=state.body.weight, lm=clamp(ST.lamOut/100,-0.99,0.99);
+    const Fh2=Wt*lm, Fp2=Wt-Fh2;
+    h+=r('Руки / педали стоя', `${Fh2.toFixed(1)} / ${Fp2.toFixed(1)} кг`,
+         (Fh2<0?'руки тянут руль вверх, педали несут больше полного веса; ':'')
+         +'из положения таза и торса; статика'+(ST.pitch<0?' без торможения — на тормозах перед догрузится ощутимо сильнее':''),
+         Fh2>=0?zone(100*lm,[5,25],[0,32]):undefined);
+  }
+  el.innerHTML=h+'</tbody></table>';
 }
 
 function buildWarns(M,ST){
@@ -1275,7 +1334,7 @@ function render(){
   document.getElementById('stand').innerHTML=drawStand(M,ST);
   try{ stSync(ST); }catch(e){}
   document.getElementById('top').innerHTML=drawTop(M);
-  buildTable(M,ST); buildWarns(M,ST);
+  buildSummary(M,ST); buildStandTable(M,ST); buildTable(M,ST); buildWarns(M,ST);
   try{ buildSetup(M); sensRender(); }catch(e){}
   const bc=document.getElementById('bodychk');
   if(bc){ const {out,line}=bodyChecks(M.S);
