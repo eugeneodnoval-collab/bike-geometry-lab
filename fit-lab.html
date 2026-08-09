@@ -1402,6 +1402,23 @@ function psPick(kind,src){
   });
   return o;
 }
+/* Санация при ИМПОРТЕ: сохраняем любые числовые ключи, а белый список (psPick/HK)
+   применяется при ЗАГРУЗКЕ пресета в состояние. Иначе импорт файла из более новой
+   версии страницы навсегда вырезал бы незнакомые ключи из хранилища — а так они
+   переживают импорт и «оживают» после обновления страницы. Мусор в состояние всё
+   равно не попадает: путь в state лежит только через белые списки. */
+function psAny(src){
+  const o={}; let n=0;
+  for(const k of Object.keys(src)){
+    if(++n>300) break;
+    if(!/^[a-zA-Z][a-zA-Z0-9_]{0,30}$/.test(k)) continue;
+    const v=src[k];
+    if(v===undefined||v===null||v===''){ o[k]=null; continue; }
+    const num=typeof v==='number'?v:parseFloat(v);
+    if(isFinite(num)) o[k]=num;
+  }
+  return o;
+}
 const PS={
   ok:(()=>{ try{ localStorage.setItem('__ps','1'); localStorage.removeItem('__ps'); return true; }catch(e){ return false; } })(),
   read(){ if(!PS.ok) return {}; try{ return JSON.parse(localStorage.getItem(PS_KEY))||{}; }catch(e){ return {}; } },
@@ -1415,7 +1432,7 @@ const PS={
     Object.keys(PKEYS).forEach(kind=>{
       const src=inc[kind]; if(!src||typeof src!=='object') return;
       o[kind]=o[kind]||{};
-      Object.entries(src).forEach(([name,v])=>{ if(v&&typeof v==='object'&&name.trim()){ o[kind][name]=psPick(kind,v); n++; } });
+      Object.entries(src).forEach(([name,v])=>{ if(v&&typeof v==='object'&&name.trim()){ o[kind][name]=psAny(v); n++; } });
     });
     return n>0 && PS.write(o) ? n : false;
   }
@@ -1503,6 +1520,24 @@ function passportWB(b){
   return (htBot[0]+u[0]*d+p[0]*o)-rearX;
 }
 
+/* Обязательные поля: пресет или ссылка из старой версии могли их не содержать —
+   psApply/hashToState записали бы null, и солвер упал бы. После любого применения
+   внешних данных null в этих полях откатывается к дефолту. Осознанно-пустые
+   (точные мерки, стойка) сюда не входят — для них null легален и означает «авто». */
+const REQ={
+  bike:{reach:465,stack:629,hta:65.8,sta:75.5,ht:115,st:460,cs:435,bbDrop:50,wb:1213,travelRef:130,travel:130,sag:25},
+  ck:{headsetStack:15,spacers:20,stemClampH:40,stemLen:50,stemAngle:6,stemFlip:0,
+      barRise:25,barWidth:760,backsweep:8,upsweep:5,barRoll:0,gripInset:70,riserBendHalf:100},
+  body:{height:1800,inseam:840,shoulderW:420,armLen:598,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,femurPct:50},
+  fit:{crank:170,qFactor:172,torso:58,kneeTarget:145,postOffset:0,railPos:0,radMult:4.47,
+       pedalShare:20,handShareStand:10,bikePitch:0,elbowFlare:30}
+};
+function fixReq(){
+  Object.entries(REQ).forEach(([g,def])=>Object.entries(def).forEach(([k,v])=>{
+    if(state[g][k]==null||!isFinite(state[g][k])) state[g][k]=v;
+  }));
+}
+
 const PS_FITKEYS={ck:['crank','qFactor','postOffset','railPos'],
                   body:['torso','kneeTarget','radMult','pedalUp','pedalBack','pedalShare','kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand','elbowFlare']};
 
@@ -1526,6 +1561,7 @@ function psApply(kind,slot,d,name){
     HK.body.forEach(k=>state.body[k]=d[k]);
     PS_FITKEYS.body.forEach(k=>state.fit[k]=d[k]);
   }
+  fixReq();
   buildInputs(); render();
 }
 function psNameFor(row){
@@ -1597,6 +1633,7 @@ function hashToState(hs){
       const parts=q[key].split('~');
       HK[g].forEach((k,i)=>{ const v=parts[i]; if(v!==undefined) state[g][k]=(v===''?null:parseFloat(v)); });
     });
+    fixReq();
     return true;
   }catch(e){ console.warn('не смог разобрать ссылку',e); return false; }
 }
