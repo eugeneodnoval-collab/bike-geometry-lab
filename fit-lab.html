@@ -467,6 +467,39 @@ function ang3(a,b,c){
   return deg(Math.acos(clamp((v1[0]*v2[0]+v1[1]*v2[1])/(Math.hypot(...v1)*Math.hypot(...v2)),-1,1)));
 }
 
+/* Рука в 3D — одна функция на обе позы, чтобы посадка и стойка описывали её одинаково.
+   Локоть лежит на окружности вокруг оси плечо → грипса; положение на ней задаёт
+   разведение (0° — локоть висит вниз, 90° — торчит вбок). Радиус этой орбиты сам
+   схлопывается по мере разгиба руки, поэтому одни и те же градусы при согнутой и
+   почти прямой руке дают разный вынос локтя — наружу отдаются миллиметры и отведение.
+   angle — анатомический угол (в плоскости руки), proj — то, что видно сбоку и на фото. */
+function elbow3D(SH3,G3,uL,wL,shExtMax,flareDeg){
+  const v=[G3[0]-SH3[0],G3[1]-SH3[1],G3[2]-SH3[2]];
+  const D3=Math.hypot(...v)||1, n=[v[0]/D3,v[1]/D3,v[2]/D3];
+  const shExt=Math.min(shExtMax,Math.max(D3-1,0));
+  const Sp=[SH3[0]+n[0]*shExt, SH3[1]+n[1]*shExt, SH3[2]+n[2]*shExt];
+  const Dp=Math.max(D3-shExt,1), over=Dp>uL+wL;
+  const Dc=Math.min(Dp,uL+wL-0.5);
+  const aE=clamp((uL*uL+Dc*Dc-wL*wL)/(2*Dc),-uL,uL);
+  const rE=Math.sqrt(Math.max(uL*uL-aE*aE,0));
+  // базис на орбите: e1 — «вниз» перпендикулярно оси, e2 — наружу от велосипеда
+  const dnv=-n[2];
+  let e1=[-dnv*n[0], -dnv*n[1], -1-dnv*n[2]];
+  const e1l=Math.max(Math.hypot(...e1),1e-6); e1=[e1[0]/e1l,e1[1]/e1l,e1[2]/e1l];
+  let e2=[n[1]*e1[2]-n[2]*e1[1], n[2]*e1[0]-n[0]*e1[2], n[0]*e1[1]-n[1]*e1[0]];
+  if(e2[1]<0) e2=[-e2[0],-e2[1],-e2[2]];
+  const CE=[Sp[0]+aE*n[0], Sp[1]+aE*n[1], Sp[2]+aE*n[2]];
+  const fl=rad(clamp(flareDeg,0,90)), cF=Math.cos(fl), sF=Math.sin(fl);
+  const E3=[CE[0]+rE*(e1[0]*cF+e2[0]*sF), CE[1]+rE*(e1[1]*cF+e2[1]*sF), CE[2]+rE*(e1[2]*cF+e2[2]*sF)];
+  const angle=deg(Math.acos(clamp((uL*uL+wL*wL-Dc*Dc)/(2*uL*wL),-1,1)));
+  const pa=[Sp[0]-E3[0],Sp[2]-E3[2]], pb=[G3[0]-E3[0],G3[2]-E3[2]];
+  const pal=Math.hypot(...pa), pbl=Math.hypot(...pb);
+  const proj=(pal<1||pbl<1)?angle:deg(Math.acos(clamp((pa[0]*pb[0]+pa[1]*pb[1])/(pal*pbl),-1,1)));
+  const ua=[E3[0]-Sp[0],E3[1]-Sp[1],E3[2]-Sp[2]], ual=Math.hypot(...ua)||1;
+  return {E3, ELp:[E3[0],0,E3[2]], Sp, D3, shExt, Dp, rE, angle, proj, over,
+          abduction:deg(Math.asin(clamp(ua[1]/ual,-1,1))), out:E3[1]-SH3[1]};
+}
+
 /* ===================== 4. посадка ===================== */
 function solveFit(){
   const F=solveFrame(), CO=solveCockpit(F), S=segments(), f=state.fit, b=state.body;
@@ -517,22 +550,14 @@ function solveFit(){
   const hFl=Math.sqrt(Math.max(S.spineA**2-projF**2,0));
   const FLEX=[HIP[0]+projF*Math.cos(tr)-hFl*Math.sin(tr), 0, HIP[2]+projF*Math.sin(tr)+hFl*Math.cos(tr)];
   /* Рука тянется к ручке не в плоскости велосипеда, а вбок: плечевой сустав стоит
-     на полширины плеч, ручка — на полширины хвата. Длину и угол локтя считаем по
-     честному 3D-расстоянию. Для схемы сбоку решаем ту же задачу в проекции:
-     все три стороны треугольника укорачиваются в k раз, значит углы те же. */
-  const D3=Math.hypot(CO.grip[0]-SH[0], CO.grip[1]-S.shoulderW/2, CO.grip[2]-SH[2]);
-  const D2=Math.hypot(CO.grip[0]-SH[0], CO.grip[2]-SH[2]);
-  const k=D3>0?D2/D3:1;
-  /* Протракция: плечевой пояс вытягивается к рулю (лопатка едет вперёд по грудной
-     клетке), давая +25–40 мм досягаемости. Без неё модель объявляла руль
-     «недостижимым» в позах, где человек спокойно до него достаёт. Эффективный
-     плечевой сустав сдвигается вдоль линии плечо → ручка на shExt; проекционный
-     коэффициент k при этом не меняется (сдвиг вдоль той же прямой). */
-  const shExt=Math.min(S.shExt, Math.max(D3-1,0));
-  const u2=D2>0?[(CO.grip[0]-SH[0])/D2,(CO.grip[2]-SH[2])/D2]:[1,0];
-  const SHd=[SH[0]+shExt*k*u2[0], 0, SH[2]+shExt*k*u2[1]];
-  const arm=ik(SHd,[CO.grip[0],0,CO.grip[2]],S.upperarm*k,(S.forearm+S.wristGrip)*k,-1);
-  arm.over=(D3-shExt)>S.armMax;
+     на полширины плеч, ручка — на полширины хвата. Всё считает общая elbow3D:
+     3D-расстояние, протракцию (лопатка едет вперёд по грудной клетке, +25–40 мм
+     досягаемости), орбиту локтя и оба угла. */
+  const S3=[SH[0],S.shoulderW/2,SH[2]], G3=CO.grip;
+  const flare=clamp(f.elbowFlare!=null?f.elbowFlare:30,0,90);
+  const arm=elbow3D(S3,G3,S.upperarm,S.forearm+S.wristGrip,S.shExt,flare);
+  const D3=arm.D3, shExt=arm.shExt, E3=arm.E3, Sp3=arm.Sp, ELp=arm.ELp;
+  const elbowProj=arm.proj, abduction=arm.abduction, elbowOut=arm.out;
   const armUse=100*(D3-shExt)/S.armMax;
   /* бедро в ВМТ меряется от ТАЗОВОГО сегмента (таз → точка сгиба), а не от хорды:
      при скруглённой спине таз ротирован меньше, чем наклонена хорда */
@@ -543,11 +568,33 @@ function solveFit(){
   const NECK=[SH[0]+S.neck*Math.cos(usd+rad(25)), 0, SH[2]+S.neck*Math.sin(usd+rad(25))];
   const HEAD=[NECK[0]+S.headR*1.1*Math.cos(rad(48)), 0, NECK[2]+S.headR*1.1*Math.sin(rad(48))];
 
-  /* центр масс по долям массы сегментов (Winter) */
+  const splay=deg(Math.atan2(CO.grip[1]-S.shoulderW/2, CO.grip[0]-SH[0]));
+
+  /* --- залом запястья (§3.4) ---
+     Запястье выкручивает не хорда плечо → грипса, а направление ПРЕДПЛЕЧЬЯ в плане
+     против фактической оси грипсы (загиб + ролл + доворот рамы под sag).
+     Локоть уже посчитан общей elbow3D выше. */
+  /* Нейтраль кисти — НЕ перпендикуляр: грипса в расслабленной руке ложится по
+     диагонали ладони (от основания указательного пальца к пизиформе), это
+     10–15° от перпендикуляра к предплечью. Именно поэтому руль без загиба
+     неудобен всем. Угол считается в 3D — учитывает rise, upsweep и ролл.
+     Знак: + = загиба не хватает (кисть выкручена наружу), − = загиб избыточен. */
+  const palmDiag=clamp(b.palmDiag!=null?b.palmDiag:12,0,25);
+  const fp3=[G3[0]-E3[0], G3[1]-E3[1], G3[2]-E3[2]];
+  const gax3=[CO.barEnd[0]-CO.barBend[0], CO.barEnd[1]-CO.barBend[1], CO.barEnd[2]-CO.barBend[2]];
+  const fp3l=Math.hypot(...fp3)||1, gax3l=Math.hypot(...gax3)||1;
+  const angFG=deg(Math.acos(clamp((fp3[0]*gax3[0]+fp3[1]*gax3[1]+fp3[2]*gax3[2])/(fp3l*gax3l),-1,1)));
+  const wristDev=palmDiag+(90-angFG);
+  const forearmPlan=deg(Math.atan2(-fp3[1],fp3[0]));          // + = предплечье идёт снаружи внутрь
+  const sweepPlan=deg(Math.atan2(-gax3[0],gax3[1]));          // плановый загиб оси грипсы (свип+ролл)
+
+  /* Центр масс по долям массы сегментов (Winter). Считается ПОСЛЕ локтя, потому что
+     руки берутся по проекции настоящего локтя: при сильном разведении она уезжает
+     от плоской конструкции на 140 мм, а это заметный сдвиг для 10% массы. */
   const mid=(a,b2)=>[(a[0]+b2[0])/2,(a[2]+b2[2])/2];
   const parts=[[mid(HIP,SH),.497],[[HEAD[0],HEAD[2]],.081],
     [mid(HIP,legs.near.knee),.20],[mid(legs.near.knee,legs.near.ank),.10],
-    [mid(SH,arm.J),.056],[mid(arm.J,CO.grip),.046]];
+    [mid(SH,ELp),.056],[mid(ELp,CO.grip),.046]];
   let cx=0,cz=0,tot=0; parts.forEach(([p,w])=>{cx+=p[0]*w;cz+=p[1]*w;tot+=w;});
   const CoM=[cx/tot,cz/tot];
   const frontPct=100*(CoM[0]-F.P.rear[0])/(F.P.front[0]-F.P.rear[0]);
@@ -568,46 +615,6 @@ function solveFit(){
     load={Fh,Fs,Fp,psPct:ps*100, hPct:100*Fh/Wt, sPct:100*Fs/Wt, pPct:100*Fp/Wt};
   }
 
-  const splay=deg(Math.atan2(CO.grip[1]-S.shoulderW/2, CO.grip[0]-SH[0]));
-
-  /* --- локоть в плане (§3.4): орбита локтя и честный залом запястья ---
-     Рука в 3D — два звена между фиксированными точками (плечевой сустав, грипса).
-     Локоть лежит на окружности вокруг оси плечо → грипса; положение на ней —
-     степень свободы «локти разведены/прижаты» (elbowFlare: 0° — локоть висит
-     вниз, 90° — торчит вбок). Запястье выкручивает не хорда плечо → грипса, а
-     направление ПРЕДПЛЕЧЬЯ в плане против фактической оси грипсы (загиб + ролл):
-     нейтраль — предплечье перпендикулярно грипсе. */
-  const flare=clamp(f.elbowFlare!=null?f.elbowFlare:30,0,90);
-  const S3=[SH[0],S.shoulderW/2,SH[2]], G3=[CO.grip[0],CO.grip[1],CO.grip[2]];
-  const v3=[G3[0]-S3[0],G3[1]-S3[1],G3[2]-S3[2]], v3l=Math.max(Math.hypot(...v3),1);
-  const n3=[v3[0]/v3l,v3[1]/v3l,v3[2]/v3l];
-  const Sp3=[S3[0]+n3[0]*shExt, S3[1]+n3[1]*shExt, S3[2]+n3[2]*shExt];
-  const Dp=Math.max(D3-shExt,1), uL=S.upperarm, wL=S.forearm+S.wristGrip;
-  const aE=clamp((uL*uL+Dp*Dp-wL*wL)/(2*Dp),-uL,uL);
-  const rE=Math.sqrt(Math.max(uL*uL-aE*aE,0));
-  // базис на орбите: e1 — «вниз» перпендикулярно оси, e2 — наружу от велосипеда
-  const dnv=-n3[2];
-  let e1=[-dnv*n3[0], -dnv*n3[1], -1-dnv*n3[2]];
-  const e1l=Math.max(Math.hypot(...e1),1e-6); e1=[e1[0]/e1l,e1[1]/e1l,e1[2]/e1l];
-  let e2=[n3[1]*e1[2]-n3[2]*e1[1], n3[2]*e1[0]-n3[0]*e1[2], n3[0]*e1[1]-n3[1]*e1[0]];
-  if(e2[1]<0) e2=[-e2[0],-e2[1],-e2[2]];
-  const CE=[Sp3[0]+aE*n3[0], Sp3[1]+aE*n3[1], Sp3[2]+aE*n3[2]];
-  const fl3=rad(flare), cF=Math.cos(fl3), sF=Math.sin(fl3);
-  const E3=[CE[0]+rE*(e1[0]*cF+e2[0]*sF), CE[1]+rE*(e1[1]*cF+e2[1]*sF), CE[2]+rE*(e1[2]*cF+e2[2]*sF)];
-  /* Нейтраль кисти — НЕ перпендикуляр: грипса в расслабленной руке ложится по
-     диагонали ладони (от основания указательного пальца к пизиформе), это
-     10–15° от перпендикуляра к предплечью. Именно поэтому руль без загиба
-     неудобен всем. Угол считается в 3D — учитывает rise, upsweep и ролл.
-     Знак: + = загиба не хватает (кисть выкручена наружу), − = загиб избыточен. */
-  const palmDiag=clamp(b.palmDiag!=null?b.palmDiag:12,0,25);
-  const fp3=[G3[0]-E3[0], G3[1]-E3[1], G3[2]-E3[2]];
-  const gax3=[CO.barEnd[0]-CO.barBend[0], CO.barEnd[1]-CO.barBend[1], CO.barEnd[2]-CO.barBend[2]];
-  const fp3l=Math.hypot(...fp3)||1, gax3l=Math.hypot(...gax3)||1;
-  const angFG=deg(Math.acos(clamp((fp3[0]*gax3[0]+fp3[1]*gax3[1]+fp3[2]*gax3[2])/(fp3l*gax3l),-1,1)));
-  const wristDev=palmDiag+(90-angFG);
-  const forearmPlan=deg(Math.atan2(-fp3[1],fp3[0]));          // + = предплечье идёт снаружи внутрь
-  const sweepPlan=deg(Math.atan2(-gax3[0],gax3[1]));          // плановый загиб оси грипсы (свип+ролл)
-
   /* RAD (Lee McCormack): прямая от каретки до центра хвата — гипотенуза вылета
      и стека всего кокпита, включая проставки, вынос и rise руля.
      RAAD — угол этой прямой от горизонта. */
@@ -617,10 +624,11 @@ function solveFit(){
   const rad_=Math.hypot(effReach,effStack), raad=deg(Math.atan2(effStack,effReach));
   const radTarget=(b.height/10)*f.radMult;
 
-  return {F,CO,S,legs,HIP,SH,FLEX,EL:arm.J,NECK,HEAD,CoM,sat,satH,satStraight,setback,
+  return {F,CO,S,legs,HIP,SH,FLEX,NECK,HEAD,CoM,sat,satH,satStraight,setback,
     rad:rad_, raad, radTarget, radDelta:rad_-radTarget,
     effReach, effStack, dReach:effReach-F.reach, dStack:effStack-F.stack,
-    elbow:arm.angle, armUse, armD3:D3, shExtUsed:shExt, armOver:arm.over, torso:f.torso,
+    elbow:arm.angle, elbowProj, abduction, elbowOut, ELp,
+    armUse, armD3:D3, shExtUsed:shExt, armOver:arm.over, torso:f.torso,
     kneeBDC:legs.near.angle, kneeTDC:kTDC.angle, kTDC:kTDC.J, tdcAnk:tdc.ank,
     hipTDC, frontPct, splay, pedalUp, pedalBack, load,
     E3, wristDev, forearmPlan, sweepPlan, flare,
@@ -639,6 +647,7 @@ function solveStand(M){
   const F=M.F,S=M.S,f=state.fit,CO=M.CO;
   const kneeT=clamp(f.kneeStand!=null?f.kneeStand:140,90,175);
   const elbowT=clamp(f.elbowStand!=null?f.elbowStand:130,60,178);
+  const flareSt=clamp(f.elbowFlare!=null?f.elbowFlare:30,0,90);
   const lam=clamp((f.handShareStand!=null?f.handShareStand:10)/100,0,0.45);
   const pitch=f.bikePitch!=null?f.bikePitch:0;
   /* Наклон велосипеда.
@@ -714,12 +723,12 @@ function solveStand(M){
       let n=[-t[1],t[0]]; if(n[1]<0) n=[-n[0],-n[1]];   // плечо выше линии таз → ручка
       SH=[hip[0]+a*t[0]+h*n[0], hip[1]+a*t[1]+h*n[1]];
     }
-    // локоть для отрисовки: протракция вдоль плечо → ручка, проекция как сидя
-    const D2s=Math.hypot(gs[0]-SH[0],gs[1]-SH[1])||1, D3s=Math.hypot(D2s,dy);
-    const k=D2s/D3s, u2=[(gs[0]-SH[0])/D2s,(gs[1]-SH[1])/D2s];
-    const shx=Math.min(S.shExt,Math.max(D3s-1,0));
-    const SHd=[SH[0]+shx*k*u2[0], SH[1]+shx*k*u2[1]];
-    const arm=ik([SHd[0],0,SHd[1]],[gs[0],0,gs[1]],u*k,w*k,-1);
+    /* Локоть — той же общей elbow3D, что и в посадке: орбита в 3D, наружу отдаётся
+       проекция. Разведение берётся из того же параметра, так что обе позы описывают
+       руку одинаково; в атакующей стойке локти обычно шире, это стоит учитывать при
+       вводе. `elbow` ниже остаётся анатомическим (цель или разгиб), A.proj — то, что
+       видно сбоку. */
+    const A=elbow3D([SH[0],S.shoulderW/2,SH[1]],grip3,u,w,S.shExt,flareSt);
     const kF=legIK(hip,ankF), kR=legIK(hip,ankR);
     const torso=deg(Math.atan2(SH[1]-hip[1],SH[0]-hip[0]));
     // точка сгиба поясницы — выгнута назад-вверх от хорды
@@ -731,14 +740,15 @@ function solveStand(M){
     const NECK=[SH[0]+S.neck*Math.cos(usd+rad(25)),SH[1]+S.neck*Math.sin(usd+rad(25))];
     const HEAD=[NECK[0]+S.headR*1.1*Math.cos(rad(48)),NECK[1]+S.headR*1.1*Math.sin(rad(48))];
     const mid2=(a2,b2)=>[(a2[0]+b2[0])/2,(a2[1]+b2[1])/2];
-    const EL=[arm.J[0],arm.J[2]];
+    const EL=[A.ELp[0],A.ELp[2]];
     const parts=[[mid2(hip,SH),.497],[HEAD,.081],
       [mid2(hip,[kF.J[0],kF.J[2]]),.10],[mid2(hip,[kR.J[0],kR.J[2]]),.10],
       [mid2([kF.J[0],kF.J[2]],ankF),.05],[mid2([kR.J[0],kR.J[2]],ankR),.05],
       [mid2(SH,EL),.056],[mid2(EL,gs),.046]];
     let cx=0,cz=0,tot=0; parts.forEach(([p,wt])=>{cx+=p[0]*wt;cz+=p[1]*wt;tot+=wt;});
-    return {hip,SH,SHd,EL,FLEX,kF:[kF.J[0],kF.J[2]],kR:[kR.J[0],kR.J[2]],
+    return {hip,SH,EL,FLEX,kF:[kF.J[0],kF.J[2]],kR:[kR.J[0],kR.J[2]],
       kneeF:kF.angle,kneeR:kR.angle,elbow,over,stretch,torso,NECK,HEAD,
+      elbowProj:A.proj, abduction:A.abduction, elbowOut:A.out, elbowAnat3D:A.angle,
       CoM:[cx/tot,cz/tot]};
   }
   /* Продольное положение таза — главная ручка развесовки стойки:
@@ -844,8 +854,8 @@ function drawSide(M){
   const lf=M.legs.far;
   g.push(limb([lf.hip[0],0,lf.hip[2]],[lf.knee[0],0,lf.knee[2]],148,106,.35));
   g.push(limb([lf.knee[0],0,lf.knee[2]],[lf.ank[0],0,lf.ank[2]],106,64,.35));
-  g.push(limb([M.SH[0],0,M.SH[2]],[M.EL[0],0,M.EL[2]],96,74,.35));
-  g.push(limb([M.EL[0],0,M.EL[2]],[G[0],0,G[2]],74,54,.35));
+  g.push(limb([M.SH[0],0,M.SH[2]],M.ELp,96,74,.35));
+  g.push(limb(M.ELp,[G[0],0,G[2]],74,54,.35));
 
   // рама
   [['BB','rear',14],['stTop','rear',14],['BB','stTop',14],['stTop','htTop',14],['BB','htBot',14],['htBot','front',12]]
@@ -887,8 +897,8 @@ function drawSide(M){
   g.push(limb([ln_.hip[0],0,ln_.hip[2]],[ln_.knee[0],0,ln_.knee[2]],156,112));
   g.push(limb([ln_.knee[0],0,ln_.knee[2]],[ln_.ank[0],0,ln_.ank[2]],112,68));
   g.push(limb([ln_.ank[0],0,ln_.ank[2]],[ln_.ped[0]+42,0,ln_.ped[2]+22],68,48));
-  g.push(limb([M.SH[0],0,M.SH[2]],[M.EL[0],0,M.EL[2]],100,78));
-  g.push(limb([M.EL[0],0,M.EL[2]],[G[0],0,G[2]],78,58));
+  g.push(limb([M.SH[0],0,M.SH[2]],M.ELp,100,78));
+  g.push(limb(M.ELp,[G[0],0,G[2]],78,58));
 
   // нога в ВМТ
   g.push(ln([M.HIP[0],M.HIP[2]],[M.kTDC[0],M.kTDC[2]],GRN,5,'18 14',.7));
@@ -899,8 +909,14 @@ function drawSide(M){
   g.push(callout([ln_.knee[0]-95,ln_.knee[2]-60],[ln_.knee[0]-330,ln_.knee[2]-185],`колено ${ln_.angle.toFixed(0)}°`,GRN,'end'));
   g.push(arcAt([M.HIP[0],0,M.HIP[2]],[M.FLEX[0],0,M.FLEX[2]],[M.kTDC[0],0,M.kTDC[2]],205,GRN));
   g.push(callout([M.HIP[0]-95,M.HIP[2]-95],[M.HIP[0]-300,M.HIP[2]-165],`бедро в ВМТ ${M.hipTDC.toFixed(0)}°`,GRN,'end'));
-  g.push(arcAt([M.EL[0],0,M.EL[2]],[M.SH[0],0,M.SH[2]],[G[0],0,G[2]],135,AMB));
-  g.push(callout([M.EL[0]+70,M.EL[2]+95],[M.EL[0]+200,M.EL[2]+205],`локоть ${M.elbow.toFixed(0)}°`,AMB,'start'));
+  g.push(arcAt(M.ELp,[M.SH[0],0,M.SH[2]],[G[0],0,G[2]],135,AMB));
+  /* Подпись двойная, только когда проекция реально расходится с анатомическим углом —
+     иначе она лишний шум. Ширину подписи учитываем в границах viewBox ниже. */
+  const elbLong=Math.abs(M.elbowProj-M.elbow)>=1.5;
+  const elbTxt=elbLong ? `локоть ${M.elbowProj.toFixed(0)}° в профиль · ${M.elbow.toFixed(0)}° анатом.`
+                       : `локоть ${M.elbow.toFixed(0)}°`;
+  g.push(callout([M.ELp[0]+70,M.ELp[2]+95],[M.ELp[0]+200,M.ELp[2]+205],elbTxt,AMB,'start'));
+  const elbRight=M.ELp[0]+215+elbTxt.length*23;   // ~0.64em на символ при font-size 36
   g.push(ln([M.HIP[0],M.HIP[2]],[M.HIP[0]+430,M.HIP[2]],MUT,4,'14 12'));
   g.push(arcAt([M.HIP[0],0,M.HIP[2]],[M.HIP[0]+430,0,M.HIP[2]],[M.SH[0],0,M.SH[2]],355,VIO));
   const mx=(M.HIP[0]+M.SH[0])/2-165, mz=(M.HIP[2]+M.SH[2])/2+95;
@@ -927,7 +943,7 @@ function drawSide(M){
   g.push(tx(M.sat[0]-175,M.sat[1]+70,'от каретки',MUT,30,'end',500));
 
   const top=Math.max(M.HEAD[2]+S.headR+140, G[2]+300);
-  const x0=Math.min(P.rear[0]-R,M.sat[0])-330, x1=Math.max(P.front[0]+R,G[0]+560)+60;
+  const x0=Math.min(P.rear[0]-R,M.sat[0])-330, x1=Math.max(P.front[0]+R,G[0]+560,elbRight)+60;
   return svgTag(x0,-top,x1-x0,top+560,'Посадка райдера, вид сбоку',82,g.join(''));
 }
 
@@ -1106,7 +1122,13 @@ function buildTable(M,ST){
   h+=r('Бедро в ВМТ', M.hipTDC.toFixed(0)+'°','&lt;45° — зажим в паху, спина уходит в компенсацию', zone(M.hipTDC,[55,110],[45,120]));
   h+=r('Наклон корпуса', M.torso.toFixed(0)+'°','задан тобой: 40–45 XC, 50–60 трейл, 65+ комфорт; это угол хорды таз → плечо');
   h+=r('Хорда торса', S.trunkChord.toFixed(0)+' мм', `анатомический торс ${S.trunk.toFixed(0)} при скруглении спины ${S.spineFlex.toFixed(0)}° (сгиб на ${(100*(S.spineA/S.trunk)).toFixed(0)}% от таза)`);
-  h+=r('Локоть', M.elbow.toFixed(0)+'°','140–165 рабочий, &lt;110 — очень согнут, &gt;170 — в замок', zone(M.elbow,[130,168],[100,175]));
+  h+=r('Локоть, анатомический', M.elbow.toFixed(0)+'°','угол в плоскости самой руки; от разведения локтей не зависит. 140–165 рабочий, &lt;110 — очень согнут, &gt;170 — в замок', zone(M.elbow,[130,168],[100,175]));
+  h+=r('Локоть, в профиль', M.elbowProj.toFixed(0)+'°',
+       Math.abs(M.elbowProj-M.elbow)>=1.5
+         ? `то, что видно сбоку и на фото: ${sg(M.elbowProj-M.elbow)}° к анатомическому. Разводит их разведение локтей — сверяй фото именно с этой строкой`
+         : 'то, что видно сбоку и на фото; при слабом разведении почти совпадает с анатомическим');
+  h+=r('Локоть вбок от плеча', M.elbowOut.toFixed(0)+' мм', `физический смысл разведения ${M.flare.toFixed(0)}°: при разгибе руки орбита локтя схлопывается и те же градусы дают меньший вынос`);
+  h+=r('Отведение плеча', M.abduction.toFixed(0)+'°','&gt;45–50° под нагрузкой — зона импинджмента плеча', zone(Math.abs(M.abduction),[0,40],[0,50]));
   h+=r('Использование длины руки', M.armUse.toFixed(0)+' %',`по 3D: плечо → ручка ${M.armD3.toFixed(0)} − протракция ${M.shExtUsed.toFixed(0)} при руке ${S.armMax.toFixed(0)}. &gt;96% — руки в замок`, zone(M.armUse,[0,92],[0,96]));
   h+=grp('Стойка на педалях — шатуны горизонтально');
   if(ST.pitch>0) h+=r('Наклон велосипеда', '+'+ST.pitch+'°','отрыв: вращение вокруг задней оси, вилка разжата (sag 0); поза — форма стойки, не физика полёта');
@@ -1116,9 +1138,16 @@ function buildTable(M,ST){
   h+=r('Таз назад от каретки', ST.hipBack.toFixed(0)+' мм',
        ST.hipBackSet?'задан слайдером — главная ручка развесовки':(ST.pitch?'авто: вынос таза из ровной стойки':'авто: из равновесия, ~10% веса на руках'));
   h+=r('Наклон корпуса стоя', ST.torso.toFixed(0)+'°','выход модели — из целевых колена, локтя и положения таза');
-  h+=r('Локоть стоя', ST.elbow.toFixed(0)+'°',
+  h+=r('Локоть стоя, анатомический', ST.elbow.toFixed(0)+'°',
        ST.stretch?'целевой угол недостижим — рука распрямлена до предела':'задан целью; это запас хода рук на кочках',
        zone(ST.elbow,[100,150],[85,165]));
+  h+=r('Локоть стоя, в профиль', ST.elbowProj.toFixed(0)+'°',
+       Math.abs(ST.elbowProj-ST.elbow)>=1.5
+         ? `${sg(ST.elbowProj-ST.elbow)}° к анатомическому — разводит их разведение локтей ${M.flare.toFixed(0)}°`
+         : 'то, что видно сбоку; при слабом разведении почти совпадает');
+  h+=r('Локоть стоя вбок / отведение', `${ST.elbowOut.toFixed(0)} мм / ${ST.abduction.toFixed(0)}°`,
+       'разведение берётся из того же параметра, что и сидя — в атакующей стойке локти обычно шире',
+       zone(Math.abs(ST.abduction),[0,40],[0,50]));
   h+=r('Таз над седлом (клиренс)', (ST.clear>0?'+':'')+ST.clear.toFixed(0)+' мм',
        'промежность ≈ таз − hipAbove; меньше 60 мм — седло мешает стойке, нужен дроппер или ниже',
        zone(ST.clear,[60,10000],[20,10000]));
@@ -1177,6 +1206,9 @@ function buildWarns(M,ST){
   if(ext>290) w.push(['','Штырь сильно выдвинут',`над подседельной трубой нужно ${ext.toFixed(0)} мм. Проверь минимальную вставку штыря — с длинноходным дроппером это часто упирается в изгиб подседельной трубы.`]);
   if(ext<40) w.push(['','Рама великовата по росту',`седло почти не выступает над трубой (${ext.toFixed(0)} мм). Обычно это признак, что нужен размер меньше.`]);
   if(M.elbow<110) w.push(['','Локоть очень согнут',`${M.elbow.toFixed(0)}°. Для такого наклона корпуса кокпит короткий — либо наклоняйся сильнее, либо вынос длиннее.`]);
+  const abdMax=Math.max(Math.abs(M.abduction), Math.abs(ST.abduction));
+  if(abdMax>50) w.push(['bad','Плечо сильно отведено',`${abdMax.toFixed(0)}° от плоскости тела (сидя ${M.abduction.toFixed(0)}°, стоя ${ST.abduction.toFixed(0)}°). Выше 50° под нагрузкой — зона импинджмента: сухожилие надостной мышцы зажимается под акромионом. Сведи локти или сузь руль.`]);
+  else if(abdMax>45) w.push(['','Плечо отведено близко к пределу',`${abdMax.toFixed(0)}°. Рабочий диапазон под нагрузкой заканчивается около 45–50° — на длинных спусках плечо будет уставать.`]);
   if(Math.abs(M.wristDev)>12) w.push(['','Запястье заломлено',`отклонение от нейтрали кисти ${(M.wristDev>0?'+':'')+M.wristDev.toFixed(0)}°. ${M.wristDev>0?'Загиба не хватает: больше backsweep, ролл руля на себя или разведи локти шире':'Загиб избыточен: меньше backsweep, ролл от себя или локти уже'} — и перепроверь ширину хвата против плеч.`]);
   if(M.radDelta>25) w.push(['','RAD длиннее целевого',`${M.rad.toFixed(0)} мм против ${M.radTarget.toFixed(0)}, то есть +${M.radDelta.toFixed(0)}. Короче вынос, руль с большим загибом или меньше проставок. По наблюдениям Маккормака, слишком длинный RAD — самая частая ошибка.`]);
   else if(M.radDelta<-25) w.push(['','RAD короче целевого',`${M.rad.toFixed(0)} мм против ${M.radTarget.toFixed(0)}, то есть ${M.radDelta.toFixed(0)}. Тесно для мощных движений, хотя запас хода рук на спуске больше — некоторые так и делают сознательно.`]);
@@ -1249,9 +1281,25 @@ function render(){
   if(bc){ const {out,line}=bodyChecks(M.S);
     bc.innerHTML=`<div class="srcline">Источники сегментов: ${line}</div>`
       +out.map(m=>`<div class="warn">${m}</div>`).join(''); }
+  /* Градусы разведения сами по себе ничего не говорят: орбита локтя схлопывается
+     по мере разгиба руки. Показываем физику — вынос в мм, отведение плеча и
+     сколько выноса вообще доступно при текущей длине руки. */
+  const fc=document.getElementById('flarechk');
+  if(fc){
+    const S3=[M.SH[0],M.S.shoulderW/2,M.SH[2]];
+    const at=a=>elbow3D(S3,M.CO.grip,M.S.upperarm,M.S.forearm+M.S.wristGrip,M.S.shExt,a);
+    const lo=at(0).out, hi=at(90).out, span=hi-lo;
+    const pct=span>1?Math.round(100*(M.elbowOut-lo)/span):0;
+    fc.innerHTML=`<div class="srcline">Разведение ${M.flare.toFixed(0)}° — это <b>${M.elbowOut.toFixed(0)} мм</b> выноса локтя вбок `
+      +`и <b>${M.abduction.toFixed(0)}°</b> отведения плеча. `
+      +(span>1 ? `Доступно ${lo.toFixed(0)}–${hi.toFixed(0)} мм (использовано ${pct}%): при разгибе руки орбита локтя схлопывается, и те же градусы дают меньший вынос.`
+               : `Рука почти разогнута — орбита схлопнулась, разведение сейчас ни на что не влияет.`)
+      +`</div>`;
+  }
   try{ if(typeof PH!=='undefined'&&PH.url) phRender(); }catch(e){}
   document.getElementById('note').innerHTML=
-    'Модель статическая: одна поза сидя, без стойки на педалях и без переноса веса. Позвоночник — прямой отрезок, реально это ротация таза плюс сгиб поясницы. Голеностоп зафиксирован относительно оси педали. '
+    'Модель статическая: две позы, сидя и стойка на педалях, без динамики переноса веса. Голеностоп зафиксирован относительно оси педали, запястье своей степени свободы не имеет. '
+    +'Локоть выводится двумя углами: анатомический — в плоскости самой руки, в профиль — то, что видно сбоку и на фото. Разводит их разведение локтей. '
     +'Высота седла выводится из целевого угла колена в НМТ, поэтому длина шатуна работает физически, а не через поправочный коэффициент. '
     +'RAD считается на текущей геометрии, то есть с учётом просадки вилки. Опубликованные значения обычно меряют на велосипеде, стоящем у стены, — чтобы сравнивать с ними, поставь sag на 0.';
   syncHash();
@@ -1344,6 +1392,7 @@ function buildInputs(){
       </div>
     </div>
     <div class="hint">Наклон корпуса — единственная свободная степень: цепь «таз → плечо → ручка» переопределена. Задаёшь его, модель выдаёт угол локтя и запас по длине руки.</div>
+    <div id="flarechk"></div>
     <details><summary><b>Точные мерки</b> — заменяют средние доли, главный источник точности</summary>
       <div class="grid">${fields(F_BODY_MEAS,'body')}</div>
       <div class="hint">Пустое поле — сегмент достраивается из антропометрических долей (средних по популяции).
@@ -1703,7 +1752,7 @@ function phXform(F){
 function phInitMarks(M,X){
   const p=q=>X.fwd([q[0],q[2]]);
   PH.mark={ankle:p(M.legs.near.ank),knee:p(M.legs.near.knee),hip:p(M.HIP),
-           shoulder:p(M.SH),elbow:p(M.EL),wrist:p(M.CO.grip)};
+           shoulder:p(M.SH),elbow:p(M.ELp),wrist:p(M.CO.grip)};
 }
 function phRender(){
   if(!PH.url) return;
@@ -1719,7 +1768,7 @@ function phRender(){
     if(!PH.mark) phInitMarks(M,X);
     st.textContent='шаг 3: перетащи оранжевые точки суставов на своё тело; оси колёс тоже можно поправить';
     const mp=q=>X.fwd([q[0],q[2]]);
-    const chainM=[M.legs.near.ank,M.legs.near.knee,M.HIP,M.FLEX,M.SH,M.EL,M.CO.grip].map(mp);
+    const chainM=[M.legs.near.ank,M.legs.near.knee,M.HIP,M.FLEX,M.SH,M.ELp,M.CO.grip].map(mp);
     inner+=`<polyline points="${chainM.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="#4f7fe0" stroke-width="${(R*.3).toFixed(1)}" opacity=".75"/>`;
     const bb=X.fwd([M.F.P.BB[0],M.F.P.BB[1]]), sat=X.fwd([M.sat[0],M.sat[1]]);
     [bb,sat].forEach(p=>{inner+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(R*.45).toFixed(1)}" fill="#4f7fe0" opacity=".75"/>`;});
@@ -1750,7 +1799,8 @@ function phOut(M){
     +row('Наклон корпуса', v.torsoPh.toFixed(1)+'°', f.torso+'°','хорда таз → плечо; расхождение = ты сидишь не так, как задал в модели')
     +row('Торс: хорда таз → плечо', v.trunkPh.toFixed(0)+' мм', M.S.trunkChord.toFixed(0)+' мм',`анатомический торс ${M.S.trunk.toFixed(0)} − скругление спины ${M.S.spineFlex.toFixed(0)}°; кнопка ниже подберёт скругление под фото`)
     +row('Колено в НМТ', v.kneePh.toFixed(1)+'°', M.kneeBDC.toFixed(1)+'°','фактический угол меньше модельного = седло по факту ниже расчётного (или таз съехал вперёд)')
-    +row('Локоть', v.elbowPh.toFixed(1)+'°', M.elbow.toFixed(1)+'°','')
+    +row('Локоть (в профиль)', v.elbowPh.toFixed(1)+'°', M.elbowProj.toFixed(1)+'°',
+      `на фото виден проекционный угол, поэтому сверяем с ним, а не с анатомическим (${M.elbow.toFixed(0)}°) — при разведённых локтях они расходятся до 50°`)
     +row('Таз над седлом', v.hipAb.toFixed(0)+' мм', b.hipAbove+' мм', `Δ ${d(v.hipAb,b.hipAbove)} — это hipAbove, рулеткой не меряется`)
     +row('Таз вперёд от седла', v.hipFw.toFixed(0)+' мм', b.hipFwd+' мм', `Δ ${d(v.hipFw,b.hipFwd)} — это hipFwd`)
     +'</tbody></table>'
