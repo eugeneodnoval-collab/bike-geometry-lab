@@ -317,7 +317,8 @@ const state={
   bike:{...BIKES.B1},
   wheelR:368,
   ck:{ headsetStack:15, spacers:20, stemClampH:40, stemLen:50, stemAngle:6, stemFlip:0,
-       barRise:25, barWidth:760, backsweep:8, upsweep:5, barRoll:0, gripInset:70, riserBendHalf:100 },
+       barRise:25, barWidth:760, backsweep:8, upsweep:5, barRoll:0, gripInset:70, riserBendHalf:100,
+       pedalStack:8 },
   body:{ ...RIDERS.R180, hipW:null, femurPct:50, ankleH:null, soleThk:18, wristGrip:60, hipAbove:35, hipFwd:25,
          sitHeight:null, trunkLen:null, femurLen:null, tibiaLen:null, upperArm:null, foreArm:null,
          footLen:null, heelToMet:null, sitBoneW:null, weight:null, shExt:null,
@@ -414,7 +415,7 @@ function segments(){
   // inseam меряется босиком, поэтому длину ноги считаем от БОСОЙ высоты голеностопа.
   // Подошва обуви только поднимает стопу над осью педали и потому поднимает седло 1:1.
   const ankleBare=(b.ankleH!=null?b.ankleH:0.039*H);
-  const ankleH=ankleBare+b.soleThk;                            // ось голеностопа над осью педали
+  const ankleH=ankleBare+b.soleThk+(b.pedalStack!=null?b.pedalStack:8);  // голеностоп над ОСЬЮ педали
   const hipJointH=I+0.055*H;                                   // головка бедра над полом
   const legTotal=Math.max(hipJointH-ankleBare,200);
   /* Каждый сегмент: прямой замер, если введён, иначе антропометрическая доля.
@@ -442,11 +443,23 @@ function segments(){
   const AL=b.armLen;
   const upperarm = b.upperArm!=null ? b.upperArm : AL*0.56;
   const forearm  = b.foreArm !=null ? b.foreArm  : AL*0.44;
-  /* Стопа: ось педали под 1-й головкой плюсневой; голеностоп впереди пятки
-     примерно на треть длины стопы. Даёт pedalBack из мерок вместо эвристики. */
+  /* Стопа. Три слоя между осью педали и голеностопом, каждый меряется отдельно:
+     платформа педали над осью (pedalStack, 5-15 мм у топталок), подошва В ТОЧКЕ
+     КОНТАКТА (soleThk — не средняя: у сланца бывает 28 у пятки и 17 у носка) и
+     анатомическая высота голеностопа над стелькой (ankleBare, босиком).
+     Раньше платформы не было вовсе, а ankleH приходилось раздувать сверх анатомии,
+     чтобы сойтись с фактом — проверено на реальном велосипеде: честная разборка
+     7 + 24 + 76 = 107 мм даёт замеренную высоту седла с точностью 0.1 мм.
+     Продольно: pedalPos — где ось педали стоит вдоль стопы, считая от пятки.
+     По умолчанию под 1-й плюсневой; кто катает серединой стопы, ставит меньше.
+     На высоту седла влияет слабо (сдвиг почти горизонтальный), но задаёт рисунок
+     и продольное положение колена. */
   const footLen  = b.footLen  !=null ? b.footLen  : 0.152*H;
   const heelToMet= b.heelToMet!=null ? b.heelToMet: 0.685*footLen;
-  const pedalBackAuto=Math.max(heelToMet-0.33*footLen,40);
+  const pedalStack= b.pedalStack!=null? b.pedalStack: 8;
+  const pedalPos = b.pedalPos !=null ? b.pedalPos : heelToMet;
+  const ankleFromHeel=0.33*footLen;                 // проекция голеностопа от пятки
+  const pedalBackAuto=clamp(pedalPos-ankleFromHeel,-60,260);
   /* Поперечное положение тазобедренного сустава: суставы стоят шире седалищных
      бугров примерно на 40 мм с каждой стороны — от бугров надёжнее, чем от
      внешней ширины таза. */
@@ -458,7 +471,7 @@ function segments(){
     arm:  b.upperArm!=null&&b.foreArm!=null?'замер':(b.upperArm!=null||b.foreArm!=null)?'замер + доля':'доля',
     foot: b.heelToMet!=null?'замер':b.footLen!=null?'из длины стопы':'доля'
   };
-  return { ankleBare, ankleH, femur, tibia, trunk, legTotal,
+  return { ankleBare, ankleH, pedalStack, pedalPos, ankleFromHeel, femur, tibia, trunk, legTotal,
            trunkChord, spineA, spineB, spineFlex,
            upperarm, forearm, wristGrip:b.wristGrip,
            neck:0.052*H, headR:0.052*H,
@@ -521,8 +534,17 @@ function elbow3D(SH3,G3,uL,wL,shExtMax,flareDeg){
 function solveFit(){
   const F=solveFrame(), CO=solveCockpit(F), S=segments(), f=state.fit, b=state.body;
   const BB=F.P.BB, sta=rad(F.sta);
-  const pedalUp = f.pedalUp!=null ? f.pedalUp : S.ankleH;            // лодыжка над осью педали
-  const pedalBack = f.pedalBack!=null ? f.pedalBack : S.pedalBackAuto; // ось педали под 1-й головкой плюсневой
+  /* Наклон подошвы (soleTilt, + = носок вниз). Голеностопа как сустава в модели нет,
+     поэтому подошва держит один угол на всём обороте — это допущение, но угол хотя бы
+     стал явным. Раньше он был жёстко нулевым и прятался внутри раздутого ankleH.
+     Влияние сильное: при фиксированном седле 15° носком вниз меняют угол колена в НМТ
+     со 143° до 135°, а 15° пяткой вниз — до 159°. Ровно это видно между двумя фото
+     одной и той же посадки с разным положением стопы. */
+  const pu0 = f.pedalUp!=null ? f.pedalUp : S.ankleH;
+  const pb0 = f.pedalBack!=null ? f.pedalBack : S.pedalBackAuto;
+  const tilt = rad(clamp(b.soleTilt!=null?b.soleTilt:0,-30,30));
+  const pedalUp   = pu0*Math.cos(tilt) + pb0*Math.sin(tilt);   // лодыжка над осью педали
+  const pedalBack = pb0*Math.cos(tilt) - pu0*Math.sin(tilt);   // и позади неё
   const foot=(crankDeg,side)=>{
     const t=rad(crankDeg);
     const ped=[BB[0]+f.crank*Math.sin(t), side*f.qFactor/2, BB[1]+f.crank*Math.cos(t)];
@@ -1315,6 +1337,11 @@ function bodyChecks(S){
     const d=b.upperArm+b.foreArm-b.armLen;
     if(Math.abs(d)>30) out.push(`Плечо + предплечье = ${(b.upperArm+b.foreArm).toFixed(0)} мм при прямом замере руки ${b.armLen}. Разница ${d>0?'+':''}${d.toFixed(0)} мм великовата: перепроверь. При заполненных сегментах прямой замер в расчёте не участвует.`);
   }
+  /* Голеностоп раньше служил подгоночным коэффициентом: им компенсировали
+     отсутствие платформы педали и наклона подошвы. Теперь для этого есть свои
+     поля, а ankleH обязан оставаться анатомическим. */
+  if(b.ankleH!=null&&(p(b.ankleH)<3.2||p(b.ankleH)>4.8))
+    out.push(`Голеностоп над полом — ${p(b.ankleH).toFixed(1)}% роста, анатомически 3.4–4.5% (у тебя это ${(0.039*H).toFixed(0)} мм). Это чисто анатомическая величина, босиком до центра лодыжки. Подгонять ею высоту седла не надо — для этого есть «Платформа педали над осью», «Подошва в точке контакта» и «Наклон подошвы».`);
   if(b.footLen!=null&&(p(b.footLen)<13.5||p(b.footLen)>17.5))
     out.push(`Длина стопы — ${p(b.footLen).toFixed(1)}% роста, обычно 14–17%.`);
   if(b.heelToMet!=null&&b.footLen!=null){
@@ -1384,7 +1411,8 @@ const F_CK=[['stemLen','Длина выноса',5],['stemAngle','Угол вы�
   ['barWidth','Ширина руля',10],['barRise','Rise руля',5],['backsweep','Загиб назад, °',1]];
 const F_CK_ADV=[['headsetStack','Чашка рулевой над стаканом',1],['stemClampH','Высота обхвата выноса',1],
   ['upsweep','Подъём руля (upsweep), °',1],['barRoll','Ролл руля, на стоящем байке, °',1],
-  ['gripInset','Отступ хвата от края',5],['riserBendHalf','Начало отгиба от центра',5]];
+  ['gripInset','Отступ хвата от края',5],['riserBendHalf','Начало отгиба от центра',5],
+  ['pedalStack','Платформа педали над осью',1]];
 const F_BODY=[['height','Рост',10],['inseam','Inseam (шаговый, босиком)',5],['shoulderW','Ширина плеч',5],['armLen','Длина руки (плечо → запястье)',5],['weight','Вес, кг',1]];
 const F_BODY_MEAS=[['sitHeight','Рост сидя',5],['trunkLen','Торс: вертел → акромион',5],
   ['femurLen','Бедро: вертел → щель колена',5],['tibiaLen','Голень: щель колена → лодыжка',5],
@@ -1392,7 +1420,8 @@ const F_BODY_MEAS=[['sitHeight','Рост сидя',5],['trunkLen','Торс: в
   ['footLen','Длина стопы',2],['heelToMet','Пятка → 1-я головка плюсневой',2],
   ['sitBoneW','Седалищные бугры, центр–центр',2]];
 const F_BODY_ADV=[['hipW','Ширина таза',5],['femurPct','Доля бедра в ноге, %',1],['ankleH','Голеностоп над полом, босиком',5],
-  ['soleThk','Толщина подошвы',1],['wristGrip','Запястье → центр хвата',5],['hipAbove','Тазобедренный сустав над седлом',5],['hipFwd','…и вперёд от точки опоры',5]];
+  ['soleThk','Подошва в точке контакта',1],['pedalPos','Ось педали от пятки',5],['soleTilt','Наклон подошвы (+ носок вниз), °',1],
+  ['wristGrip','Запястье → центр хвата',5],['hipAbove','Тазобедренный сустав над седлом',5],['hipFwd','…и вперёд от точки опоры',5]];
 const F_FIT_ADV=[['pedalShare','Вес на педалях сидя, %',5]];
 const F_STAND=[['kneeStand','Колено стоя (среднее), °',5],['elbowStand','Локоть стоя, °',5],
   ['hipBackStand','Таз назад от каретки, мм',10],['handShareStand','Вес на руках стоя, %',5],
@@ -1493,12 +1522,12 @@ const PS_KEY='bikelab.presets.v1';
 const PKEYS={
   geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR'],
   ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
-        'backsweep','upsweep','barRoll','gripInset','riserBendHalf','crank','qFactor','postOffset','railPos'],
+        'backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack','crank','qFactor','postOffset','railPos'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
         'hipFwd','torso','kneeTarget','radMult','pedalUp','pedalBack',
         'sitHeight','trunkLen','femurLen','tibiaLen','upperArm','foreArm','footLen','heelToMet','sitBoneW',
         'weight','pedalShare','shExt','kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand',
-        'spineFlex','lumbarPivot','elbowFlare','palmDiag']
+        'spineFlex','lumbarPivot','elbowFlare','palmDiag','pedalPos','soleTilt']
 };
 function psPick(kind,src){
   const o={};
@@ -1635,7 +1664,7 @@ function passportWB(b){
 const REQ={
   bike:{reach:465,stack:629,hta:65.8,sta:75.5,ht:115,st:460,cs:435,bbDrop:50,wb:1213,travelRef:130,travel:130,sag:25},
   ck:{headsetStack:15,spacers:20,stemClampH:40,stemLen:50,stemAngle:6,stemFlip:0,
-      barRise:25,barWidth:760,backsweep:8,upsweep:5,barRoll:0,gripInset:70,riserBendHalf:100},
+      barRise:25,barWidth:760,backsweep:8,upsweep:5,barRoll:0,gripInset:70,riserBendHalf:100,pedalStack:8},
   body:{height:1800,inseam:840,shoulderW:420,armLen:598,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,femurPct:50},
   fit:{crank:170,qFactor:172,torso:58,kneeTarget:145,postOffset:0,railPos:0,radMult:4.47,
        pedalShare:20,handShareStand:10,bikePitch:0,elbowFlare:30}
@@ -1720,10 +1749,10 @@ window.addEventListener('storage',e=>{ if(e.key===PS_KEY) psRefresh(); });
 
 /* ===================== 8. ссылка и печать ===================== */
 const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag'],
-  ck:['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth','backsweep','upsweep','barRoll','gripInset','riserBendHalf'],
+  ck:['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth','backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove','hipFwd',
         'sitHeight','trunkLen','femurLen','tibiaLen','upperArm','foreArm','footLen','heelToMet','sitBoneW','weight','shExt',
-        'spineFlex','lumbarPivot','palmDiag'],
+        'spineFlex','lumbarPivot','palmDiag','pedalPos','soleTilt'],
   fit:['crank','qFactor','torso','kneeTarget','postOffset','railPos','radMult','pedalUp','pedalBack','pedalShare',
        'kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand','elbowFlare']};
 function stateToHash(){
