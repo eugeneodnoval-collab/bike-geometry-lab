@@ -81,6 +81,7 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 .standwrap #stand{flex:1;min-width:0}
 .vslid{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--mut);flex:0 0 auto}
 input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex:1;min-height:230px;accent-color:var(--c1)}
+.subh{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;font-weight:600;margin:14px 0 7px;padding-top:11px;border-top:1px dashed #ddd}
 .lg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:9px}
 
 /* сводка под видом сбоку — то, на что смотришь чаще всего */
@@ -190,7 +191,26 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 </aside>
 <main class="results">
 
-<div class="card"><h3>Вид сбоку</h3><div id="side"></div>
+<div class="card"><h3>Вид сбоку</h3>
+  <div class="standctl noprint">
+    <div class="srow">
+      <span class="slbl">Наклон корпуса <span class="tval" id="v_torso"></span></span>
+      <input type="range" id="sd_torso" min="30" max="75" step="1">
+      <button onclick="setTorso(43)" title="XC">XC</button>
+      <button onclick="setTorso(55)" title="трейл">трейл</button>
+      <button onclick="setTorso(66)" title="комфорт">комфорт</button>
+    </div>
+    <div class="srow">
+      <span class="slbl">Колено в НМТ, цель <span class="tval" id="v_kneeTarget"></span></span>
+      <input type="range" id="sd_knee" min="115" max="172" step="1">
+    </div>
+    <div class="srow">
+      <span class="slbl">Высота седла, прямая <span class="tval" id="v_satstr"></span></span>
+      <input type="range" id="sd_sat" step="1">
+      <em class="stauto">производная</em>
+    </div>
+  </div>
+  <div id="side"></div>
   <div class="lg">
     <span><b style="color:#e8543f">━</b> кокпит и контактные точки</span>
     <span><b style="color:#4f7fe0">━</b> тело: ближняя сторона сплошная, дальняя бледная</span>
@@ -260,8 +280,6 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
   <div id="warns"></div>
   <div class="hint" id="note"></div>
 </div>
-
-<div class="card noprint" id="senscard"><div id="sens"></div></div>
 
 <div class="card" id="setupcard"><h3>Что выставить на велосипеде</h3><div id="setup"></div></div>
 
@@ -1360,9 +1378,10 @@ function render(){
   document.getElementById('side').innerHTML=drawSide(M);
   document.getElementById('stand').innerHTML=drawStand(M,ST);
   try{ stSync(ST); }catch(e){}
+  try{ sdSync(M); }catch(e){}
   document.getElementById('top').innerHTML=drawTop(M);
   buildSummary(M,ST); buildStandTable(M,ST); buildTable(M,ST); buildWarns(M,ST);
-  try{ buildSetup(M); sensRender(); }catch(e){}
+  try{ buildSetup(M); }catch(e){}
   const bc=document.getElementById('bodychk');
   if(bc){ const {out,line}=bodyChecks(M.S);
     bc.innerHTML=`<div class="srcline">Источники сегментов: ${line}</div>`
@@ -1413,25 +1432,31 @@ const F_CK_ADV=[['headsetStack','Чашка рулевой над стакано
   ['upsweep','Подъём руля (upsweep), °',1],['barRoll','Ролл руля, на стоящем байке, °',1],
   ['gripInset','Отступ хвата от края',5],['riserBendHalf','Начало отгиба от центра',5],
   ['pedalStack','Платформа педали над осью',1]];
+/* Контактные точки — железо, и в пресете они лежат в кокпите (PS_FITKEYS.ck).
+   Раньше поля стояли в карточке райдера: правка шатуна не попадала в пресет тела,
+   потому что сохранялась с кокпитом. Теперь карточка совпадает с пресетом. */
+const F_CK_HW=[['crank','Длина шатуна',5],['qFactor','Q-factor',2],
+  ['postOffset','Офсет подседельного штыря',5],['railPos','Седло на рельсах (− вперёд)',5]];
 const F_BODY=[['height','Рост',10],['inseam','Inseam (шаговый, босиком)',5],['shoulderW','Ширина плеч',5],['armLen','Длина руки (плечо → запястье)',5],['weight','Вес, кг',1]];
 const F_BODY_MEAS=[['sitHeight','Рост сидя',5],['trunkLen','Торс: вертел → акромион',5],
   ['femurLen','Бедро: вертел → щель колена',5],['tibiaLen','Голень: щель колена → лодыжка',5],
   ['upperArm','Плечо: акромион → локоть',5],['foreArm','Предплечье: локоть → запястье',5],
   ['footLen','Длина стопы',2],['heelToMet','Пятка → 1-я головка плюсневой',2],
   ['sitBoneW','Седалищные бугры, центр–центр',2]];
-const F_BODY_ADV=[['hipW','Ширина таза',5],['femurPct','Доля бедра в ноге, %',1],['ankleH','Голеностоп над полом, босиком',5],
-  ['soleThk','Подошва в точке контакта',1],['pedalPos','Ось педали от пятки',5],['soleTilt','Наклон подошвы (+ носок вниз), °',1],
-  ['wristGrip','Запястье → центр хвата',5],['hipAbove','Тазобедренный сустав над седлом',5],['hipFwd','…и вперёд от точки опоры',5]];
-const F_FIT_ADV=[['pedalShare','Вес на педалях сидя, %',5]];
+/* Дальше — по физическим подсистемам, а не по «обязательное / необязательное».
+   Каждая группа отвечает на один понятный вопрос. */
+const F_BODY_FOOT=[['ankleH','Голеностоп над полом, босиком',5],['soleThk','Подошва в точке контакта',1],
+  ['pedalPos','Ось педали от пятки',5],['soleTilt','Наклон подошвы (+ носок вниз), °',1]];
+const F_BODY_PELVIS=[['hipAbove','Тазобедренный сустав над седлом',5],['hipFwd','…и вперёд от точки опоры',5],
+  ['spineFlex','Скругление спины, °',1],['lumbarPivot','Точка сгиба поясницы, % торса',5],
+  ['shExt','Протракция плеча (вылет вперёд)',5]];
+const F_BODY_HAND=[['wristGrip','Запястье → центр хвата',5],['palmDiag','Диагональ хвата ладони, °',1]];
+const F_FIT_HAND=[['elbowFlare','Разведение локтей, °',5]];
+const F_BODY_MISC=[['hipW','Ширина таза',5],['femurPct','Доля бедра в ноге, %',1]];
+const F_FIT_MISC=[['radMult','Множитель RAD (муж 4.47 / жен 4.60)',0.01],['pedalShare','Вес на педалях сидя, %',5]];
 const F_STAND=[['kneeStand','Колено стоя (среднее), °',5],['elbowStand','Локоть стоя, °',5],
   ['hipBackStand','Таз назад от каретки, мм',10],['handShareStand','Вес на руках стоя, %',5],
   ['bikePitch','Наклон велосипеда, °',5]];
-F_BODY_ADV.push(['shExt','Протракция плеча (вылет вперёд)',5],
-  ['spineFlex','Скругление спины, °',1],['lumbarPivot','Точка сгиба поясницы, % торса',5],
-  ['palmDiag','Диагональ хвата ладони, °',1]);
-const F_FIT=[['crank','Длина шатуна',5],['qFactor','Q-factor',2],['kneeTarget','Целевой угол колена в НМТ, °',1],
-  ['postOffset','Офсет подседельного штыря',5],['railPos','Седло на рельсах (− вперёд)',5],
-  ['radMult','Множитель RAD (муж 4.47 / жен 4.60)',0.01],['elbowFlare','Разведение локтей, °',5]];
 
 function fields(list,grp){
   return list.map(([k,l,st])=>{
@@ -1463,31 +1488,33 @@ function buildInputs(){
       <label>Вынос перевёрнут</label><input class="chk" type="checkbox" data-g="ck" data-k="stemFlip" ${state.ck.stemFlip?'checked':''}>
     </div>
     <div class="hint">Угол выноса задан относительно перпендикуляра к штоку. Подъём от горизонта = (90 − угол рулевой) + угол выноса.</div>
-    <details><summary>Дополнительно</summary><div class="grid">${fields(F_CK_ADV,'ck')}</div></details>
+    <div class="subh">Контактные точки</div>
+    <div class="grid">${fields(F_CK_HW,'fit')}</div>
+    <details><summary>Тонкая геометрия руля и педалей</summary><div class="grid">${fields(F_CK_ADV,'ck')}</div>
+      <div class="hint">Платформа педали — от центра оси до поверхности под подошвой, 5–15 мм у топталок. Вместе с подошвой и голеностопом она поднимает седло 1:1.</div></details>
   </div>
 
   <div class="card">
-    <h3>Райдер и посадка</h3>
-    ${psRowHTML('body',null,'Мерки тела плюс наклон корпуса, целевой угол колена и множитель RAD. Шатун, Q-factor и седло живут в пресете кокпита — это железо.',
+    <h3>Райдер</h3>
+    ${psRowHTML('body',null,'Мерки тела и всё, что от него зависит. Железо — шатун, Q-factor, седло — живёт в пресете кокпита.',
                 {ph:'имя райдера'})}
-    <div class="grid">${fields(F_BODY,'body')}${fields(F_FIT,'fit')}</div>
-    <div class="slider">
-      <div class="row"><span style="min-width:110px">Наклон корпуса</span><input type="range" min="30" max="75" step="1" data-g="fit" data-k="torso" value="${state.fit.torso}"><span class="tval" id="v_torso">${state.fit.torso}°</span></div>
-      <div class="row" style="gap:6px">
-        <button onclick="setTorso(43)">XC 43°</button>
-        <button onclick="setTorso(55)">трейл 55°</button>
-        <button onclick="setTorso(66)">комфорт 66°</button>
-      </div>
-    </div>
-    <div class="hint">Наклон корпуса — единственная свободная степень: цепь «таз → плечо → ручка» переопределена. Задаёшь его, модель выдаёт угол локтя и запас по длине руки.</div>
-    <div id="flarechk"></div>
+    <div class="grid">${fields(F_BODY,'body')}</div>
+    <div class="hint">Пять чисел, снимаемых рулеткой. Всё остальное достраивается из антропометрических долей — и заменяется прямыми замерами ниже.</div>
     <details><summary><b>Точные мерки</b> — заменяют средние доли, главный источник точности</summary>
       <div class="grid">${fields(F_BODY_MEAS,'body')}</div>
       <div class="hint">Пустое поле — сегмент достраивается из антропометрических долей (средних по популяции).
       Каждый введённый замер заменяет свою долю: рост сидя или прямой замер торса уточняет наклон и вылет,
       бедро и голень — высоту седла и сетбек, сегменты руки — угол локтя, стопа — положение лодыжки над педалью.
       Как снимать замеры — на странице справки.</div></details>
-    <details><summary>Дополнительно</summary><div class="grid">${fields(F_BODY_ADV,'body')}${fields(F_FIT_ADV,'fit')}</div>
+    <details><summary>Стопа на педали</summary><div class="grid">${fields(F_BODY_FOOT,'body')}</div>
+      <div class="hint">Три слоя между осью педали и голеностопом поднимают седло 1:1: платформа педали (она в кокпите, «Тонкая геометрия»),
+      подошва <b>в точке контакта</b> — не средняя, подошва почти всегда клиновидная, — и анатомический голеностоп.
+      Наклон подошвы сильно влияет на угол колена: 15° носком вниз меняют его в НМТ на 8°.</div></details>
+    <details><summary>Таз, спина, плечи</summary><div class="grid">${fields(F_BODY_PELVIS,'body')}</div>
+      <div class="hint">Положение таза относительно седла рулеткой не измеряется — его калибруют по фото кнопками «Принять таз» и «Принять спину».</div></details>
+    <details><summary>Кисти и локти</summary><div class="grid">${fields(F_BODY_HAND,'body')}${fields(F_FIT_HAND,'fit')}</div>
+      <div id="flarechk"></div></details>
+    <details><summary>Служебное</summary><div class="grid">${fields(F_BODY_MISC,'body')}${fields(F_FIT_MISC,'fit')}</div>
       <div class="hint">Пустое поле = считается автоматически из роста и inseam. «Вес на педалях» — допущение для развесовки:
       ~20% при спокойном педалировании сидя, ~10% если ноги совсем расслаблены, больше — если активно давишь.</div></details>
     <div id="bodychk"></div>
@@ -1511,7 +1538,7 @@ function buildInputs(){
   });
   psRefresh();
 }
-function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; buildInputs(); render(); }
+function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; render(); }
 
 /* ==================== пресеты ====================
    Тот же формат и тот же ключ, что на странице сравнения: пресеты рам,
@@ -1950,56 +1977,16 @@ function phApplyTrunk(){
   svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',up);
 })();
 
-/* ===================== 10. чувствительность ===================== */
-/* Численные производные тем же солвером: что изменится на «+шаг» параметра при
-   прочих равных. Центральная разность, поза сидя. Считается только когда панель
-   раскрыта — иначе на каждый ввод было бы ~30 лишних решений. */
+/* ===================== 10. подписи параметров ===================== */
+/* Человекочитаемые имена полей — нужны карточке «Что выставить» для диффа
+   против базовой записи журнала. Собираются из тех же списков, что и формы,
+   поэтому не разъезжаются с интерфейсом. */
 const LBL={};
-[[F_FRAME,'bike'],[F_CK,'ck'],[F_CK_ADV,'ck'],[F_BODY,'body'],[F_BODY_MEAS,'body'],
- [F_BODY_ADV,'body'],[F_FIT,'fit'],[F_FIT_ADV,'fit'],[F_STAND,'fit']]
+[[F_FRAME,'bike'],[F_CK,'ck'],[F_CK_ADV,'ck'],[F_CK_HW,'fit'],[F_BODY,'body'],[F_BODY_MEAS,'body'],
+ [F_BODY_FOOT,'body'],[F_BODY_PELVIS,'body'],[F_BODY_HAND,'body'],[F_BODY_MISC,'body'],
+ [F_FIT_HAND,'fit'],[F_FIT_MISC,'fit'],[F_STAND,'fit']]
  .forEach(([l,g])=>l.forEach(([k,lab])=>LBL[g+'.'+k]=lab));
-LBL['fit.torso']='Наклон корпуса'; LBL['bike.travel']='Ход вилки'; LBL['bike.sag']='SAG вилки';
-let sensOpen=false;
-const SENS=[['ck','stemLen',10,'мм'],['ck','stemAngle',2,'°'],['ck','spacers',10,'мм'],['ck','barRise',10,'мм'],
-  ['ck','backsweep',2,'°'],['ck','barRoll',5,'°'],['fit','crank',5,'мм'],['fit','kneeTarget',2,'°'],
-  ['fit','postOffset',10,'мм'],['fit','railPos',10,'мм'],['fit','torso',5,'°'],['body','soleThk',5,'мм'],
-  ['body','spineFlex',10,'°'],['body','shExt',10,'мм'],['bike','travel',10,'мм'],['bike','sag',5,'%']];
-const SENS_DEF={'body.shExt':30,'body.spineFlex':15};
-function sensRows(){
-  const out=[];
-  SENS.forEach(([g,k,st,un])=>{
-    const cur=state[g][k];
-    const base=cur!=null?cur:SENS_DEF[g+'.'+k];
-    if(base==null) return;
-    let A,B;
-    try{ state[g][k]=base+st; A=solveFit(); state[g][k]=base-st; B=solveFit(); }
-    catch(e){ A=null; } finally{ state[g][k]=cur; }
-    if(!A||!B) return;
-    out.push({lab:LBL[g+'.'+k]||k, st, un,
-      s2g:(A.s2gX-B.s2gX)/2, dz:(A.s2gZ-B.s2gZ)/2, elb:(A.elbow-B.elbow)/2,
-      rad:(A.rad-B.rad)/2, sat:(A.satH-B.satH)/2});
-  });
-  const score=r=>Math.abs(r.s2g)+Math.abs(r.dz)+Math.abs(r.rad)+Math.abs(r.sat)+5*Math.abs(r.elb);
-  out.sort((a,b)=>score(b)-score(a));
-  return out;
-}
-function sensRender(){
-  const box=document.getElementById('sens'); if(!box) return;
-  let inner=`<details${sensOpen?' open':''} id="sensdet"><summary><b>Чувствительность</b> — какие ручки крутить, а какие не трогать</summary>`;
-  if(sensOpen){
-    const fm=v=>{const x=v.toFixed(1); return (v>0?'+':'')+x;};
-    inner+='<table style="margin-top:8px"><thead><tr><th style="text-align:left">параметр (шаг)</th><th>седло→ручка</th><th>перепад</th><th>локоть</th><th>RAD</th><th>высота седла</th></tr></thead><tbody>';
-    sensRows().forEach(r=>{
-      inner+=`<tr><td>${r.lab} <span class="spec">за +${r.st} ${r.un}</span></td><td class="val">${fm(r.s2g)}</td><td class="val">${fm(r.dz)}</td><td class="val">${fm(r.elb)}°</td><td class="val">${fm(r.rad)}</td><td class="val">${fm(r.sat)}</td></tr>`;
-    });
-    inner+='</tbody></table><div class="hint">Все числа — «что изменится, если увеличить параметр на шаг» при прочих равных (мм и градусы). Отсортировано по влиянию на кокпит: верхние строки — главные ручки, нули внизу можно не трогать. Считается для позы сидя.</div>';
-  }
-  inner+='</details>';
-  box.innerHTML=inner;
-  const det=document.getElementById('sensdet');
-  det.addEventListener('toggle',()=>{ if(det.open!==sensOpen){ sensOpen=det.open; if(sensOpen) track('fit-sens-open'); sensRender(); } });
-}
-
+LBL['fit.torso']='Наклон корпуса'; LBL['fit.kneeTarget']='Целевой угол колена в НМТ'; LBL['bike.travel']='Ход вилки'; LBL['bike.sag']='SAG вилки';
 /* ===================== 11. журнал итераций ===================== */
 /* Снимок = хэш состояния (тот же формат, что в ссылке) + свободный текст ощущений.
    Хранение — localStorage, экспорт/импорт JSON (localStorage не общий между
@@ -2139,6 +2126,50 @@ function buildSetup(M){
 /* Статические слайдеры (не пересобираются при render — иначе рвётся drag).
    Колено/локоть/таз: null = авто; сдвиг слайдера выводит из авто только его.
    Наклон — вертикальный слайдер: вверх отрыв, вниз спуск. */
+/* Панель над видом сбоку. Наклон корпуса и целевое колено — хранимые параметры.
+   Третий слайдер, высота седла по прямой, ПРОИЗВОДНЫЙ: источник истины остаётся
+   один (угол колена), а высота подбирается обратно бисекцией. Связь монотонна и
+   почти линейна, около 2 мм на градус, так что подбор устойчив.
+   Смысл пары: угол колена — физиология и ездит с телом, но рулеткой человек меряет
+   высоту. Пусть крутит то, что ему привычнее, а модель держит согласованность. */
+function sdCtlInit(){
+  const on=(id,fn)=>{ const q=document.getElementById(id); if(q) q.addEventListener('input',()=>{ fn(q); render(); }); };
+  on('sd_torso',q=>{ state.fit.torso=+q.value; });
+  on('sd_knee', q=>{ state.fit.kneeTarget=+q.value; });
+  on('sd_sat',  q=>{ state.fit.kneeTarget=kneeForSaddle(+q.value); });
+}
+/* Обратная задача: какой целевой угол колена даёт запрошенную высоту седла. */
+function kneeForSaddle(target){
+  const save=state.fit.kneeTarget;
+  let lo=115, hi=172;
+  try{
+    for(let i=0;i<40;i++){ const m=(lo+hi)/2; state.fit.kneeTarget=m;
+      (solveFit().satStraight<target)?lo=m:hi=m; }
+  } finally { state.fit.kneeTarget=save; }
+  return +((lo+hi)/2).toFixed(1);
+}
+function sdSync(M){
+  const put=(id,val,txt)=>{ const q=document.getElementById(id), v=document.getElementById('v_'+val);
+    if(q) q.value=txt.v; if(v) v.textContent=txt.t; };
+  const t=document.getElementById('sd_torso'), k=document.getElementById('sd_knee'), sa=document.getElementById('sd_sat');
+  const vt=document.getElementById('v_torso'), vk=document.getElementById('v_kneeTarget'), vs=document.getElementById('v_satstr');
+  if(t){ t.value=state.fit.torso; } if(vt) vt.textContent=state.fit.torso+'°';
+  if(k){ k.value=Math.round(state.fit.kneeTarget); } if(vk) vk.textContent=state.fit.kneeTarget.toFixed(0)+'°';
+  if(sa){
+    /* Границы слайдера — достижимый диапазон при текущей раме, шатуне и стопе.
+       Считаются на краях углового диапазона, чтобы ползунок не уезжал в никуда. */
+    const save=state.fit.kneeTarget;
+    state.fit.kneeTarget=115; const lo=solveFit().satStraight;
+    state.fit.kneeTarget=172; const hi=solveFit().satStraight;
+    state.fit.kneeTarget=save;
+    sa.min=Math.ceil(lo); sa.max=Math.floor(hi);
+    /* Пока тянут сам ползунок — не переписываем его значение: обратный подбор даёт
+       ту же величину с точностью до десятых, но переприсваивание во время drag
+       заставляет ползунок дёргаться под пальцем. */
+    if(document.activeElement!==sa) sa.value=Math.round(M.satStraight);
+  }
+  if(vs) vs.textContent=M.satStraight.toFixed(0)+' мм';
+}
 function stCtlInit(){
   const on=(id,fn)=>{ const q=document.getElementById(id); if(q) q.addEventListener('input',()=>{ fn(q); render(); }); };
   on('st_knee', q=>{ state.fit.kneeStand=+q.value; });
@@ -2170,7 +2201,7 @@ function stSync(ST){
 
 hashToState();
 buildInputs();
-stCtlInit();
+stCtlInit(); sdCtlInit();
 render();
 jrRender();
 window.addEventListener('hashchange',()=>{ if(location.hash!==stateToHash()&&hashToState()){ buildInputs(); render(); }});
