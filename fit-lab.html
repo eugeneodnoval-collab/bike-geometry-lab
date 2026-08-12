@@ -332,7 +332,7 @@ const RIDERS={
 };
 
 const state={
-  bike:{...BIKES.B1},
+  bike:{...BIKES.B1, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null},
   wheelR:368,
   ck:{ headsetStack:15, spacers:20, stemClampH:40, stemLen:50, stemAngle:6, stemFlip:0,
        barRise:25, barWidth:760, backsweep:8, upsweep:5, barRoll:0, gripInset:70, riserBendHalf:100,
@@ -362,8 +362,18 @@ function solveFrame(sagOverride){
   const fk=[front[0]-htBot[0], front[1]-htBot[1]];
   const dRef=fk[0]*u[0]+fk[1]*u[1], oRef=fk[0]*p[0]+fk[1]*p[1];
   const sagMM=b.travel*(sagOverride!=null?sagOverride:(b.sag||0))/100;
-  const dNew=dRef+(b.travel-b.travelRef)-sagMM;
-  const fkN=[u[0]*dNew+p[0]*oRef, u[1]*dNew+p[1]*oRef];
+  /* Замена вилки. По умолчанию модель считает, что A2C растёт 1:1 с ходом, а офсет
+     не меняется — это верно для «накрутил ход на той же вилке» и неверно для смены
+     модели: у двух 140-х вилок A2C расходится на 10 мм.
+     Если заданы A2C обеих вилок, берём их РАЗНОСТЬ. Именно разность, а не абсолют:
+     dRef меряется от низа рулевого стакана, а A2C — от посадочного места кольца
+     короны, которое ниже на высоту нижней чашки. Эта неизвестная константа в
+     разности сокращается, поэтому знать её не нужно. */
+  const dA2C=(b.forkA2C!=null&&b.forkA2Cnew!=null) ? (b.forkA2Cnew-b.forkA2C)
+                                                   : (b.travel-b.travelRef);
+  const oNew=(b.forkOffsetNew!=null) ? b.forkOffsetNew : oRef;
+  const dNew=dRef+dA2C-sagMM;
+  const fkN=[u[0]*dNew+p[0]*oNew, u[1]*dNew+p[1]*oNew];
   const W=[htBot[0]-rear[0]+fkN[0], htBot[1]-rear[1]+fkN[1]];
   const th=-Math.atan2(W[1],W[0]);
   const rot=q=>{const dx=q[0]-rear[0],dy=q[1]-rear[1];
@@ -386,8 +396,42 @@ function solveFrame(sagOverride){
   const theta=deg(th);
   const pitchSag = sagOverride!=null ? 0 : -(theta - solveFrame(0).theta);
   return {P,hta:htaN,sta:staN,reach,stack,bbH:P.BB[1],wb:P.front[0]-P.rear[0],
-          offset:oRef,sagMM,wheelR:R,theta,pitchSag,
-          trail:(R/Math.tan(rad(htaN)))-oRef/Math.sin(rad(htaN))};
+          offset:oNew, offsetRef:oRef, forkAxRef:dRef, dA2C, forkSwap:dA2C!==(b.travel-b.travelRef)||oNew!==oRef,
+          sagMM,wheelR:R,theta,pitchSag,
+          trail:(R/Math.tan(rad(htaN)))-oNew/Math.sin(rad(htaN))};
+}
+
+/* Проверка выведенной штатной вилки. Офсет принадлежит вилке, а не раме, и
+   производители делают его дискретным набором значений. Поэтому выведенное
+   из паспорта число — хороший индикатор качества данных: если оно далеко от
+   серийного ряда, врёт колёсная база, углы или reach. Заодно переводим
+   расхождение в миллиметры базы, чтобы было понятно, что перемерить. */
+const FORK_OFFSETS=[37,42,44,46,51];
+function forkCheck(F,b){
+  const o=F.offsetRef, near=FORK_OFFSETS.reduce((a,c)=>Math.abs(c-o)<Math.abs(a-o)?c:a);
+  const gap=o-near;
+  // производная офсета по базе — считаем численно, она зависит от угла рулевой
+  let dOdWb=0.92;
+  try{
+    const save=b.wb; b.wb=save+10; const o2=solveFrame().offsetRef; b.wb=save;
+    dOdWb=(o2-o)/10;
+  }catch(e){}
+  let t=`<div class="srcline">Штатная вилка из паспорта: осевая длина от низа стакана <b>${F.forkAxRef.toFixed(1)}</b> мм, `
+       +`офсет <b>${o.toFixed(1)}</b> мм. Офсет — свойство вилки, сверь со спекой.`;
+  if(Math.abs(gap)>=2 && dOdWb>0.1){
+    const dWb=-gap/dOdWb;
+    const bad=(o<34||o>54);
+    t+=` <span style="color:${bad?'#b3261e':'#8a5a00'}"><b>Ближайший серийный офсет — ${near} мм</b>, расхождение ${gap>0?'+':''}${gap.toFixed(1)}. `
+      +(bad?'Это вне ряда, который вообще выпускают (37–51): ':'')
+      +`столько даёт ошибка колёсной базы примерно в ${Math.abs(dWb).toFixed(0)} мм — база ${dWb>0?'больше':'меньше'} введённой, около ${(b.wb+dWb).toFixed(0)}. `
+      +`Или полградуса по рулевому углу, или 5–6 мм по reach.</span>`;
+  }
+  if(b.forkA2C!=null&&b.forkA2Cnew!=null)
+    t+=` Сейчас считается по разности A2C: <b>${(b.forkA2Cnew-b.forkA2C>0?'+':'')+(b.forkA2Cnew-b.forkA2C).toFixed(0)}</b> мм`
+      +(b.forkOffsetNew!=null?`, офсет <b>${b.forkOffsetNew}</b>`:', офсет прежний')+'.';
+  else if(b.forkA2C!=null||b.forkA2Cnew!=null)
+    t+=` <b>Заполнено только одно A2C</b> — нужны оба, иначе считается по ходу.`;
+  return t+'</div>';
 }
 
 /* ===================== 2. кокпит ===================== */
@@ -1389,6 +1433,11 @@ function render(){
   /* Градусы разведения сами по себе ничего не говорят: орбита локтя схлопывается
      по мере разгиба руки. Показываем физику — вынос в мм, отведение плеча и
      сколько выноса вообще доступно при текущей длине руки. */
+  /* Штатная вилка выводится из паспортной базы и углов. Показываем её как
+     бесплатный кросс-чек: офсет — чисто свойство вилки, и если он расходится
+     со спекой, значит врёт что-то из паспорта. */
+  const fk=document.getElementById('forkchk');
+  if(fk) fk.innerHTML=forkCheck(M.F, state.bike);
   const fc=document.getElementById('flarechk');
   if(fc){
     const S3=[M.SH[0],M.S.shoulderW/2,M.SH[2]];
@@ -1424,6 +1473,7 @@ const WHEEL_HINT=(()=>{
    + 'На посадку радиус не влияет вообще — только на высоту каретки, трейл и рисунок. Все углы тела, RAD и высота седла считаются относительно каретки.';
 })();
 
+const F_FORK=[['forkA2C','A2C штатной вилки',1],['forkA2Cnew','A2C новой вилки',1],['forkOffsetNew','Офсет новой вилки',1]];
 const F_FRAME=[['reach','Reach',1],['stack','Stack',0.5],['hta','Угол рулевой',0.1],['sta','Угол подседельной',0.1],
   ['ht','Рулевой стакан',1],['st','Подседельная труба',1],['cs','Перья',1],['bbDrop','BB drop',0.5],['wb','Колёсная база',1],['travelRef','Ход по паспорту',5]];
 const F_CK=[['stemLen','Длина выноса',5],['stemAngle','Угол выноса, °',1],['spacers','Проставки',5],
@@ -1476,6 +1526,12 @@ function buildInputs(){
       <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="60" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
       <div class="row"><span style="min-width:82px">SAG вилки</span><input type="range" min="0" max="40" step="1" data-g="bike" data-k="sag" value="${state.bike.sag}"><span class="tval" id="v_sag">${state.bike.sag}%</span></div>
     </div>
+    <details><summary>Замена вилки</summary>
+      <div class="grid" style="margin-top:8px">${fields(F_FORK,'bike')}</div>
+      <div id="forkchk"></div>
+      <div class="hint">Пусто — модель считает, что при смене хода A2C растёт 1:1, а офсет не меняется. Это верно для «накрутил ход на той же вилке» и неверно при смене модели: у двух вилок с одним ходом A2C расходится на 10–18 мм.
+      Заполни оба A2C — и в расчёт пойдёт их разность. Именно разность: A2C меряется от кольца короны, а модель от низа стакана, и неизвестная высота нижней чашки в разности сокращается. Офсет подставляется напрямую.
+      Ход при этом продолжает работать — но только на sag.</div></details>
     <details><summary>Колесо</summary><div class="grid" style="margin-top:8px"><label>Радиус колеса, мм</label><input type="number" step="1" data-g="root" data-k="wheelR" value="${state.wheelR}"></div>
       <div class="hint">${WHEEL_HINT}</div></details>
   </div>
@@ -1547,7 +1603,7 @@ function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; render(); }
    На file:// хранилище может быть запрещено — тогда строки гаснут. */
 const PS_KEY='bikelab.presets.v1';
 const PKEYS={
-  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR'],
+  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew'],
   ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
         'backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack','crank','qFactor','postOffset','railPos'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
@@ -1775,7 +1831,7 @@ document.addEventListener('click',e=>{
 window.addEventListener('storage',e=>{ if(e.key===PS_KEY) psRefresh(); });
 
 /* ===================== 8. ссылка и печать ===================== */
-const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag'],
+const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew'],
   ck:['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth','backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove','hipFwd',
         'sitHeight','trunkLen','femurLen','tibiaLen','upperArm','foreArm','footLen','heelToMet','sitBoneW','weight','shExt',
@@ -1795,7 +1851,10 @@ function hashToState(hs){
     [['f','bike'],['c','ck'],['b','body'],['t','fit']].forEach(([key,g])=>{
       if(!q[key]) return;
       const parts=q[key].split('~');
-      HK[g].forEach((k,i)=>{ const v=parts[i]; if(v!==undefined) state[g][k]=(v===''?null:parseFloat(v)); });
+      /* Ключи, которых в старой ссылке не было, обнуляем: иначе переход по ссылке
+         без блока вилки молча оставил бы вилку от предыдущего расчёта. Обязательные
+         поля тут же вернёт fixReq(). */
+      HK[g].forEach((k,i)=>{ const v=parts[i]; state[g][k]=(v===undefined||v==='')?null:parseFloat(v); });
     });
     fixReq();
     return true;

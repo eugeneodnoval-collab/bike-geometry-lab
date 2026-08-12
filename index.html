@@ -218,8 +218,8 @@ const V = {
 };
 
 const PRESETS = {
-  B1:{name:"Outleap Warhog L 2025", reach:465, stack:629, hta:65.8, sta:75.5, ht:115, st:460, cs:435, bbDrop:50,  wb:1213, offset:null, travelRef:130, travel:130, sag:25},
-  B2:{name:"Hagen 4 XL 2025",       reach:440, stack:645.5, hta:68.5, sta:74.3, ht:110, st:508, cs:440, bbDrop:63.5, wb:1159, offset:null, travelRef:120, travel:120, sag:25}
+  B1:{name:"Outleap Warhog L 2025", reach:465, stack:629, hta:65.8, sta:75.5, ht:115, st:460, cs:435, bbDrop:50,  wb:1213, offset:null, travelRef:130, travel:130, sag:25, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null},
+  B2:{name:"Hagen 4 XL 2025",       reach:440, stack:645.5, hta:68.5, sta:74.3, ht:110, st:508, cs:440, bbDrop:63.5, wb:1159, offset:null, travelRef:120, travel:120, sag:25, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null}
 };
 
 const state = {
@@ -269,8 +269,16 @@ function solve(b){
   // новая вилка: смена хода + просадка (sag) под весом райдера.
   // Паспортная геометрия измерена с полностью разжатой вилкой -> при sag = 0 всё сходится с паспортом.
   const sagMM = b.travel * ((b.sag ?? 0)/100);
-  const dNew = dRef + (b.travel - b.travelRef) - sagMM;
-  const fkNew = V.add(V.mul(u, dNew), V.mul(p, oRef));
+  /* Замена вилки. По умолчанию считаем, что A2C растёт 1:1 с ходом, а офсет не
+     меняется — верно для «накрутил ход на той же вилке» и неверно при смене модели:
+     у SID 120 A2C 513, у Pike 120 уже 531. Если заданы A2C обеих вилок, берём их
+     РАЗНОСТЬ: dRef меряется от низа рулевого стакана, а A2C — от кольца короны,
+     и неизвестная высота нижней чашки в разности сокращается. */
+  const dA2C = (b.forkA2C!=null && b.forkA2Cnew!=null) ? (b.forkA2Cnew - b.forkA2C)
+                                                       : (b.travel - b.travelRef);
+  const oNew = (b.forkOffsetNew!=null) ? b.forkOffsetNew : oRef;
+  const dNew = dRef + dA2C - sagMM;
+  const fkNew = V.add(V.mul(u, dNew), V.mul(p, oNew));
 
   // поворот рамы вокруг задней оси до касания земли передним колесом
   const Wvec = V.add(V.sub(htBot, rear), fkNew);
@@ -291,14 +299,14 @@ function solve(b){
   const wb     = P.front[0]-P.rear[0];
   const bbH    = state.wheelR - bbDrop;
   const virt   = [P.BB[0] - stack/Math.tan(rad(staNew)), P.BB[1]+stack];
-  const trail  = (state.wheelR/Math.tan(rad(htaNew))) - oRef/Math.sin(rad(htaNew));
+  const trail  = (state.wheelR/Math.tan(rad(htaNew))) - oNew/Math.sin(rad(htaNew));
 
   return {b, P, virt, theta:deg(theta),
     hta:htaNew, sta:staNew, reach, stack, bbDrop, wb, bbH, trail,
     ett: P.htTop[0]-virt[0],
     fc: Math.hypot(P.front[0]-P.BB[0], P.front[1]-P.BB[1]),
     cs: Math.hypot(P.rear[0]-P.BB[0], P.rear[1]-P.BB[1]),
-    a2cRef, a2cNew: Math.hypot(dNew, oRef), offset:oRef, sagMM,
+    a2cRef, a2cNew: Math.hypot(dNew, oNew), offset:oNew, offsetRef:oRef, forkAxRef:dRef, dA2C, sagMM,
     ground: P.rear[1] - state.wheelR
   };
 }
@@ -460,7 +468,7 @@ const ROWS = [
   ["SAG, %",       s=>s.b.sag ?? 0, null, 0],
   ["Просадка, мм", s=>s.sagMM, null, 0],
   ["A2C, мм",      s=>s.a2cNew, s=>s.a2cRef, 0],
-  ["Офсет, мм",    s=>s.offset, null, 0],
+  ["Офсет, мм",    s=>s.offset, s=>s.offsetRef, 0],
   ["Наклон рамы, °", s=>s.theta, null, 2],
 ];
 
@@ -511,7 +519,8 @@ const FIELDS = [
   ["ht","Рулевой стакан",1],["st","Подседельная труба",1],
   ["cs","Перья (chainstay)",1],["bbDrop","BB drop",0.5],
 ];
-const ADV = [["wb","Колёсная база (если знаешь)",1],["offset","Офсет вилки (если базы нет)",1]];
+const ADV = [["wb","Колёсная база (если знаешь)",1],["offset","Офсет вилки (если базы нет)",1],
+  ["forkA2C","A2C штатной вилки",1],["forkA2Cnew","A2C новой вилки",1],["forkOffsetNew","Офсет новой вилки",1]];
 
 function esc(s){return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
 
@@ -591,7 +600,7 @@ function updateTravelNotes(){
    выбрасывал пресеты, которые нужны другой. */
 const PS_KEY='bikelab.presets.v1';
 const PKEYS={
-  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR'],
+  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew'],
   ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
         'backsweep','upsweep','barRoll','gripInset','riserBendHalf','crank','qFactor','postOffset','railPos'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
@@ -774,7 +783,7 @@ function openInFit(i){
 }
 
 /* ================= сохранение состояния в ссылку ================= */
-const HKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag'];
+const HKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew'];
 
 function stateToHash(){
   const enc = state.bikes.map(b =>
@@ -799,7 +808,7 @@ function hashToState(){
         b[k] = (v===undefined || v==='') ? null : parseFloat(v);
       });
       // обязательные поля — если пусто, подставляем из первого пресета
-      HKEYS.forEach(k=>{ if(b[k]==null && k!=='wb' && k!=='offset') b[k] = PRESETS.B1[k]; });
+      HKEYS.forEach(k=>{ if(b[k]==null && !['wb','offset','forkA2C','forkA2Cnew','forkOffsetNew'].includes(k)) b[k] = PRESETS.B1[k]; });
       return b;
     });
     if(bikes.length===2){ state.bikes = bikes; return true; }
