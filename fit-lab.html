@@ -209,6 +209,10 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
       <input type="range" id="sd_sat" step="1">
       <em class="stauto">производная</em>
     </div>
+    <div class="srow">
+      <button id="sd_bare">Только велосипед</button>
+      <span class="hint" style="margin:0">скрыть райдера и показать, что мерить рулеткой</span>
+    </div>
   </div>
   <div id="side"></div>
   <div class="lg">
@@ -406,6 +410,9 @@ function solveFrame(sagOverride){
    из паспорта число — хороший индикатор качества данных: если оно далеко от
    серийного ряда, врёт колёсная база, углы или reach. Заодно переводим
    расхождение в миллиметры базы, чтобы было понятно, что перемерить. */
+/* Режим «только велосипед»: скрыть райдера и показать, что мерить рулеткой.
+   Не в state и не в хэше — это вид, а не данные. */
+let sideBare=false;
 const FORK_OFFSETS=[37,42,44,46,51];
 function forkCheck(F,b){
   const o=F.offsetRef, near=FORK_OFFSETS.reduce((a,c)=>Math.abs(c-o)<Math.abs(a-o)?c:a);
@@ -951,12 +958,14 @@ function drawSide(M){
   g.push(`<line x1="-1100" y1="0" x2="1500" y2="0" stroke="${FR}" stroke-width="6"/>`);
   [P.rear,P.front].forEach(w=>g.push(`<circle cx="${w[0].toFixed(1)}" cy="${(-R).toFixed(1)}" r="${R}" fill="none" stroke="${MUT}" stroke-width="6" stroke-dasharray="26 18"/>`));
 
+  if(!sideBare){
   // дальняя сторона тела
   const lf=M.legs.far;
   g.push(limb([lf.hip[0],0,lf.hip[2]],[lf.knee[0],0,lf.knee[2]],148,106,.35));
   g.push(limb([lf.knee[0],0,lf.knee[2]],[lf.ank[0],0,lf.ank[2]],106,64,.35));
   g.push(limb([M.SH[0],0,M.SH[2]],M.ELp,96,74,.35));
   g.push(limb(M.ELp,[G[0],0,G[2]],74,54,.35));
+  }
 
   // рама
   [['BB','rear',14],['stTop','rear',14],['BB','stTop',14],['stTop','htTop',14],['BB','htBot',14],['htBot','front',12]]
@@ -984,6 +993,8 @@ function drawSide(M){
     g.push(ln([pd[0]-58,pd[2]],[pd[0]+58,pd[2]],FR,12,null,op));
   });
 
+  let elbRight=0;
+  if(!sideBare){
   // торс: два звена через точку сгиба поясницы — спина скруглена
   g.push(limb([M.HIP[0],0,M.HIP[2]],[M.FLEX[0],0,M.FLEX[2]],182,190));
   g.push(limb([M.FLEX[0],0,M.FLEX[2]],[M.SH[0],0,M.SH[2]],190,196));
@@ -1017,33 +1028,74 @@ function drawSide(M){
   const elbTxt=elbLong ? `локоть ${M.elbowProj.toFixed(0)}° в профиль · ${M.elbow.toFixed(0)}° анатом.`
                        : `локоть ${M.elbow.toFixed(0)}°`;
   g.push(callout([M.ELp[0]+70,M.ELp[2]+95],[M.ELp[0]+200,M.ELp[2]+205],elbTxt,AMB,'start'));
-  const elbRight=M.ELp[0]+215+elbTxt.length*23;   // ~0.64em на символ при font-size 36
+  elbRight=M.ELp[0]+215+elbTxt.length*23;   // ~0.64em на символ при font-size 36
   g.push(ln([M.HIP[0],M.HIP[2]],[M.HIP[0]+430,M.HIP[2]],MUT,4,'14 12'));
   g.push(arcAt([M.HIP[0],0,M.HIP[2]],[M.HIP[0]+430,0,M.HIP[2]],[M.SH[0],0,M.SH[2]],355,VIO));
   const mx=(M.HIP[0]+M.SH[0])/2-165, mz=(M.HIP[2]+M.SH[2])/2+95;
   g.push(`<text x="${mx.toFixed(1)}" y="${(-mz).toFixed(1)}" fill="${VIO}" font-size="38" font-weight="700" text-anchor="middle" font-family="ui-sans-serif,system-ui" transform="rotate(${(-M.torso).toFixed(0)} ${mx.toFixed(1)} ${(-mz).toFixed(1)})">корпус ${M.torso.toFixed(0)}°</text>`);
+  }
 
   // контактные точки
-  [[M.sat[0],M.sat[1]+20],[G[0],G[2]],[ln_.ped[0],ln_.ped[2]]].forEach(p=>{
+  [[M.sat[0],M.sat[1]+20],[G[0],G[2]],[M.legs.near.ped[0],M.legs.near.ped[2]]].forEach(p=>{
     g.push(`<circle cx="${p[0].toFixed(1)}" cy="${(-p[1]).toFixed(1)}" r="34" fill="none" stroke="${ACC}" stroke-width="5" stroke-dasharray="9 8"/><circle cx="${p[0].toFixed(1)}" cy="${(-p[1]).toFixed(1)}" r="15" fill="${ACC}"/>`);
   });
+  if(!sideBare){
   // центр масс
   g.push(`<circle cx="${M.CoM[0].toFixed(1)}" cy="${(-M.CoM[1]).toFixed(1)}" r="40" fill="none" stroke="${VIO}" stroke-width="5"/><circle cx="${M.CoM[0].toFixed(1)}" cy="${(-M.CoM[1]).toFixed(1)}" r="18" fill="${VIO}"/>`);
   g.push(ln(M.CoM,[M.CoM[0],-260],VIO,4,'16 13',.85));
   g.push(callout([M.CoM[0]-40,M.CoM[1]-20],[M.CoM[0]-420,M.CoM[1]-330],'центр масс',VIO,'end'));
+  }
+
+  /* Обмерный слой. Всё, что здесь нарисовано, снимается с реального велосипеда
+     рулеткой между тремя точками: каретка, точка опоры на седле, центр хвата.
+     Треугольник каретка → ручка показывает reach, stack и RAD разом: RAD — его
+     гипотенуза, RAAD — угол при каретке. */
+  if(sideBare){
+    const B=[P.BB[0],P.BB[1]], SA=[M.sat[0],M.sat[1]+20], GR=[G[0],G[2]];
+    const corner=[GR[0],B[1]];                       // прямой угол треугольника
+    // катеты: эффективные reach и stack
+    g.push(ln(B,corner,TEAL,5,'16 12',.9));
+    g.push(ln(corner,GR,TEAL,5,'16 12',.9));
+    g.push(tx((B[0]+corner[0])/2, B[1]-52, `эфф. reach ${M.effReach.toFixed(0)}`, TEAL,38,'middle',700));
+    g.push(tx(corner[0]+30,(B[1]+GR[1])/2-14, `эфф. stack ${M.effStack.toFixed(0)}`, TEAL,38,'start',700));
+    // гипотенуза — RAD
+    g.push(ln(B,GR,VIO,7));
+    const rmx=(B[0]+GR[0])/2, rmz=(B[1]+GR[1])/2;
+    g.push(`<text x="${(rmx-40).toFixed(1)}" y="${(-rmz-22).toFixed(1)}" fill="${VIO}" font-size="42" font-weight="700" text-anchor="middle" font-family="ui-sans-serif,system-ui" transform="rotate(${(-M.raad).toFixed(1)} ${(rmx-40).toFixed(1)} ${(-rmz-22).toFixed(1)})">RAD ${M.rad.toFixed(0)}</text>`);
+    // угол RAAD при каретке
+    g.push(ln(B,[B[0]+330,B[1]],MUT,4,'14 12'));
+    g.push(arcAt([B[0],0,B[1]],[B[0]+250,0,B[1]],[GR[0],0,GR[1]],250,VIO));
+    g.push(tx(B[0]+310, B[1]+150, `RAAD ${M.raad.toFixed(1)}°`, VIO,38,'start',700));
+    // каретка → седло, прямая: то самое число, которое меряют рулеткой
+    g.push(ln(B,SA,GRN,6));
+    const smx=(B[0]+SA[0])/2, smz=(B[1]+SA[1])/2;
+    g.push(`<text x="${(smx-46).toFixed(1)}" y="${(-smz).toFixed(1)}" fill="${GRN}" font-size="38" font-weight="700" text-anchor="middle" font-family="ui-sans-serif,system-ui" transform="rotate(${(-Math.atan2(SA[1]-B[1],SA[0]-B[0])*180/Math.PI).toFixed(1)} ${(smx-46).toFixed(1)} ${(-smz).toFixed(1)})">седло ${M.satStraight.toFixed(0)}</text>`);
+    // седло → ручка, прямая
+    g.push(ln(SA,GR,ACC,6));
+    const gmx=(SA[0]+GR[0])/2, gmz=(SA[1]+GR[1])/2, gang=-Math.atan2(GR[1]-SA[1],GR[0]-SA[0])*180/Math.PI;
+    g.push(`<text x="${gmx.toFixed(1)}" y="${(-gmz-26).toFixed(1)}" fill="${ACC}" font-size="38" font-weight="700" text-anchor="middle" font-family="ui-sans-serif,system-ui" transform="rotate(${gang.toFixed(1)} ${gmx.toFixed(1)} ${(-gmz-26).toFixed(1)})">седло → ручка по прямой ${Math.hypot(GR[0]-SA[0],GR[1]-SA[1]).toFixed(0)}</text>`);
+    // три опорные точки крупно
+    [B,SA,GR].forEach(q=>g.push(`<circle cx="${q[0].toFixed(1)}" cy="${(-q[1]).toFixed(1)}" r="17" fill="#fff" stroke="${FR}" stroke-width="6"/>`));
+    g.push(tx(B[0]-40,B[1]-70,'каретка',FR,32,'end',600));
+  }
 
   // линейки
   [M.sat[0],G[0]].forEach(x=>g.push(ln([x,20],[x,-300],TEAL,4,'14 11',.7)));
   const rul=(z,x1,x2,c,lab)=>ln([x1,z],[x2,z],c,5)+ln([x1,z+22],[x1,z-22],c,5)+ln([x2,z+22],[x2,z-22],c,5)+tx((x1+x2)/2,z-46,lab,c,38,'middle',700);
   g.push(rul(-330,M.sat[0],G[0],TEAL,`седло → ручка, гориз. ${M.s2gX.toFixed(0)} мм`));
-  g.push(rul(-470,P.rear[0]-R,P.front[0]+R,MUT,`база ${F.wb.toFixed(0)} · центр масс: перед ${M.frontPct.toFixed(0)}% / зад ${(100-M.frontPct).toFixed(0)}%`));
+  g.push(rul(-470,P.rear[0]-R,P.front[0]+R,MUT, sideBare
+    ? `колёсная база ${F.wb.toFixed(0)} мм`
+    : `база ${F.wb.toFixed(0)} · центр масс: перед ${M.frontPct.toFixed(0)}% / зад ${(100-M.frontPct).toFixed(0)}%`));
   g.push(ln([G[0],M.sat[1]],[G[0]+150,M.sat[1]],TEAL,4,'12 10',.7));
   g.push(ln([G[0]+110,M.sat[1]],[G[0]+110,G[2]],TEAL,5));
   g.push(tx(G[0]+135,(M.sat[1]+G[2])/2-12,`перепад ${M.s2gZ>0?'+':''}${M.s2gZ.toFixed(0)}`,TEAL,36,'start',700));
-  g.push(tx(M.sat[0]-175,M.sat[1]+120,`седло ${M.satH.toFixed(0)}`,FR,34,'end',600));
-  g.push(tx(M.sat[0]-175,M.sat[1]+70,'от каретки',MUT,30,'end',500));
+  if(!sideBare){   // в обмерном режиме то же число уже подписано прямо на линии
+    g.push(tx(M.sat[0]-175,M.sat[1]+120,`седло ${M.satH.toFixed(0)}`,FR,34,'end',600));
+    g.push(tx(M.sat[0]-175,M.sat[1]+70,'от каретки',MUT,30,'end',500));
+  }
 
-  const top=Math.max(M.HEAD[2]+S.headR+140, G[2]+300);
+  const top=sideBare ? Math.max(G[2],M.sat[1])+280
+                     : Math.max(M.HEAD[2]+S.headR+140, G[2]+300);
   const x0=Math.min(P.rear[0]-R,M.sat[0])-330, x1=Math.max(P.front[0]+R,G[0]+560,elbRight)+60;
   return svgTag(x0,-top,x1-x0,top+560,'Посадка райдера, вид сбоку',82,g.join(''));
 }
@@ -2196,6 +2248,8 @@ function sdCtlInit(){
   on('sd_torso',q=>{ state.fit.torso=+q.value; });
   on('sd_knee', q=>{ state.fit.kneeTarget=+q.value; });
   on('sd_sat',  q=>{ state.fit.kneeTarget=kneeForSaddle(+q.value); });
+  const bb=document.getElementById('sd_bare');
+  if(bb) bb.addEventListener('click',()=>{ sideBare=!sideBare; track('fit-side-bare'); render(); });
 }
 /* Обратная задача: какой целевой угол колена даёт запрошенную высоту седла. */
 function kneeForSaddle(target){
@@ -2228,6 +2282,9 @@ function sdSync(M){
     if(document.activeElement!==sa) sa.value=Math.round(M.satStraight);
   }
   if(vs) vs.textContent=M.satStraight.toFixed(0)+' мм';
+  const bb=document.getElementById('sd_bare');
+  if(bb){ bb.textContent=sideBare?'Показать райдера':'Только велосипед';
+          bb.className=sideBare?'on':''; }
 }
 function stCtlInit(){
   const on=(id,fn)=>{ const q=document.getElementById(id); if(q) q.addEventListener('input',()=>{ fn(q); render(); }); };
