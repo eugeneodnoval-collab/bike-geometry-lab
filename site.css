@@ -1,0 +1,58 @@
+/*
+  Общая основа оформления: то, что на всех страницах совпадало дословно.
+
+  Здесь только каркас — фон, типографика, палитра, шапка, карточка, сетка
+  «панель + результаты». Компоненты конкретной страницы остаются в ней самой:
+  таблицы сравнения, поля ввода, схемы, оглавление статьи.
+
+  Порядок каскада. Файл подключается ПЕРЕД собственным <style> страницы,
+  поэтому любое правило страницы перебивает здешнее при равной специфичности.
+  Перед выносом проверено, что ни одно из этих правил не полагалось на то,
+  что оно стоит позже локального: пар «равная специфичность + общее свойство +
+  один и тот же элемент» не нашлось ни на одной странице.
+*/
+
+/* Палитра — объединение того, что было по страницам. Неиспользуемая
+   переменная ничего не стоит, а расхождение оттенков между разделами стоило бы. */
+:root{
+  --c1:#e8543f;      /* первый велосипед, акцент */
+  --c2:#2b6cb0;      /* второй велосипед */
+  --bd:#e2e2e2;      /* границы карточек */
+  --mut:#6b6b6b;     /* приглушённый текст */
+  --acc:#0f766e;     /* акцент справки и статей */
+  --body:#4f7fe0;    /* райдер на схемах */
+}
+
+*{box-sizing:border-box}
+
+body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:0;padding:20px;
+     background:#f6f6f5;color:#191919}
+
+h1{font-size:19px;margin:0 0 3px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:18px}
+
+.card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+
+/* Каркас «панель слева + результаты справа». В одну колонку по умолчанию;
+   в какой ширине разъезжается на две — решает сама страница, у инструментов
+   и у текстовых разделов точки разные. */
+.layout{display:grid;gap:14px;align-items:start}
+.panel,.results{display:grid;gap:14px;align-content:start;min-width:0}
+
+/* Шапка. Разметку рисует nav.js, здесь только вид. */
+.nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--bd);
+     border-radius:10px;padding:5px;margin:0 0 16px}
+.nav a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:#3a3a3a;font-size:13px;
+       padding:7px 13px;border-radius:7px;line-height:1.3;white-space:nowrap}
+.nav a:hover{background:#f0f0ef}
+.nav a[aria-current]{background:#1f1f1f;color:#fff}
+.nav a[aria-current]:hover{background:#1f1f1f}
+.nav a .nsub{font-size:11.5px;color:#8d8d8d}
+.nav a[aria-current] .nsub{color:#b9b9b9}
+
+/* На узком экране подписи разделов не помещаются — остаются только названия. */
+@media(max-width:600px){ .nav a .nsub{display:none} }
+
+/* На бумаге навигация бессмысленна. Раньше это правило было не на всех
+   страницах, и шапка иногда печаталась. */
+@media print{ .nav{display:none!important} }

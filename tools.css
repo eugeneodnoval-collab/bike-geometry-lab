@@ -1,0 +1,55 @@
+/*
+  Оформление двух страниц с расчётами — сравнения геометрий и Fit Lab.
+  У них общий набор виджетов: панель ввода, пресеты, тулбар, таблицы, схемы.
+
+  Почему это отдельный файл, а не часть site.css. Здесь есть широкие селекторы
+  по тегам — button, svg, th, td, summary. На справке и в статьях эти теги
+  оформлены иначе или не оформлены вовсе; вливать такое в общую основу значило бы
+  менять их вид. Разделение по смыслу «инструмент против текста» дешевле, чем
+  переписывать все селекторы под классы.
+
+  Подключается ПОСЛЕ site.css и ПЕРЕД собственным <style> страницы.
+*/
+
+/* ---------- раскладка карточек внутри панели ---------- */
+.cols{display:grid;grid-template-columns:1fr;gap:14px}
+
+/* ---------- поля ввода ---------- */
+.grid{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;font-size:13px}
+.grid label{color:#333}
+.bikename:focus{outline:none;border-bottom:1px solid var(--bd)}
+
+/* ---------- пресеты ---------- */
+.psbox{margin:0 0 12px;padding-bottom:11px;border-bottom:1px dashed #ddd}
+.psrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.psrow button{padding:4px 9px;color:#333;flex:0 0 auto}
+.psrow .psdel{color:#b3261e;font-weight:600}
+.pshint{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.45}
+.psbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.psbar b{color:var(--mut);font-weight:500;margin-right:2px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px}
+.presets b{color:var(--mut);font-weight:500;margin-right:2px}
+
+/* ---------- кнопки и тулбар ---------- */
+button{font-family:inherit;font-size:12.5px;padding:4px 10px;border:1px solid #d0d0d0;background:#fff;border-radius:6px;cursor:pointer}
+button:hover{background:#f2f2f2}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.toolbar button{padding:6px 13px;font-size:13px}
+.toolbar .primary{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
+.toolbar .primary:hover{background:#333}
+
+/* ---------- сворачиваемые блоки ---------- */
+summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
+details .grid{margin-top:8px}
+
+/* ---------- схемы ---------- */
+svg{width:100%;height:auto;display:block}
+
+/* ---------- таблицы ---------- */
+th,td{border-bottom:1px solid #ededed;padding:5px 8px;text-align:right}
+th:first-child,td:first-child{text-align:left;color:#333}
+thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
+.grp td{background:#fafafa;font-weight:600;text-align:left;color:#555;font-size:11.5px;letter-spacing:.03em;text-transform:uppercase}
+
+/* Виден только на печати — заголовок листа настроек. */
+.printonly{display:none}

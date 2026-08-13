@@ -4,31 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Как это мерить — справка по параметрам</title>
+<link rel="stylesheet" href="site.css">
 <style>
-:root{ --c1:#e8543f; --c2:#2b6cb0; --bd:#e2e2e2; --mut:#6b6b6b; --acc:#0f766e; }
-*{box-sizing:border-box}
-body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:0;padding:20px;background:#f6f6f5;color:#191919}
-h1{font-size:19px;margin:0 0 3px}
-.sub{color:var(--mut);font-size:13px;margin-bottom:18px;max-width:900px;line-height:1.55}
-.card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+
 .card>h2{font-size:15px;margin:0 0 4px;scroll-margin-top:20px}
 .card>.lead{font-size:13px;color:var(--mut);line-height:1.6;margin:0 0 14px;max-width:820px}
 
-/* ---- общая навигация (одинаковая на всех трёх страницах) ---- */
-.nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--bd);
-     border-radius:10px;padding:5px;margin:0 0 16px}
-.nav a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:#3a3a3a;font-size:13px;
-       padding:7px 13px;border-radius:7px;line-height:1.3;white-space:nowrap}
-.nav a:hover{background:#f0f0ef}
-.nav a[aria-current]{background:#1f1f1f;color:#fff}
-.nav a[aria-current]:hover{background:#1f1f1f}
-.nav a .nsub{font-size:11.5px;color:#8d8d8d}
-.nav a[aria-current] .nsub{color:#b9b9b9}
-@media(max-width:600px){.nav a .nsub{display:none}}
-
 /* ---- раскладка: оглавление слева, текст справа (та же логика, что на других страницах) ---- */
-.layout{display:grid;gap:14px;align-items:start}
-.panel,.results{display:grid;gap:14px;align-content:start;min-width:0}
+
 @media(min-width:1000px){
   .layout{grid-template-columns:clamp(220px,20%,300px) 1fr}
   .panel{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}
@@ -88,6 +71,10 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 .w3{background:#eef1ee;color:#5a655a}
 
 @media print{ .nav,.toc,.chips{display:none!important} .layout{display:block} .card{border:none;padding:0;margin:0 0 14px} body{padding:0;background:#fff} }
+
+/* Отличия этой страницы от общей основы (site.css). */
+.sub{max-width:900px;line-height:1.55}
+.card{padding:16px 18px}
 </style>
 
 <script>
@@ -109,12 +96,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 </head>
 <body>
 
-<nav class="nav">
-  <a href="index.html">Сравнение геометрий <span class="nsub">две рамы рядом</span></a>
-  <a href="fit-lab.html">Посадка <span class="nsub">райдер на раме</span></a>
-  <a href="help.html" aria-current="page">Как это мерить <span class="nsub">справка по параметрам</span></a>
-  <a href="articles.html">Статьи <span class="nsub">исследования и практика</span></a>
-</nav>
+<script src="nav.js"></script>
 
 <h1>Как это мерить — справка по параметрам</h1>
 <div class="sub">Каждое поле ввода на обеих страницах: что это за число, откуда его взять, как измерить самому, если взять негде, и что оно меняет в результате. Метки <span class="where w1">рама</span> <span class="where w2">посадка</span> показывают, на какой странице встречается параметр. Все размеры — в миллиметрах, углы — в градусах.</div>

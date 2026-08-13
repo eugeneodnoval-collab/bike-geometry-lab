@@ -4,16 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Geometry Lab — сравнение геометрий</title>
+<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="tools.css">
 <style>
-:root{
-  --c1:#e8543f; --c2:#2b6cb0;
-  --bd:#e2e2e2; --mut:#6b6b6b;
-}
-*{box-sizing:border-box}
-body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:0;padding:20px;background:#f6f6f5;color:#191919}
-h1{font-size:19px;margin:0 0 3px}
-.sub{color:var(--mut);font-size:13px;margin-bottom:18px}
-.card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:14px}
 
 /* ---- раскладка ----
    <760      всё в одну колонку
@@ -21,9 +14,7 @@ h1{font-size:19px;margin:0 0 3px}
    >=1160    две панели: ввод слева, схема и таблица справа.
              clamp(330,25%,500) даёт ровно 25% в диапазоне ~1360–2040 px,
              ниже упирается в 330 (минимум для полей ввода), выше — в 500. */
-.layout{display:grid;gap:14px;align-items:start}
-.panel,.results{display:grid;gap:14px;align-content:start;min-width:0}
-.cols{display:grid;grid-template-columns:1fr;gap:14px}
+
 @media(min-width:760px){.cols{grid-template-columns:1fr 1fr}}
 @media(min-width:1160px){
   .layout{grid-template-columns:clamp(330px,25%,500px) 1fr}
@@ -35,10 +26,7 @@ h1{font-size:19px;margin:0 0 3px}
 .bikehead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .dotc{width:12px;height:12px;border-radius:50%}
 .bikename{font-weight:650;font-size:15px;border:none;background:transparent;width:100%;padding:2px 0;color:inherit;font-family:inherit}
-.bikename:focus{outline:none;border-bottom:1px solid var(--bd)}
 
-.grid{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;font-size:13px}
-.grid label{color:#333}
 .grid input[type=number]{width:88px;padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:13px;text-align:right;font-family:inherit}
 .grid input:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
 
@@ -49,17 +37,13 @@ h1{font-size:19px;margin:0 0 3px}
 .tdelta{font-size:12px;color:var(--mut);min-width:0}
 
 /* ---- строка пресетов (одинаковая на обеих страницах) ---- */
-.psbox{margin:0 0 12px;padding-bottom:11px;border-bottom:1px dashed #ddd}
-.psrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
 .psrow select,.psrow .psname{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
   font-family:inherit;background:#fff;color:#191919;min-width:0;flex:1 1 120px}
 .psrow select:focus,.psrow .psname:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
-.psrow button{padding:4px 9px;color:#333;flex:0 0 auto}
-.psrow .psdel{color:#b3261e;font-weight:600}
+
 .psrow button:disabled,.psrow select:disabled,.psrow input:disabled{opacity:.42;cursor:not-allowed}
-.pshint{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.45}
-.psbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px}
-.psbar b{color:var(--mut);font-weight:500;margin-right:2px}
+
 @media print{.psbox,.pshint,.psbar{display:none!important}}
 
 .handoff{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
@@ -69,32 +53,15 @@ h1{font-size:19px;margin:0 0 3px}
 @media print{.handoff{display:none!important}}
 
 details{margin-top:8px;font-size:13px}
-summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
-details .grid{margin-top:8px}
-
-.presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px}
-.presets b{color:var(--mut);font-weight:500;margin-right:2px}
-button{font-family:inherit;font-size:12.5px;padding:4px 10px;border:1px solid #d0d0d0;background:#fff;border-radius:6px;cursor:pointer}
-button:hover{background:#f2f2f2}
-
-svg{width:100%;height:auto;display:block}
 
 table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:tabular-nums}
-th,td{border-bottom:1px solid #ededed;padding:5px 8px;text-align:right}
-th:first-child,td:first-child{text-align:left;color:#333}
-thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
-.grp td{background:#fafafa;font-weight:600;text-align:left;color:#555;font-size:11.5px;letter-spacing:.03em;text-transform:uppercase}
+
 .spec{color:#9a9a9a;font-size:11.5px}
 .pos{color:#0a7d33}.neg{color:#b3261e}
 .dcol{font-weight:600}
 .note{font-size:12px;color:var(--mut);line-height:1.6;margin-top:10px}
 
-.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
-.toolbar button{padding:6px 13px;font-size:13px}
-.toolbar .primary{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
-.toolbar .primary:hover{background:#333}
 .toolbar .ok{color:#0a7d33;font-size:12.5px}
-.printonly{display:none}
 
 @media print{
   @page{ size:A4 landscape; margin:10mm }
@@ -116,18 +83,6 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 }
 .warn{font-size:12.5px;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:8px 10px;margin-top:10px;display:none}
 
-/* ---- общая навигация (одинаковая на всех трёх страницах) ---- */
-.nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--bd);
-     border-radius:10px;padding:5px;margin:0 0 16px}
-.nav a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:#3a3a3a;font-size:13px;
-       padding:7px 13px;border-radius:7px;line-height:1.3;white-space:nowrap}
-.nav a:hover{background:#f0f0ef}
-.nav a[aria-current]{background:#1f1f1f;color:#fff}
-.nav a[aria-current]:hover{background:#1f1f1f}
-.nav a .nsub{font-size:11.5px;color:#8d8d8d}
-.nav a[aria-current] .nsub{color:#b9b9b9}
-@media(max-width:600px){.nav a .nsub{display:none}}
-@media print{.nav{display:none!important}}
 </style>
 
 <script>
@@ -149,12 +104,7 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 </head>
 <body>
 
-<nav class="nav">
-  <a href="index.html" aria-current="page">Сравнение геометрий <span class="nsub">две рамы рядом</span></a>
-  <a href="fit-lab.html">Посадка <span class="nsub">райдер на раме</span></a>
-  <a href="help.html">Как это мерить <span class="nsub">справка по параметрам</span></a>
-  <a href="articles.html">Статьи <span class="nsub">исследования и практика</span></a>
-</nav>
+<script src="nav.js"></script>
 
 <h1>Geometry Lab — наложение геометрий хардтейлов</h1>
 <div class="sub">Колёса на общей земле, задние оси совмещены. Видно, как расходятся перья, куда уезжает каретка и где стоят пятна контакта передних колёс. Меняй любое число — схема пересчитывается на лету.</div>
@@ -197,6 +147,7 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 </main>
 </div>
 
+<script src="model.js"></script>
 <script>
 /* Событие в GoatCounter. Скрипт грузится async и может не загрузиться вовсе
    (блокировщик), поэтому вызов всегда защищён и молча ничего не делает.
@@ -210,13 +161,6 @@ function track(name){
 
 /* ================= модель ================= */
 const rad = d => d*Math.PI/180, deg = r => r*180/Math.PI;
-const V = {
-  add:(a,b)=>[a[0]+b[0],a[1]+b[1]],
-  sub:(a,b)=>[a[0]-b[0],a[1]-b[1]],
-  mul:(a,k)=>[a[0]*k,a[1]*k],
-  len:a=>Math.hypot(a[0],a[1]),
-  rot:(a,t)=>[a[0]*Math.cos(t)-a[1]*Math.sin(t), a[0]*Math.sin(t)+a[1]*Math.cos(t)]
-};
 
 const PRESETS = {
   B1:{name:"Outleap Warhog L 2025", reach:465, stack:629, hta:65.8, sta:75.5, ht:115, st:460, cs:435, bbDrop:50,  wb:1213, offset:null, travelRef:130, travel:130, sag:25, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null},
@@ -240,74 +184,19 @@ const state = {
    5. Из повёрнутых точек читаем фактические reach/stack/углы/drop.
 */
 function solve(b){
-  const hta = rad(b.hta), sta = rad(b.sta);
-  const BB   = [0,0];
-  const htTop= [b.reach, b.stack];
-  const u    = [Math.cos(hta), -Math.sin(hta)];   // вниз-вперёд вдоль оси рулевой
-  const p    = [Math.sin(hta),  Math.cos(hta)];   // перпендикуляр вперёд (офсет)
-  const htBot= V.add(htTop, V.mul(u, b.ht));
-  const rear = [-Math.sqrt(Math.max(b.cs*b.cs - b.bbDrop*b.bbDrop, 1)), b.bbDrop];
-  const stTop= [-b.st*Math.cos(sta), b.st*Math.sin(sta)];
-
-  // Паспортная передняя ось всегда лежит на высоте bbDrop (оба колеса на земле).
-  // Не хватает одного числа: либо колёсная база, либо офсет вилки.
-  //  - задана база  -> офсет выводим из неё;
-  //  - базы нет     -> берём офсет (по умолчанию 44) и выводим базу.
-  let front, dRef, oRef;
-  if (b.wb) {
-    front = [b.wb + rear[0], b.bbDrop];
-    const fk = V.sub(front, htBot);
-    dRef = fk[0]*u[0] + fk[1]*u[1];
-    oRef = fk[0]*p[0] + fk[1]*p[1];
-  } else {
-    oRef = (b.offset!=null ? b.offset : 44);
-    dRef = (b.bbDrop - htBot[1] - oRef*p[1]) / u[1];
-    front = V.add(htBot, V.add(V.mul(u,dRef), V.mul(p,oRef)));
-  }
-
-  const a2cRef = Math.hypot(dRef, oRef);
-
-  // новая вилка: смена хода + просадка (sag) под весом райдера.
-  // Паспортная геометрия измерена с полностью разжатой вилкой -> при sag = 0 всё сходится с паспортом.
-  const sagMM = b.travel * ((b.sag ?? 0)/100);
-  /* Замена вилки. По умолчанию считаем, что A2C растёт 1:1 с ходом, а офсет не
-     меняется — верно для «накрутил ход на той же вилке» и неверно при смене модели:
-     у SID 120 A2C 513, у Pike 120 уже 531. Если заданы A2C обеих вилок, берём их
-     РАЗНОСТЬ: dRef меряется от низа рулевого стакана, а A2C — от кольца короны,
-     и неизвестная высота нижней чашки в разности сокращается. */
-  const dA2C = (b.forkA2C!=null && b.forkA2Cnew!=null) ? (b.forkA2Cnew - b.forkA2C)
-                                                       : (b.travel - b.travelRef);
-  const oNew = (b.forkOffsetNew!=null) ? b.forkOffsetNew : oRef;
-  const dNew = dRef + dA2C - sagMM;
-  const fkNew = V.add(V.mul(u, dNew), V.mul(p, oNew));
-
-  // поворот рамы вокруг задней оси до касания земли передним колесом
-  const Wvec = V.add(V.sub(htBot, rear), fkNew);
-  const theta = -Math.atan2(Wvec[1], Wvec[0]);      // > 0 => нос поднимается
-
-  const R = t => q => V.add(rear, V.rot(V.sub(q, rear), t));
-  const r = R(theta);
-  const P = {
-    BB:r(BB), htTop:r(htTop), htBot:r(htBot), stTop:r(stTop), rear:rear.slice(),
-    front:V.add(rear, V.rot(Wvec, theta))
-  };
-  // фактические числа
-  const htaNew = deg(Math.atan2(P.htTop[1]-P.htBot[1], P.htBot[0]-P.htTop[0]));
-  const staNew = deg(Math.atan2(P.stTop[1]-P.BB[1], P.BB[0]-P.stTop[0]));
-  const reach  = P.htTop[0]-P.BB[0];
-  const stack  = P.htTop[1]-P.BB[1];
-  const bbDrop = P.rear[1]-P.BB[1];
-  const wb     = P.front[0]-P.rear[0];
-  const bbH    = state.wheelR - bbDrop;
-  const virt   = [P.BB[0] - stack/Math.tan(rad(staNew)), P.BB[1]+stack];
-  const trail  = (state.wheelR/Math.tan(rad(htaNew))) - oNew/Math.sin(rad(htaNew));
-
-  return {b, P, virt, theta:deg(theta),
-    hta:htaNew, sta:staNew, reach, stack, bbDrop, wb, bbH, trail,
+  /* Тонкая обёртка над общей моделью из model.js. Специфичное для этой страницы:
+     виртуальная верхняя труба, ETT, front center и высота каретки от земли. */
+  const r = BikeModel.solveFrame(b, state.wheelR);
+  const P = r.P;
+  const virt = [P.BB[0] - r.stack/Math.tan(rad(r.sta)), P.BB[1] + r.stack];
+  return {b, P, virt, theta:r.theta,
+    hta:r.hta, sta:r.sta, reach:r.reach, stack:r.stack, bbDrop:r.bbDrop, wb:r.wb,
+    bbH: state.wheelR - r.bbDrop, trail:r.trail,
     ett: P.htTop[0]-virt[0],
     fc: Math.hypot(P.front[0]-P.BB[0], P.front[1]-P.BB[1]),
     cs: Math.hypot(P.rear[0]-P.BB[0], P.rear[1]-P.BB[1]),
-    a2cRef, a2cNew: Math.hypot(dNew, oNew), offset:oNew, offsetRef:oRef, forkAxRef:dRef, dA2C, sagMM,
+    a2cRef:r.a2cRef, a2cNew:r.a2cNew,
+    offset:r.oNew, offsetRef:r.oRef, forkAxRef:r.dRef, dA2C:r.dA2C, sagMM:r.sagMM,
     ground: P.rear[1] - state.wheelR
   };
 }
@@ -590,7 +479,6 @@ function updateTravelNotes(){
     document.getElementById('td'+i).textContent = parts.join(' · ');
   });
 }
-
 
 /* ==================== пресеты ====================
    Один ключ в localStorage, один блоб, три вида: geo / ck / body.
