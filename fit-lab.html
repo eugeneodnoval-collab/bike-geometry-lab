@@ -415,11 +415,16 @@ function solveCockpit(F){
 
 /* ===================== 3. сегменты тела ===================== */
 function segments(){
+  /* Платформа педали — железо, поэтому живёт в кокпите (state.ck) и сохраняется
+     с его пресетом. Раньше её читали отсюда как b.pedalStack, то есть из мерок
+     тела, где её никогда не было: поле молча откатывалось к 8 мм и введённое
+     значение не влияло ни на что. Та же ловушка, что была с шатуном и Q-factor. */
   const b=state.body, H=b.height, I=b.inseam;
+  const pedStack = state.ck.pedalStack!=null ? state.ck.pedalStack : 8;
   // inseam меряется босиком, поэтому длину ноги считаем от БОСОЙ высоты голеностопа.
   // Подошва обуви только поднимает стопу над осью педали и потому поднимает седло 1:1.
   const ankleBare=(b.ankleH!=null?b.ankleH:0.039*H);
-  const ankleH=ankleBare+b.soleThk+(b.pedalStack!=null?b.pedalStack:8);  // голеностоп над ОСЬЮ педали
+  const ankleH=ankleBare+b.soleThk+pedStack;                   // голеностоп над ОСЬЮ педали
   const hipJointH=I+0.055*H;                                   // головка бедра над полом
   const legTotal=Math.max(hipJointH-ankleBare,200);
   /* Каждый сегмент: прямой замер, если введён, иначе антропометрическая доля.
@@ -460,7 +465,7 @@ function segments(){
      и продольное положение колена. */
   const footLen  = b.footLen  !=null ? b.footLen  : 0.152*H;
   const heelToMet= b.heelToMet!=null ? b.heelToMet: 0.685*footLen;
-  const pedalStack= b.pedalStack!=null? b.pedalStack: 8;
+  const pedalStack= pedStack;
   const pedalPos = b.pedalPos !=null ? b.pedalPos : heelToMet;
   const ankleFromHeel=0.33*footLen;                 // проекция голеностопа от пятки
   const pedalBackAuto=clamp(pedalPos-ankleFromHeel,-60,260);
