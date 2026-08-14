@@ -411,6 +411,10 @@ const FIELDS = [
 ];
 const ADV = [["wb","Колёсная база (если знаешь)",1],["offset","Офсет вилки (если базы нет)",1],
   ["forkA2C","A2C штатной вилки",1],["forkA2Cnew","A2C новой вилки",1],["forkOffsetNew","Офсет новой вилки",1]];
+/* Обратная проверка. В расчёт не входит: сверяет введённую геометрию с железом.
+   Офсет читает почти только угол рулевой, замер до оси — всё остальное,
+   поэтому вместе они показывают не просто «не сходится», а где искать. */
+const FORKCHK = [["forkOffsetSpec","Офсет вилки по спеке",1],["forkMeasLen","Замер: низ чашки → ось",1]];
 
 function esc(s){return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
 
@@ -449,6 +453,14 @@ function buildInputs(){
          ${ADV.map(([k,l,st])=>`<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]??''}" placeholder="авто">`).join('')}
        </div>
      </details>
+     <details>
+       <summary>Проверка вилки</summary>
+       <div class="grid" style="color:#191919">
+         ${FORKCHK.map(([k,l,st])=>`<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]??''}" placeholder="не задан">`).join('')}
+       </div>
+       <div class="srcline" id="fk${i}"></div>
+       <div class="hint">Оба поля необязательны и в расчёт не входят. Модель выводит вилку из паспортных чисел, и это бесплатный кросс-чек: офсет — свойство самой вилки, он обязан совпасть со спекой. Не совпал — врут замеры рамы, а не вилка.</div>
+     </details>
      <div class="handoff">
        <button class="tofit" onclick="openInFit(${i})">Открыть в Fit Lab ↗</button>
        <span class="hoff">геометрия уедет как есть — вводить заново не надо</span>
@@ -463,11 +475,26 @@ function buildInputs(){
       else state.bikes[i][k] = parseFloat(el.value);
       if(k==='travel') document.getElementById('tv'+i).textContent = el.value+' мм';
       if(k==='sag')    document.getElementById('sv'+i).textContent = el.value+'%';
-      render(); updateTravelNotes();
+      render(); updateTravelNotes(); updateForkChecks();
     });
   });
   updateTravelNotes();
+  updateForkChecks();
   psRefresh();
+}
+
+/* Проверка вилки. Считает model.js — обе страницы должны говорить одно и то же,
+   поэтому здесь только вёрстка. Пересобирается вместе с числами: карточки
+   ввода не перерисовываются на каждый ввод, а этот блок обязан жить. */
+function updateForkChecks(){
+  state.bikes.forEach((b,i)=>{
+    const host=document.getElementById('fk'+i);
+    if(!host) return;
+    try{
+      const R=BikeModel.forkReport(b, state.wheelR, {offset:b.forkOffsetSpec, len:b.forkMeasLen});
+      host.innerHTML=R.map(x=>x.kind==='info'?x.text:`<span class="${x.kind}">${x.text}</span>`).join(' ');
+    }catch(e){ host.textContent='не удалось посчитать: проверь введённые числа'; }
+  });
 }
 
 function updateTravelNotes(){
@@ -489,7 +516,7 @@ function updateTravelNotes(){
    выбрасывал пресеты, которые нужны другой. */
 const PS_KEY='bikelab.presets.v1';
 const PKEYS={
-  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew'],
+  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'],
   ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
         'backsweep','upsweep','barRoll','gripInset','riserBendHalf','crank','qFactor','postOffset','railPos'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
@@ -672,7 +699,7 @@ function openInFit(i){
 }
 
 /* ================= сохранение состояния в ссылку ================= */
-const HKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew'];
+const HKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'];
 
 function stateToHash(){
   const enc = state.bikes.map(b =>
@@ -697,7 +724,7 @@ function hashToState(){
         b[k] = (v===undefined || v==='') ? null : parseFloat(v);
       });
       // обязательные поля — если пусто, подставляем из первого пресета
-      HKEYS.forEach(k=>{ if(b[k]==null && !['wb','offset','forkA2C','forkA2Cnew','forkOffsetNew'].includes(k)) b[k] = PRESETS.B1[k]; });
+      HKEYS.forEach(k=>{ if(b[k]==null && !['wb','offset','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'].includes(k)) b[k] = PRESETS.B1[k]; });
       return b;
     });
     if(bikes.length===2){ state.bikes = bikes; return true; }

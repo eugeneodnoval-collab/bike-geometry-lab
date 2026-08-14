@@ -1,0 +1,141 @@
+{
+ "_": "Реальные данные владельца проекта: вход регресса и материал для проверок. Экспорт пресетов страницы посадки от 2026-08-14. Высота седла выставлена ~733 мм от каретки по прямой на всех велосипедах. Рабочие связки в регрессе: Speedone Floater L 120 + Floater 120; Outleap Warhog L 2025 140 + WARHOG. Hagen 4 XL 2025 со 130-й вилкой сюда намеренно не входит: его геометрия пока не сходится сама с собой — ручные замеры и паспортные данные вилки дают разный офсет, разбор в CHANGELOG. Кокпит Hagen 4 оставлен, он замерен независимо от рамы.",
+ "app": "bikelab",
+ "v": 1,
+ "geo": {
+  "Speedone Floater L 120": {
+   "reach": 447, "stack": 627, "hta": 67, "sta": 76, "ht": 115, "st": 485,
+   "cs": 440, "bbDrop": 50, "wb": 1180, "offset": null,
+   "travelRef": 120, "travel": 120, "sag": 0, "wheelR": 368,
+   "forkA2C": null, "forkA2Cnew": null, "forkOffsetNew": null
+  },
+  "Outleap Warhog L 2025 140": {
+   "reach": 460, "stack": 632, "hta": 65, "sta": 75, "ht": 115, "st": 460,
+   "cs": 435, "bbDrop": 46.8, "wb": 1217, "offset": null,
+   "travelRef": 140, "travel": 140, "sag": 0, "wheelR": 368,
+   "forkA2C": null, "forkA2Cnew": null, "forkOffsetNew": null
+  },
+  "Canyon Grizzle L Gravel Adv": {
+   "reach": 420, "stack": 619, "hta": 71, "sta": 73.5, "ht": 183, "st": 552,
+   "cs": 440, "bbDrop": 75, "wb": 1100, "offset": null,
+   "travelRef": 100, "travel": 100, "sag": 0, "wheelR": 360
+  },
+  "Hagen HG L Gravel": {
+   "reach": 415, "stack": 611, "hta": 71, "sta": 74, "ht": 175, "st": 530,
+   "cs": 440, "bbDrop": 79, "wb": null, "offset": 50,
+   "travelRef": 100, "travel": 100, "sag": 0, "wheelR": 360
+  },
+  "Canyon Exeed L Cross-country": {
+   "reach": 465, "stack": 632, "hta": 67, "sta": 75, "ht": 125, "st": 495,
+   "cs": 430, "bbDrop": 58, "wb": 1186, "offset": null,
+   "travelRef": 100, "travel": 100, "sag": 0, "wheelR": 360
+  },
+  "Hagen 5 XL Cross-country": {
+   "reach": 485, "stack": 645.5, "hta": 68.5, "sta": 73.5, "ht": 110, "st": 508,
+   "cs": 435, "bbDrop": 63.5, "wb": null, "offset": 51,
+   "travelRef": 120, "travel": 120, "sag": 0, "wheelR": 365
+  },
+  "Canyon Grand L Trail": {
+   "reach": 470, "stack": 640, "hta": 66, "sta": 74.4, "ht": 125, "st": 460,
+   "cs": 435, "bbDrop": 65, "wb": 1209, "offset": null,
+   "travelRef": 120, "travel": 120, "sag": 0, "wheelR": 365
+  },
+  "Outleap Warhog L 2026 Trail": {
+   "reach": 465, "stack": 639, "hta": 65.5, "sta": 75.5, "ht": 115, "st": 440,
+   "cs": 435, "bbDrop": 50, "wb": 1221, "offset": null,
+   "travelRef": 140, "travel": 140, "sag": 0, "wheelR": 368
+  },
+  "Canyon Torque L Downhill": {
+   "reach": 495, "stack": 652, "hta": 63.5, "sta": 78.5, "ht": 120, "st": 420,
+   "cs": 430, "bbDrop": 12, "wb": 1284, "offset": null,
+   "travelRef": 180, "travel": 180, "sag": 0, "wheelR": 368
+  },
+  "Hagen 5 ML Cross-country": {
+   "reach": 455, "stack": 645.5, "hta": 68.5, "sta": 73.5, "ht": 110, "st": 457,
+   "cs": 435, "bbDrop": 63.5, "wb": null, "offset": 51,
+   "travelRef": 120, "travel": 120, "sag": 0, "wheelR": 365
+  },
+  "Outleap Radius S 27,5": {
+   "reach": 405, "stack": 604, "hta": 67.5, "sta": 75, "ht": 100, "st": 400,
+   "cs": 430, "bbDrop": 50, "wb": 1109, "offset": null,
+   "travelRef": 120, "travel": 120, "sag": 0, "wheelR": 368
+  },
+  "Intense Recluse L Trail 2026": {
+   "reach": 453, "stack": 652, "hta": 66.5, "sta": 74, "ht": 110, "st": 455,
+   "cs": 435, "bbDrop": 60, "wb": 1195, "offset": null,
+   "travelRef": 140, "travel": 140, "sag": 0, "wheelR": 368
+  },
+  "Outleap Riot L 2026": {
+   "reach": 450, "stack": 631, "hta": 68.5, "sta": 75, "ht": 120, "st": 470,
+   "cs": 450, "bbDrop": 65, "wb": 1173, "offset": null,
+   "travelRef": 100, "travel": 100, "sag": 0, "wheelR": 368
+  },
+  "Outleap Vector L 2026": {
+   "reach": 448, "stack": 619, "hta": 68, "sta": 74.5, "ht": 110, "st": 475,
+   "cs": 435, "bbDrop": 60, "wb": 1153, "offset": null,
+   "travelRef": 100, "travel": 100, "sag": 0, "wheelR": 368
+  },
+  "Intense Podium L 2026": {
+   "reach": 460, "stack": 639, "hta": 67, "sta": 74.5, "ht": 110, "st": 455,
+   "cs": 435, "bbDrop": 65, "wb": 1186, "offset": null,
+   "travelRef": 120, "travel": 120, "sag": 0, "wheelR": 368
+  },
+  "Speedone Floater L 140 restored": {
+   "reach": 437, "stack": 634, "hta": 65.8, "sta": 75, "ht": 115, "st": 485,
+   "cs": 440, "bbDrop": 45, "wb": 1188, "offset": null,
+   "travelRef": 140, "travel": 140, "sag": 0, "wheelR": 368,
+   "forkA2C": null, "forkA2Cnew": null, "forkOffsetNew": null
+  }
+ },
+ "ck": {
+  "Floater 120": {
+   "headsetStack": 10, "spacers": 10, "stemClampH": 40, "stemLen": 60,
+   "stemAngle": 7, "stemFlip": 1, "barRise": 10, "barWidth": 740,
+   "backsweep": 5, "upsweep": 5, "barRoll": -16, "gripInset": 70,
+   "riserBendHalf": 100, "pedalStack": 8,
+   "crank": 170, "qFactor": 178, "postOffset": 0, "railPos": 0
+  },
+  "Hagen 4": {
+   "headsetStack": 15, "spacers": 0, "stemClampH": 40, "stemLen": 70,
+   "stemAngle": 7, "stemFlip": 0, "barRise": 0, "barWidth": 740,
+   "backsweep": 8, "upsweep": 0, "barRoll": -12, "gripInset": 70,
+   "riserBendHalf": 100, "pedalStack": 8,
+   "crank": 175, "qFactor": 180, "postOffset": 20, "railPos": 7
+  },
+  "WARHOG": {
+   "headsetStack": 10, "spacers": 0, "stemClampH": 38, "stemLen": 45,
+   "stemAngle": 0, "stemFlip": 0, "barRise": 25, "barWidth": 760,
+   "backsweep": 9, "upsweep": 5, "barRoll": -20, "gripInset": 70,
+   "riserBendHalf": 100, "pedalStack": 8,
+   "crank": 175, "qFactor": 176, "postOffset": 0, "railPos": 0
+  },
+  "WARHOG orig": {
+   "headsetStack": 10, "spacers": 15, "stemClampH": 40, "stemLen": 45,
+   "stemAngle": 0, "stemFlip": 0, "barRise": 25, "barWidth": 780,
+   "backsweep": 9, "upsweep": 5, "barRoll": -22, "gripInset": 70,
+   "riserBendHalf": 100, "pedalStack": 8,
+   "crank": 175, "qFactor": 176, "postOffset": 0, "railPos": 0
+  },
+  "Floater 140 Old": {
+   "headsetStack": 10, "spacers": 55, "stemClampH": 40, "stemLen": 50,
+   "stemAngle": 30, "stemFlip": 0, "barRise": 10, "barWidth": 740,
+   "backsweep": 5, "upsweep": 5, "barRoll": -16, "gripInset": 70,
+   "riserBendHalf": 100, "pedalStack": 8,
+   "crank": 170, "qFactor": 178, "postOffset": 0, "railPos": 0
+  }
+ },
+ "body": {
+  "EVO": {
+   "height": 1870, "inseam": 850, "shoulderW": 428, "armLen": 565,
+   "hipW": null, "femurPct": 50, "ankleH": 100, "soleThk": 25,
+   "wristGrip": 65, "hipAbove": 34, "hipFwd": -34, "torso": 57,
+   "kneeTarget": 143, "radMult": 4.47, "pedalUp": null, "pedalBack": null,
+   "sitHeight": 978, "trunkLen": 610, "femurLen": 420, "tibiaLen": 420,
+   "upperArm": 305, "foreArm": 280, "footLen": 298, "heelToMet": 204,
+   "sitBoneW": 105, "weight": 77, "pedalShare": 20, "shExt": null,
+   "kneeStand": null, "elbowStand": null, "handShareStand": 10,
+   "bikePitch": 0, "hipBackStand": null, "spineFlex": 12, "lumbarPivot": null,
+   "elbowFlare": 40, "palmDiag": 16, "pedalPos": 160, "soleTilt": null
+  }
+ }
+}

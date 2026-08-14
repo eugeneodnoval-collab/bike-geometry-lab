@@ -37,7 +37,6 @@
 .slider .row{display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:7px}
 .slider input[type=range]{flex:1;accent-color:var(--c1)}
 .tval{font-variant-numeric:tabular-nums;font-weight:650;min-width:72px;text-align:right}
-.hint{font-size:12px;color:var(--mut);line-height:1.55;margin-top:8px}
 details{margin-top:10px;font-size:13px}
 
 button.on{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
@@ -52,7 +51,6 @@ table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:
 .warn{font-size:12.5px;line-height:1.55;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:9px 11px;margin-top:10px}
 .warn.bad{color:#8c1d18;background:#fdecea;border-color:#f3c4bf}
 .warn b{font-weight:650}
-.srcline{font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.45}
 /* ---- управление стойкой ---- */
 .standctl{display:grid;gap:7px;margin:0 0 10px}
 .standctl .srow{display:flex;align-items:center;gap:10px;font-size:13px}
@@ -300,7 +298,7 @@ const RIDERS={
 };
 
 const state={
-  bike:{...BIKES.B1, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null},
+  bike:{...BIKES.B1, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null, forkOffsetSpec:null, forkMeasLen:null},
   wheelR:368,
   ck:{ headsetStack:15, spacers:20, stemClampH:40, stemLen:50, stemAngle:6, stemFlip:0,
        barRise:25, barWidth:760, backsweep:8, upsweep:5, barRoll:0, gripInset:70, riserBendHalf:100,
@@ -348,31 +346,16 @@ function solveFrame(sagOverride){
 /* Режим «только велосипед»: скрыть райдера и показать, что мерить рулеткой.
    Не в state и не в хэше — это вид, а не данные. */
 let sideBare=false;
-const FORK_OFFSETS=[37,42,44,46,51];
-function forkCheck(F,b){
-  const o=F.offsetRef, near=FORK_OFFSETS.reduce((a,c)=>Math.abs(c-o)<Math.abs(a-o)?c:a);
-  const gap=o-near;
-  // производная офсета по базе — считаем численно, она зависит от угла рулевой
-  let dOdWb=0.92;
-  try{
-    const save=b.wb; b.wb=save+10; const o2=solveFrame().offsetRef; b.wb=save;
-    dOdWb=(o2-o)/10;
-  }catch(e){}
-  let t=`<div class="srcline">Штатная вилка из паспорта: осевая длина от низа стакана <b>${F.forkAxRef.toFixed(1)}</b> мм, `
-       +`офсет <b>${o.toFixed(1)}</b> мм. Офсет — свойство вилки, сверь со спекой.`;
-  if(Math.abs(gap)>=2 && dOdWb>0.1){
-    const dWb=-gap/dOdWb;
-    const bad=(o<34||o>54);
-    t+=` <span style="color:${bad?'#b3261e':'#8a5a00'}"><b>Ближайший серийный офсет — ${near} мм</b>, расхождение ${gap>0?'+':''}${gap.toFixed(1)}. `
-      +(bad?'Это вне ряда, который вообще выпускают (37–51): ':'')
-      +`столько даёт ошибка колёсной базы примерно в ${Math.abs(dWb).toFixed(0)} мм — база ${dWb>0?'больше':'меньше'} введённой, около ${(b.wb+dWb).toFixed(0)}. `
-      +`Или полградуса по рулевому углу, или 5–6 мм по reach.</span>`;
-  }
+/* Проверка вилки целиком лежит в model.js: обе страницы показывают одно и то же,
+   а формулировки должны совпадать дословно. Здесь остаётся только вёрстка. */
+function forkCheck(b){
+  const R=BikeModel.forkReport(b, state.wheelR, {offset:b.forkOffsetSpec, len:b.forkMeasLen});
+  let t='<div class="srcline">'+R.map(x=>x.kind==='info'?x.text:`<span class="${x.kind}">${x.text}</span>`).join(' ');
   if(b.forkA2C!=null&&b.forkA2Cnew!=null)
-    t+=` Сейчас считается по разности A2C: <b>${(b.forkA2Cnew-b.forkA2C>0?'+':'')+(b.forkA2Cnew-b.forkA2C).toFixed(0)}</b> мм`
+    t+=` Замена вилки считается по разности A2C: <b>${(b.forkA2Cnew-b.forkA2C>0?'+':'')+(b.forkA2Cnew-b.forkA2C).toFixed(0)}</b> мм`
       +(b.forkOffsetNew!=null?`, офсет <b>${b.forkOffsetNew}</b>`:', офсет прежний')+'.';
   else if(b.forkA2C!=null||b.forkA2Cnew!=null)
-    t+=` <b>Заполнено только одно A2C</b> — нужны оба, иначе считается по ходу.`;
+    t+=' <span class="warn"><b>Заполнено только одно A2C</b> — нужны оба, иначе считается по ходу.</span>';
   return t+'</div>';
 }
 
@@ -1429,7 +1412,7 @@ function render(){
      бесплатный кросс-чек: офсет — чисто свойство вилки, и если он расходится
      со спекой, значит врёт что-то из паспорта. */
   const fk=document.getElementById('forkchk');
-  if(fk) fk.innerHTML=forkCheck(M.F, state.bike);
+  if(fk) fk.innerHTML=forkCheck(state.bike);
   const fc=document.getElementById('flarechk');
   if(fc){
     const S3=[M.SH[0],M.S.shoulderW/2,M.SH[2]];
@@ -1466,6 +1449,10 @@ const WHEEL_HINT=(()=>{
 })();
 
 const F_FORK=[['forkA2C','A2C штатной вилки',1],['forkA2Cnew','A2C новой вилки',1],['forkOffsetNew','Офсет новой вилки',1]];
+/* Обратная проверка: не входит в расчёт, только сверяет замеры рамы с железом.
+   Офсет вилки известен из спеки, а угол рулевой телефоном мерить тяжело —
+   поэтому выгоднее вывести угол из офсета, чем наоборот. */
+const F_FORKCHK=[['forkOffsetSpec','Офсет вилки по спеке',1],['forkMeasLen','Замер: низ чашки → ось',1]];
 const F_FRAME=[['reach','Reach',1],['stack','Stack',0.5],['hta','Угол рулевой',0.1],['sta','Угол подседельной',0.1],
   ['ht','Рулевой стакан',1],['st','Подседельная труба',1],['cs','Перья',1],['bbDrop','BB drop',0.5],['wb','Колёсная база',1],['travelRef','Ход по паспорту',5]];
 const F_CK=[['stemLen','Длина выноса',5],['stemAngle','Угол выноса, °',1],['spacers','Проставки',5],
@@ -1518,9 +1505,14 @@ function buildInputs(){
       <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="60" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
       <div class="row"><span style="min-width:82px">SAG вилки</span><input type="range" min="0" max="40" step="1" data-g="bike" data-k="sag" value="${state.bike.sag}"><span class="tval" id="v_sag">${state.bike.sag}%</span></div>
     </div>
+    <details><summary>Проверка вилки</summary>
+      <div class="grid" style="margin-top:8px">${fields(F_FORKCHK,'bike')}</div>
+      <div id="forkchk"></div>
+      <div class="hint">Оба поля необязательны и в расчёт не входят — это сверка твоих замеров рамы с железом, которое стоит на велосипеде.
+      <b>Офсет по спеке</b> берётся из описания вилки. Модель выводит офсет из геометрии, и если они расходятся, виноват чаще всего угол рулевой: 0.1° угла стоит больше миллиметра офсета, а телефонный уровень врёт как раз на полградуса. Поэтому полезнее вывести угол из офсета, чем мерить его.
+      <b>Замер до оси</b> — рулеткой от низа чашки рулевой до оси переднего колеса. Он, наоборот, к углу почти нечувствителен и ловит ошибки в reach, стеке, базе и BB drop. Две проверки читают разные ошибки, поэтому вместе они сильнее любой из них.</div></details>
     <details><summary>Замена вилки</summary>
       <div class="grid" style="margin-top:8px">${fields(F_FORK,'bike')}</div>
-      <div id="forkchk"></div>
       <div class="hint">Пусто — модель считает, что при смене хода A2C растёт 1:1, а офсет не меняется. Это верно для «накрутил ход на той же вилке» и неверно при смене модели: у двух вилок с одним ходом A2C расходится на 10–18 мм.
       Заполни оба A2C — и в расчёт пойдёт их разность. Именно разность: A2C меряется от кольца короны, а модель от низа стакана, и неизвестная высота нижней чашки в разности сокращается. Офсет подставляется напрямую.
       Ход при этом продолжает работать — но только на sag.</div></details>
@@ -1595,7 +1587,7 @@ function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; render(); }
    На file:// хранилище может быть запрещено — тогда строки гаснут. */
 const PS_KEY='bikelab.presets.v1';
 const PKEYS={
-  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew'],
+  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'],
   ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
         'backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack','crank','qFactor','postOffset','railPos'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
@@ -1823,7 +1815,7 @@ document.addEventListener('click',e=>{
 window.addEventListener('storage',e=>{ if(e.key===PS_KEY) psRefresh(); });
 
 /* ===================== 8. ссылка и печать ===================== */
-const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew'],
+const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'],
   ck:['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth','backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove','hipFwd',
         'sitHeight','trunkLen','femurLen','tibiaLen','upperArm','foreArm','footLen','heelToMet','sitBoneW','weight','shExt',
