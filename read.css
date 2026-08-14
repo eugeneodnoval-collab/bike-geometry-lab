@@ -1,0 +1,62 @@
+/*
+  Оформление страниц, которые читают: справка и статьи.
+
+  У них одинаковый скелет — оглавление в липкой панели слева, шапка и текст
+  карточками справа, — и раньше он был описан дважды, с разъехавшимися мелочами:
+  ширина панели 20% против 22%, отступ подпункта 20 против 18, заголовок раздела
+  15 против 17 пикселей, разные подсказки. Отсюда файл: новая статья подключает
+  его строкой и сразу выглядит как остальные.
+
+  Что сюда НЕ входит: виджеты справки (сетка параметров, шаги, таблицы норм,
+  схемы) — они есть только там. Инструменты с расчётами берут tools.css, а не
+  этот файл: у них другой масштаб и другие теги.
+
+  Подключается после site.css и перед собственным <style> страницы.
+*/
+
+/* ---------- раскладка: оглавление слева, текст справа ---------- */
+/* До 1000px оглавление становится обычной карточкой сверху — на телефоне
+   липкая колонка съедала бы пол-экрана. */
+@media(min-width:1000px){
+  .layout{grid-template-columns:clamp(230px,22%,320px) 1fr}
+  .panel{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}
+}
+
+/* ---------- оглавление ---------- */
+.toc{font-size:13px}
+.toc b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#888;
+       margin:0 0 8px;font-weight:600}
+.toc a{display:block;text-decoration:none;color:#3a3a3a;padding:4px 8px;border-radius:6px;line-height:1.4}
+.toc a:hover{background:#f2f2f1}
+.toc .t2{padding-left:18px;font-size:12.5px;color:#666}
+.back{display:inline-block;margin-top:4px;font-size:13px;color:var(--acc);text-decoration:none;font-weight:600}
+
+/* ---------- шапка: живёт в первой карточке правой колонки, а не над раскладкой,
+     чтобы заголовок стоял на одной высоте с оглавлением ---------- */
+.artmeta{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:11.5px;color:#9a9a9a;margin-bottom:8px}
+h1{font-size:22px;line-height:1.3;margin:0 0 10px;max-width:820px}
+.lead{font-size:14px;color:#4a4a4a;line-height:1.65;margin:0 0 14px;max-width:820px}
+
+/* ---------- текст ----------
+   820px — это примерно 90 знаков в строке: дальше глаз теряет начало следующей. */
+.card h2{font-size:17px;margin:0 0 10px;scroll-margin-top:20px}
+.sec3{font-size:14.5px;margin:22px 0 8px;scroll-margin-top:20px}
+.card p{font-size:14px;line-height:1.7;margin:0 0 12px;max-width:820px;color:#2c2c2c}
+.card ul,.card ol{font-size:14px;line-height:1.7;margin:0 0 12px;padding-left:22px;max-width:820px;color:#2c2c2c}
+.card li{margin-bottom:9px}
+.card b{color:#111;font-weight:650}
+.card a{color:var(--acc)}
+
+/* ---------- врезки ---------- */
+.tip{background:#f2f7f6;border:1px solid #d6e6e3;border-radius:8px;padding:11px 13px;
+     font-size:13px;line-height:1.6;margin:0 0 12px;max-width:820px}
+.warnbox{background:#fff8e6;border:1px solid #f0dfae;border-radius:8px;padding:11px 13px;
+     font-size:13px;line-height:1.6;margin:0 0 12px;max-width:820px}
+
+/* На бумаге оглавление бесполезно: ссылки не нажать, а место занимают. */
+@media print{
+  .toc{display:none!important}
+  .layout{display:block}
+  .card{border:none;padding:0;margin:0 0 14px}
+  body{padding:0;background:#fff}
+}

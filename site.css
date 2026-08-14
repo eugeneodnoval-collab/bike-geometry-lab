@@ -39,6 +39,9 @@ h1{font-size:19px;margin:0 0 3px}
 .layout{display:grid;gap:14px;align-items:start}
 .panel,.results{display:grid;gap:14px;align-content:start;min-width:0}
 
+/* Чип-метка: тег статьи в списке и в самой статье. */
+.tag{background:#f0f4f3;color:var(--acc);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600}
+
 /* Шапка. Разметку рисует nav.js, здесь только вид. */
 .nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--bd);
      border-radius:10px;padding:5px;margin:0 0 16px}

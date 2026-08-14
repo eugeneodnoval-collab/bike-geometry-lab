@@ -240,6 +240,11 @@ function checkPages() {
     if (/\.nav a\{/.test(html)) bad.push(`${f}: стили шапки задублированы, они в site.css`);
     if (/\.toolbar\{|\.psbox\{/.test(html) && !/<link rel="stylesheet" href="tools\.css">/.test(html))
       bad.push(`${f}: виджеты инструмента без tools.css`);
+    // страница с оглавлением — читаемая, её каркас и типографика в read.css
+    if (/class="card toc"/.test(html) && !/<link rel="stylesheet" href="read\.css">/.test(html))
+      bad.push(`${f}: есть оглавление, но нет read.css — раскладка и текст разъедутся`);
+    if (/\.toc a\{|^\s*\.lead\{/m.test(html))
+      bad.push(`${f}: стили оглавления или лида задублированы, они в read.css`);
     if (/BikeModel/.test(html) && !/<script src="model\.js"><\/script>/.test(html))
       bad.push(`${f}: зовёт BikeModel, но не подключает model.js`);
   }

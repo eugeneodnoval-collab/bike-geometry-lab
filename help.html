@@ -5,76 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Как это мерить — справка по параметрам</title>
 <link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="read.css">
 <style>
+/* Виджеты справки. Общий каркас, оглавление, шапка и текст — в site.css и read.css. */
 
-.card>h2{font-size:15px;margin:0 0 4px;scroll-margin-top:20px}
-.card>.lead{font-size:13px;color:var(--mut);line-height:1.6;margin:0 0 14px;max-width:820px}
-
-/* ---- раскладка: оглавление слева, текст справа (та же логика, что на других страницах) ---- */
-
-@media(min-width:1000px){
-  .layout{grid-template-columns:clamp(220px,20%,300px) 1fr}
-  .panel{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}
-}
-.toc{font-size:13px}
-.toc b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin:0 0 8px;font-weight:600}
-.toc a{display:block;text-decoration:none;color:#3a3a3a;padding:4px 8px;border-radius:6px;line-height:1.4}
-.toc a:hover{background:#f2f2f1}
-.toc .t2{padding-left:20px;font-size:12.5px;color:#666}
-
-/* ---- блок параметра ---- */
-.p{display:grid;grid-template-columns:1fr;gap:3px 20px;padding:11px 0;border-top:1px solid #f0f0ef;font-size:13px;line-height:1.62}
+/* ---- блок параметра: слева имя и ключ, справа объяснение ---- */
+.p{display:grid;grid-template-columns:1fr;gap:3px 20px;padding:12px 0;border-top:1px solid #f0f0ef;
+   font-size:14px;line-height:1.7}
 .p:first-of-type{border-top:none}
 @media(min-width:760px){ .p{grid-template-columns:210px 1fr} }
-.pn{font-weight:650;color:#191919}
+.pn{font-weight:650;color:#111}
 .pn .pk{display:block;font-weight:400;font-size:11.5px;color:#9a9a9a;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:1px}
 .pn .pu{display:block;font-weight:500;font-size:11.5px;color:var(--acc);margin-top:3px}
-.pd{color:#333}
-.pd b{color:#191919;font-weight:650}
+.pd{color:#2c2c2c;max-width:820px}
+.pd b{color:#111;font-weight:650}
 .pd em{font-style:normal;color:var(--mut)}
 
-.steps{counter-reset:s;margin:0;padding:0;list-style:none;font-size:13px;line-height:1.65}
-.steps li{counter-increment:s;position:relative;padding:0 0 11px 34px}
-.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;
+/* ---- нумерованные шаги маршрута ---- */
+.steps{counter-reset:s;margin:0 0 12px;padding:0;list-style:none;font-size:14px;line-height:1.7;max-width:820px}
+.steps li{counter-increment:s;position:relative;padding:0 0 11px 34px;margin:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:22px;height:22px;border-radius:50%;
   background:#1f1f1f;color:#fff;font-size:12px;font-weight:650;display:flex;align-items:center;justify-content:center}
-.steps b{font-weight:650}
 
-ul.bul{font-size:13px;line-height:1.65;padding-left:19px;margin:0}
-ul.bul li{margin-bottom:7px}
-
-table.ref{border-collapse:collapse;font-size:12.5px;margin:10px 0 12px;font-variant-numeric:tabular-nums}
-table.ref th,table.ref td{border-bottom:1px solid #f0f0ef;padding:4px 16px 4px 0;text-align:right}
+/* ---- таблица типичных значений ---- */
+table.ref{border-collapse:collapse;font-size:13px;margin:10px 0 12px;font-variant-numeric:tabular-nums}
+table.ref th,table.ref td{border-bottom:1px solid #f0f0ef;padding:5px 16px 5px 0;text-align:right}
 table.ref th:first-child,table.ref td:first-child{text-align:left;color:#666}
 table.ref thead th{color:#999;font-weight:600;border-bottom:1px solid #e0e0e0}
 
-h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;margin:22px 0 2px;scroll-margin-top:20px}
-.sec{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;margin:22px 0 2px;scroll-margin-top:20px}
-
-.tip{font-size:12.5px;line-height:1.6;background:#f2f8f7;border:1px solid #cfe5e2;border-left:3px solid var(--acc);
-     border-radius:6px;padding:9px 12px;margin:12px 0}
-.warnbox{font-size:12.5px;line-height:1.6;background:#fff8e6;border:1px solid #f0dfae;border-left:3px solid #c99a2e;
-     border-radius:6px;padding:9px 12px;margin:12px 0}
-.tip b,.warnbox b{font-weight:650}
-
-.fig{background:#fcfcfb;border:1px solid #eee;border-radius:8px;padding:10px;margin:4px 0 16px}
+/* ---- поясняющие схемы ---- */
+.fig{background:#fcfcfb;border:1px solid #eee;border-radius:8px;padding:10px;margin:4px 0 16px;max-width:820px}
 .fig svg{width:100%;height:auto;display:block;margin:0 auto}
 .figcap{font-size:11.5px;color:var(--mut);margin-top:7px;line-height:1.5;text-align:center}
 
+/* ---- переходы к разделам ---- */
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .chips a{text-decoration:none;font-size:12.5px;color:#3a3a3a;border:1px solid #d7d7d7;background:#fff;
          border-radius:6px;padding:5px 11px}
 .chips a:hover{background:#f2f2f1}
+
+/* ---- метка «на какой странице встречается параметр» ---- */
 .where{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.02em;border-radius:4px;
        padding:1px 6px;vertical-align:1px;margin-right:6px}
 .w1{background:#fdecea;color:#a8362a}
 .w2{background:#e8f0fa;color:#25577f}
-.w3{background:#eef1ee;color:#5a655a}
 
-@media print{ .nav,.toc,.chips{display:none!important} .layout{display:block} .card{border:none;padding:0;margin:0 0 14px} body{padding:0;background:#fff} }
+@media print{ .chips{display:none!important} }
 
 /* Отличия этой страницы от общей основы (site.css). */
-.sub{max-width:900px;line-height:1.55}
-.card{padding:16px 18px}
+.card{padding:16px 20px}
 </style>
 
 <script>
@@ -97,9 +76,6 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 <body>
 
 <script src="nav.js"></script>
-
-<h1>Как это мерить — справка по параметрам</h1>
-<div class="sub">Каждое поле ввода на обеих страницах: что это за число, откуда его взять, как измерить самому, если взять негде, и что оно меняет в результате. Метки <span class="where w1">рама</span> <span class="where w2">посадка</span> показывают, на какой странице встречается параметр. Все размеры — в миллиметрах, углы — в градусах.</div>
 
 <div class="layout">
 <aside class="panel">
@@ -137,6 +113,16 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <main class="results">
 
+<div class="card">
+  <div class="artmeta">
+    <span class="tag">справка</span>
+    <span>все поля обеих страниц</span>
+  </div>
+  <h1>Как это мерить — справка по параметрам</h1>
+  <p class="lead">Каждое поле ввода на обеих страницах: что это за число, откуда его взять, как измерить самому, если взять негде, и что оно меняет в результате. Метки <span class="where w1">рама</span> <span class="where w2">посадка</span> показывают, на какой странице встречается параметр. Все размеры — в миллиметрах, углы — в градусах.</p>
+</div>
+
+
 <!-- ============================================================= -->
 <div class="card">
   <h2 id="start">Быстрый старт</h2>
@@ -154,7 +140,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 <!-- ============================================================= -->
 <div class="card">
   <h2 id="tools">Что понадобится для замеров</h2>
-  <ul class="bul">
+  <ul>
     <li><b>Рулетка 3 м</b> — жёсткая, металлическая. Тканевый портновский метр тянется и врёт на 5–10 мм.</li>
     <li><b>Книга в твёрдой обложке или строительный уровень</b> — для inseam. Нужен ровный жёсткий корешок.</li>
     <li><b>Ровная стена и твёрдый пол</b> без ковра. Ковёр съедает 10–15 мм роста и inseam.</li>
@@ -210,7 +196,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
   <h3 class="sec3">Высота седла</h3>
   <p>Ровно три вещи, и больше ничего.</p>
-  <ul class="bul">
+  <ul>
     <li><b>Длина шатуна</b> — миллиметр в миллиметр, в обратную сторону. Шатун на 5 мм короче — седло на 5 мм выше.</li>
     <li><b>Толщина под стопой</b> — подошва в точке контакта плюс платформа педали. Тоже миллиметр в миллиметр, но в ту же сторону.</li>
     <li><b>Целевой угол колена</b> — около 2 мм на градус.</li>
@@ -218,7 +204,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
   <p>Геометрия рамы, вынос, руль, наклон корпуса на высоту седла не влияют вообще. Если высота не сходится с фактической — причина в одном из этих трёх, искать в других полях бесполезно.</p>
 
   <h3 class="sec3">Вылет до руля — седло → ручка</h3>
-  <ul class="bul">
+  <ul>
     <li><b>Длина выноса</b> — почти миллиметр в миллиметр.</li>
     <li><b>Продольное положение седла</b> — офсет штыря плюс рельсы, тоже почти один к одному.</li>
     <li><b>Загиб руля</b> работает против них: каждые 2° убирают около 7 мм.</li>
@@ -226,19 +212,19 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
   <p>Это три ручки, которыми лечится ощущение «тесно» или «растянуто». Заметь, что две из трёх ничего не стоят: подвинуть седло по рельсам и провернуть руль можно шестигранником за минуту, покупать ничего не нужно.</p>
 
   <h3 class="sec3">Перепад седло → ручка</h3>
-  <ul class="bul">
+  <ul>
     <li><b>Проставки</b> под выносом и <b>rise руля</b> — примерно миллиметр в миллиметр.</li>
   </ul>
   <p>Плюс побочный эффект, который сначала удивляет: всё, что поднимает седло, на столько же <em>уменьшает</em> перепад. Короткий шатун, толстая подошва, больший угол колена — седло уехало вверх, а руль остался на месте.</p>
 
   <h3 class="sec3">RAD — каретка → ручка</h3>
-  <ul class="bul">
+  <ul>
     <li><b>Вынос</b>, <b>rise</b>, <b>проставки</b>, <b>загиб</b> и <b>ролл руля</b>.</li>
   </ul>
   <p>То есть всё, что двигает ручку относительно каретки, — и ничего больше. От седла, от твоих мерок и от просадки вилки RAD не зависит вообще: и каретка, и ручка жёстко сидят на раме.</p>
 
   <h3 class="sec3">Угол локтя</h3>
-  <ul class="bul">
+  <ul>
     <li><b>Наклон корпуса</b> — 5° наклона стоят около 26° в локте.</li>
   </ul>
   <p>Всё остальное на этом фоне — единицы градусов. Поэтому локоть в модели не задаётся, а читается: это индикатор, а не ручка. Если он вышел за рабочий диапазон, крутить надо наклон корпуса или кокпит, а не сам локоть.</p>
@@ -374,7 +360,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="ck-main" class="sec3">Вынос и руль</h3>
 
-  <div class="hint" style="margin:0 0 12px">Это то, что стоит в основной сетке карточки «Кокпит».</div>
+  <p class="lead">Это то, что стоит в основной сетке карточки «Кокпит».</p>
 
   <div class="p"><div class="pn">Длина выноса<span class="pk">stemLen</span><span class="pu">мм · 30–90</span></div>
     <div class="pd"><b>Что это.</b> Расстояние между центром обхвата штока и центром обхвата руля.
@@ -414,7 +400,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="ck-contact" class="sec3">Контактные точки</h3>
 
-  <div class="hint" style="margin:0 0 12px">Железо, определяющее положение стоп и седла. Живёт в той же карточке и сохраняется в тот же пресет кокпита — это части велосипеда, а не тела.</div>
+  <p class="lead">Железо, определяющее положение стоп и седла. Живёт в той же карточке и сохраняется в тот же пресет кокпита — это части велосипеда, а не тела.</p>
 
   <div class="p"><div class="pn">Длина шатуна<span class="pk">crank</span><span class="pu">мм · 155–175</span></div>
     <div class="pd"><b>Где взять.</b> Обычно выбито на внутренней стороне шатуна: «170», «175».
@@ -437,7 +423,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="ck-fine" class="sec3">Тонкая геометрия руля и педалей</h3>
 
-  <div class="hint" style="margin:0 0 12px">Раскрывающийся блок. Каждое из этих чисел двигает ручку на единицы миллиметров, но вместе они дают до 30 мм — и половину из них производители не публикуют.</div>
+  <p class="lead">Раскрывающийся блок. Каждое из этих чисел двигает ручку на единицы миллиметров, но вместе они дают до 30 мм — и половину из них производители не публикуют.</p>
 
   <div class="p"><div class="pn">Чашка рулевой над стаканом<span class="pk">headsetStack</span><span class="pu">мм · 5–20</span></div>
     <div class="pd"><b>Что это.</b> Высота верхней чашки рулевой, торчащей над кромкой рулевой трубы.
@@ -489,7 +475,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="body-main" class="sec3">Пять базовых</h3>
 
-  <div class="hint" style="margin:0 0 12px">Снимаются рулеткой за десять минут. Этого уже хватает: всё остальное модель достроит из антропометрических долей.</div>
+  <p class="lead">Снимаются рулеткой за десять минут. Этого уже хватает: всё остальное модель достроит из антропометрических долей.</p>
 
   <div class="p"><div class="pn">Рост<span class="pk">height</span><span class="pu">мм</span></div>
     <div class="pd"><b>Как измерить.</b> Босиком, спиной к стене, пятки вместе и прижаты, лопатки и затылок касаются стены, взгляд горизонтально. Положи книгу на макушку строго горизонтально, прижми к стене, отметь нижнюю кромку карандашом, отойди и замерь от пола.
@@ -525,7 +511,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="body-meas" class="sec3">Точные мерки — заменяют средние доли</h3>
 
-  <div class="hint" style="margin:0 0 12px">Главный источник точности. Каждый введённый замер выключает соответствующую долю: доли — средние по популяции, разброс при одном росте доходит до ±40 мм.</div>
+  <p class="lead">Главный источник точности. Каждый введённый замер выключает соответствующую долю: доли — средние по популяции, разброс при одном росте доходит до ±40 мм.</p>
 
   <div class="p"><div class="pn">Рост сидя<span class="pk">sitHeight</span><span class="pu">мм · 0.50–0.54 × рост</span></div>
     <div class="pd"><b>Что это.</b> Высота макушки над сиденьем при посадке вплотную к стене. Самый простой способ уточнить длину торса — точнее, чем ловить рулеткой вертел и акромион.
@@ -559,7 +545,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="body-foot" class="sec3">Стопа на педали</h3>
 
-  <div class="hint" style="margin:0 0 12px">Три слоя между осью педали и голеностопом поднимают седло 1:1. Платформа педали живёт в карточке кокпита, в «Тонкой геометрии» — она принадлежит велосипеду.</div>
+  <p class="lead">Три слоя между осью педали и голеностопом поднимают седло 1:1. Платформа педали живёт в карточке кокпита, в «Тонкой геометрии» — она принадлежит велосипеду.</p>
 
   <div class="p"><div class="pn">Голеностоп над полом, босиком<span class="pk">ankleH</span><span class="pu">мм · авто = 0.039 × рост</span></div>
     <div class="pd"><b>Что это.</b> Высота центра щиколотки над полом, босиком.
@@ -584,7 +570,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="body-pelvis" class="sec3">Таз, спина, плечи</h3>
 
-  <div class="hint" style="margin:0 0 12px">Рулеткой это не измерить: точки внутри тела. Калибруется по боковому фото кнопками «Принять таз» и «Принять спину».</div>
+  <p class="lead">Рулеткой это не измерить: точки внутри тела. Калибруется по боковому фото кнопками «Принять таз» и «Принять спину».</p>
 
   <div class="p"><div class="pn">Тазобедренный сустав над седлом<span class="pk">hipAbove</span><span class="pu">мм · 25–45, по умолчанию 35</span></div>
     <div class="pd"><b>Что это.</b> На сколько центр вращения бедра выше точки опоры на седле. Ты сидишь седалищными буграми, а нога вращается вокруг сустава, который заметно выше.
@@ -638,7 +624,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 
 <h3 id="body-misc" class="sec3">Служебное</h3>
 
-  <div class="hint" style="margin:0 0 12px">Можно не трогать: либо считается автоматически, либо это допущение модели.</div>
+  <p class="lead">Можно не трогать: либо считается автоматически, либо это допущение модели.</p>
 
   <div class="p"><div class="pn">Ширина таза<span class="pk">hipW</span><span class="pu">мм · авто = 0.81 × плечи</span></div>
     <div class="pd"><b>Что это.</b> Поперечный габарит таза, нужен виду сверху для разведения ног.
@@ -710,7 +696,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
     </tbody>
   </table>
 
-  <ul class="bul">
+  <ul>
     <li><b>Сохранение под существующим именем обновляет запись</b>, а не создаёт вторую. Имя — это и есть идентификатор. Хочешь копию — впиши другое имя.</li>
     <li><b>Имя пресета рамы берётся из названия рамы</b>, которое ты вписываешь в шапке карточки. У кокпита и райдера — отдельное поле рядом с выпадашкой.</li>
     <li><b>Встроенные пресеты нельзя удалить или перезаписать.</b> Они в отдельной группе списка и всегда дают чистую точку отсчёта. Нужна своя версия — загрузи встроенный, поправь, сохрани под своим именем.</li>
@@ -725,7 +711,7 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
 <!-- ============================================================= -->
 <div class="card">
   <h2 id="mistakes">Частые ошибки</h2>
-  <ul class="bul">
+  <ul>
     <li><b>Путают stack с высотой руля.</b> Stack кончается на кромке рулевой трубы. Чашка, проставки, вынос и rise добавляют сверху ещё 60–130 мм и вводятся отдельно.</li>
     <li><b>Вводят угол выноса как угол от горизонта.</b> Он задаётся от перпендикуляра к штоку. При рулевой 66° вынос «0°» поднят на 24°.</li>
     <li><b>Меряют inseam мягко.</b> Книгу надо подтянуть с усилием, как давит седло. Иначе минус 10–20 мм, и высота седла окажется заниженной.</li>
@@ -742,8 +728,8 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
   <h2 id="limits">Чего модель не умеет</h2>
   <p class="lead">Прочитай этот раздел прежде, чем верить числам. Ниже — не оговорки для порядка, а конкретные места, где модель либо молча выдаст неверный ответ, либо не выразит твой случай вовсе.</p>
 
-  <h3 class="sec" id="lim-bike">Тип велосипеда</h3>
-  <ul class="bul">
+  <h3 class="sec3" id="lim-bike">Тип велосипеда</h3>
+  <ul>
     <li><b>Только хардтейл.</b> Задняя подвеска не моделируется совсем. Для двухподвеса пришлось бы задавать просадку сзади и кинематику подвески — это другая задача. Если всё же вводишь двухподвес, помни, что ты смотришь на его геометрию с полностью разжатым задом.</li>
     <li><b>26, 27.5 и 29 работают одинаково корректно.</b> Размер колеса нигде в расчёте не зашит: кинематика рамы вообще не использует радиус, а входит он ровно в четыре места — высота каретки, механический трейл, габаритная длина и рисунок. Просто задай правильное число в настройках колеса.</li>
     <li><b>Маллет не выражается принципиально.</b> Модель ставит обе оси на высоту BB drop — это и есть допущение о равных колёсах, и оно встроено в решение, а не в отрисовку. Разные колёса спереди и сзади подделать нельзя никак.</li>
@@ -755,8 +741,8 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
     <li><b>Синглспид, электро, груз.</b> Геометрия считается верно, но развесовка и центр масс учитывают только райдера: ни мотора, ни батареи, ни рюкзака, ни рамной сумки.</li>
   </ul>
 
-  <h3 class="sec" id="lim-bar">Руль и кокпит</h3>
-  <ul class="bul">
+  <h3 class="sec3" id="lim-bar">Руль и кокпит</h3>
+  <ul>
     <li><b>Только плоский или райзерный МТБ-руль.</b> Дропбар не выражается: у него несколько хватов — верх, рога, крюки, — а модель знает ровно одну точку хвата. Параметры backsweep и upsweep описывают геометрию прямого участка и к рогам неприменимы.</li>
     <li><b>Множители RAD — из МТБ-методики Маккормака</b> (4.47 муж., 4.60 жен.). Для шоссе, гравела и туринга целевое значение будет другим, и строку «Δ от целевого» там читать нельзя.</li>
     <li><b>Тормозные ручки и манетки не моделируются.</b> Их угол поворота на руле влияет на запястье не меньше, чем загиб руля, но в расчёт не входит.</li>
@@ -764,8 +750,8 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
     <li><b>Влезет ли вилка в раму — не проверяется.</b> Модель честно пересчитает геометрию под ход +40 мм и только предупредит, что отклонение большое. Ни клиренса покрышки, ни допусков производителя она не знает.</li>
   </ul>
 
-  <h3 class="sec" id="lim-body">Антропометрия</h3>
-  <ul class="bul">
+  <h3 class="sec3" id="lim-body">Антропометрия</h3>
+  <ul>
     <li><b>Доли сегментов — взрослые, по Winter.</b> Длина торса, шея, голова и высота голеностопа выводятся из роста фиксированными коэффициентами. <b>Для детей и подростков это неверно</b>: у них другие пропорции — крупнее голова, короче ноги относительно роста. Если считаешь детский велосипед, геометрия рамы останется правильной, а вся страница посадки — нет.</li>
     <li><b>Один набор долей на всех.</b> Реальный разброс пропорций при одном росте — три-четыре сантиметра по длине торса. Если у тебя длинные ноги при коротком корпусе или наоборот, обязательно заполни уточняющие поля, иначе модель усреднит тебя до несуществующего человека.</li>
     <li><b>Гибкость не учитывается.</b> Модель скажет, что бедро закрыто на 50°, но не знает, растянут ты или нет и болит ли у тебя поясница. Один и тот же наклон корпуса для двух людей — это разная нагрузка.</li>
@@ -775,8 +761,8 @@ h3.sec3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#555;
     <li><b>Голеностоп и кисть зафиксированы.</b> Стопа не работает, запястье принимается в нейтрали.</li>
   </ul>
 
-  <h3 class="sec" id="lim-model">Сама модель</h3>
-  <ul class="bul">
+  <h3 class="sec3" id="lim-model">Сама модель</h3>
+  <ul>
     <li><b>Только статика.</b> Одна поза сидя. Ни стойки на педалях, ни переноса веса, ни работы подвески в динамике — а на трейле ты проводишь в этой позе далеко не всё время.</li>
     <li><b>Центр масс — сидя и без багажа.</b> Считается по массовым долям сегментов, одежда и снаряжение не учитываются.</li>
     <li><b>Углы — ориентиры, а не диагноз.</b> Зелёные зоны взяты из общепринятых методик байкфита, но это статистика, а не закон. Ощущения на реальном велосипеде всегда главнее таблицы.</li>
