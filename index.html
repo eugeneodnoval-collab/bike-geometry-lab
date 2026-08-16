@@ -491,8 +491,8 @@ function updateForkChecks(){
     const host=document.getElementById('fk'+i);
     if(!host) return;
     try{
-      const R=BikeModel.forkReport(b, state.wheelR, {offset:b.forkOffsetSpec, len:b.forkMeasLen});
-      host.innerHTML=R.map(x=>x.kind==='info'?x.text:`<span class="${x.kind}">${x.text}</span>`).join(' ');
+      host.innerHTML=BikeModel.forkReportHTML(b, state.wheelR,
+        {offset:b.forkOffsetSpec, len:b.forkMeasLen});
     }catch(e){ host.textContent='не удалось посчитать: проверь введённые числа'; }
   });
 }

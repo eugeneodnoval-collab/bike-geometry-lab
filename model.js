@@ -197,9 +197,13 @@
   }
 
   /*
-    forkReport — словами то, что посчитал forkInverse. Возвращает массив
-    {kind, text}; kind = 'info' | 'warn' | 'bad'. HTML не собирается здесь
-    намеренно: у страниц разная вёрстка, а формулировки должны быть одни.
+    forkReport — словами то, что посчитал forkInverse.
+
+    Возвращает массив {kind, text}:
+      info — базовый вывод, что вообще следует из геометрии;
+      note — найденный ответ на заданный вопрос, ради которого всё и затевалось;
+      warn — расхождение, которое стоит проверить;
+      bad  — противоречие, которого не может быть физически.
   */
   function forkReport(b, wheelR, spec) {
     const F = forkInverse(b, wheelR, spec);
@@ -231,13 +235,20 @@
       if (!F.derived) {
         out.push({ kind: 'warn', text:
           'Чтобы вывести угол из офсета, нужна колёсная база: без неё офсет сам является входом.' });
+      } else if (spec.offset < 30 || spec.offset > 60) {
+        /* Угол под такой офсет формально найдётся — уравнение решается для любого
+           числа, — но он ничего не значит. Отсекаем до расчёта, чтобы блок
+           одинаково ругался и на слишком маленький офсет, и на слишком большой. */
+        out.push({ kind: 'bad', text:
+          `Офсет ${spec.offset} мм не бывает у серийных вилок: ряд 37–51, за его пределами встречаются разве что ` +
+          'единичные модели до 60. Проверь число — угол, который из него следует, смысла не имеет.' });
       } else if (F.htaFromOffset == null) {
         out.push({ kind: 'bad', text:
           `Офсет ${spec.offset} мм не получается ни при каком угле рулевой в пределах ±5° от введённого. ` +
           'Значит ошибка не в угле, а в базе, reach, стеке или перьях.' });
       } else {
         const per = F.sens.hta ? Math.abs(F.sens.hta.o) : 0;
-        out.push({ kind: Math.abs(F.dHta) > 1 ? 'warn' : 'info', text:
+        out.push({ kind: Math.abs(F.dHta) > 1 ? 'warn' : 'note', text:
           `При офсете ${spec.offset} мм угол рулевой должен быть ${F.htaFromOffset.toFixed(2)}° — ` +
           `введено ${b.hta}°, расхождение ${sgn(F.dHta)}°. ` +
           `Угол здесь и есть главный подозреваемый: 0.1° стоит ${per.toFixed(1)} мм офсета, ` +
@@ -269,15 +280,42 @@
           `Замер ${spec.len} мм больше расчётных ${n1(F.a2cRef)} на ${g.toFixed(1)} мм. ` +
           'Столько нижний узел рулевой из стакана обычно не выступает — бывает 3–7 мм. Проверь замер или геометрию.' });
       } else {
-        out.push({ kind: 'info', text:
+        out.push({ kind: 'note', text:
           `Замер ${spec.len} мм против расчётных ${n1(F.a2cRef)}: нижний узел рулевой выступает из стакана на ${g.toFixed(1)} мм. ` +
           'Это нормально, обычно 3–7 мм. Если ставишь другую вилку с иначе сидящим подшипником, эту разницу надо учесть отдельно: ' +
           'модель считает, что она одинакова у обеих вилок и потому сокращается.' });
       }
     }
+    // блок замены вилки: он рядом и читается вместе с проверкой
+    if (b.forkA2C != null && b.forkA2Cnew != null) {
+      const d = b.forkA2Cnew - b.forkA2C;
+      out.push({ kind: 'info', text:
+        `Замена вилки считается по разности A2C: ${d > 0 ? '+' : ''}${d.toFixed(0)} мм` +
+        (b.forkOffsetNew != null ? `, офсет ${b.forkOffsetNew}` : ', офсет прежний') + '.' });
+    } else if (b.forkA2C != null || b.forkA2Cnew != null) {
+      out.push({ kind: 'warn', text:
+        'Заполнено только одно A2C — нужны оба, иначе замена вилки считается по ходу.' });
+    }
     return out;
   }
 
-  global.BikeModel = { rad, deg, solveFrame, passportWB, forkInverse, forkReport, FORK_OFFSETS };
+  /*
+    Готовая разметка блока. Казалось бы, это дело страницы — но именно из-за
+    «пусть каждая соберёт сама» блок и разъехался: у fit-lab свой класс .warn
+    (жёлтая плашка с отступами), у index свой (display:none). Одинаковый вывод
+    надёжнее получить из одного места, а классы взять с префиксом, которого
+    на страницах заведомо нет.
+
+    Каждый пункт — отдельной строкой: так найденный ответ видно сразу,
+    а не приходится выцеплять его из сплошного серого абзаца.
+  */
+  function forkReportHTML(b, wheelR, spec) {
+    const esc = s => String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    return forkReport(b, wheelR, spec)
+      .map(x => `<div class="fk-${x.kind}">${esc(x.text)}</div>`).join('');
+  }
+
+  global.BikeModel = { rad, deg, solveFrame, passportWB,
+                       forkInverse, forkReport, forkReportHTML, FORK_OFFSETS };
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);

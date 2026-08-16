@@ -246,6 +246,10 @@ function checkPages() {
       bad.push(`${f}: есть оглавление, но нет read.css — раскладка и текст разъедутся`);
     if (/\.toc a\{|^\s*\.lead\{/m.test(html))
       bad.push(`${f}: стили оглавления или лида задублированы, они в read.css`);
+    // блок проверки вилки обязан рисоваться общей функцией: свои .warn у страниц
+    // разные, и собранная на месте разметка на них наезжала
+    if (/FORKCHK\s*=/.test(html) && !/forkReportHTML/.test(html))
+      bad.push(`${f}: блок проверки вилки собирается на месте, а должен звать BikeModel.forkReportHTML`);
     if (/BikeModel/.test(html) && !/<script src="model\.js"><\/script>/.test(html))
       bad.push(`${f}: зовёт BikeModel, но не подключает model.js`);
   }

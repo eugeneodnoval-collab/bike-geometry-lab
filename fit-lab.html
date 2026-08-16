@@ -346,17 +346,11 @@ function solveFrame(sagOverride){
 /* Режим «только велосипед»: скрыть райдера и показать, что мерить рулеткой.
    Не в state и не в хэше — это вид, а не данные. */
 let sideBare=false;
-/* Проверка вилки целиком лежит в model.js: обе страницы показывают одно и то же,
-   а формулировки должны совпадать дословно. Здесь остаётся только вёрстка. */
+/* Проверка вилки целиком лежит в model.js, вместе с разметкой: обе страницы
+   обязаны показывать одно и то же, а расходились они как раз на вёрстке. */
 function forkCheck(b){
-  const R=BikeModel.forkReport(b, state.wheelR, {offset:b.forkOffsetSpec, len:b.forkMeasLen});
-  let t='<div class="srcline">'+R.map(x=>x.kind==='info'?x.text:`<span class="${x.kind}">${x.text}</span>`).join(' ');
-  if(b.forkA2C!=null&&b.forkA2Cnew!=null)
-    t+=` Замена вилки считается по разности A2C: <b>${(b.forkA2Cnew-b.forkA2C>0?'+':'')+(b.forkA2Cnew-b.forkA2C).toFixed(0)}</b> мм`
-      +(b.forkOffsetNew!=null?`, офсет <b>${b.forkOffsetNew}</b>`:', офсет прежний')+'.';
-  else if(b.forkA2C!=null||b.forkA2Cnew!=null)
-    t+=' <span class="warn"><b>Заполнено только одно A2C</b> — нужны оба, иначе считается по ходу.</span>';
-  return t+'</div>';
+  return '<div class="srcline">'+BikeModel.forkReportHTML(b, state.wheelR,
+           {offset:b.forkOffsetSpec, len:b.forkMeasLen})+'</div>';
 }
 
 /* ===================== 2. кокпит ===================== */

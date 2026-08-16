@@ -45,8 +45,15 @@ button:hover{background:#f2f2f2}
 /* Пояснение под расчётом: откуда взялось число и сходится ли оно с железом. */
 .srcline{font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.45}
 .srcline b{color:#333}
-.srcline .warn{color:#8a5a00}
-.srcline .bad{color:#b3261e}
+
+/* Строки проверки вилки. Префикс fk- обязателен: у страниц уже есть свои .warn
+   и .bad — в fit-lab это плашка с рамкой и отступами, в index вообще display:none,
+   и общий блок на них наезжал или пропадал. */
+.fk-info{color:var(--mut)}
+.fk-note{color:var(--acc);font-weight:500}
+.fk-warn{color:#8a5a00;font-weight:500}
+.fk-bad{color:#b3261e;font-weight:500}
+.fk-note,.fk-warn,.fk-bad{margin-top:5px}
 
 /* ---------- сворачиваемые блоки ---------- */
 summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
