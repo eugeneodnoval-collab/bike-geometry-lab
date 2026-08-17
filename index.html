@@ -100,6 +100,18 @@ table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:
   try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){ location.hash=''; }
   alert('Аналитика в этом браузере ' + (off ? 'ВЫКЛЮЧЕНА' : 'ВКЛЮЧЕНА') + '.');
 })();
+
+/* Путь для статистики — только имя файла, без папки, в которой лежит сайт.
+   Иначе одна и та же страница считается дважды: сервер отдаёт её и по
+   /bike-geometry-lab/, и по /bike-geometry-lab/index.html, а для GoatCounter
+   это два разных пути. Заодно цифры перестают зависеть от места публикации:
+   в подпапке, в корне домена или на зеркале — статистика одна и та же.
+   Ставится ДО загрузки count.js, он делает window.goatcounter||{} и наше
+   значение сохраняет. */
+window.goatcounter = window.goatcounter || {};
+window.goatcounter.path = function(){
+  return '/' + (location.pathname.split('/').pop() || 'index.html');
+};
 </script>
 </head>
 <body>
@@ -823,6 +835,6 @@ window.addEventListener('hashchange', ()=>{
 </script>
 
 <script data-goatcounter="https://evo-expirience.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
+        async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>
