@@ -38,12 +38,24 @@
     return file;
   }
 
+  /* Ссылка наверх, на сайт автора. Стоит в той же шапке, а не в подвале:
+     подвал на длинной справке нужно ещё domotать, а вернуться к автору и
+     понять, чей это проект, должно быть можно с любого экрана.
+
+     Адрес абсолютный и с явным https — инструмент лежит и на GitHub Pages,
+     и на своём хостинге, откуда относительная ссылка вела бы в разные места.
+     Открывается в той же вкладке: состояние страницы целиком в адресе,
+     поэтому «назад» возвращает расчёт как был. */
+  var HOME = { href: 'https://evo-profile.online', title: 'Project by EVO', sub: 'сайт автора' };
+
   var here = current();
-  var html = '<nav class="nav">' + LINKS.map(function (l) {
+  var link = function (l, cls) {
     var cur = l.href === here ? ' aria-current="page"' : '';
-    return '<a href="' + l.href + '"' + cur + '>' + l.title +
-           ' <span class="nsub">' + l.sub + '</span></a>';
-  }).join('') + '</nav>';
+    return '<a href="' + l.href + '"' + cur + (cls ? ' class="' + cls + '"' : '') + '>' +
+           l.title + ' <span class="nsub">' + l.sub + '</span></a>';
+  };
+  var html = '<nav class="nav">' + LINKS.map(function (l) { return link(l); }).join('') +
+             link(HOME, 'nhome') + '</nav>';
 
   var s = document.currentScript;
   if (s) s.insertAdjacentHTML('afterend', html);

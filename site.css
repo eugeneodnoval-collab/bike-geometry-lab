@@ -53,8 +53,21 @@ h1{font-size:19px;margin:0 0 3px}
 .nav a .nsub{font-size:11.5px;color:#8d8d8d}
 .nav a[aria-current] .nsub{color:#b9b9b9}
 
-/* На узком экране подписи разделов не помещаются — остаются только названия. */
-@media(max-width:600px){ .nav a .nsub{display:none} }
+/* Ссылка на сайт автора. Прижата вправо и отделена чертой: это выход с сайта,
+   а не ещё один его раздел, и путать их не надо. Разделитель на псевдоэлементе,
+   потому что при переносе строки настоящий бордер повис бы в начале строки. */
+.nav .nhome{margin-left:auto;color:var(--mut)}
+.nav .nhome::before{content:'';width:1px;align-self:stretch;background:var(--bd);margin-right:5px}
+.nav .nhome:hover{color:#1f1f1f}
+
+/* На узком экране подписи разделов не помещаются — остаются только названия.
+   Ссылка автора при этом перестаёт прижиматься вправо: в перенесённой строке
+   она оказалась бы одна на пустом ряду. */
+@media(max-width:600px){
+  .nav a .nsub{display:none}
+  .nav .nhome{margin-left:0}
+  .nav .nhome::before{display:none}
+}
 
 /* На бумаге навигация бессмысленна. Раньше это правило было не на всех
    страницах, и шапка иногда печаталась. */
