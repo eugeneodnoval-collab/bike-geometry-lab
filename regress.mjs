@@ -5,6 +5,7 @@
     node regress.mjs            сверить с regress-golden.json
     node regress.mjs --update   перезаписать эталон (осознанно, после проверки диффа)
     node regress.mjs --list     показать значения текущего прогона, без сверки
+    node regress.mjs --deploy   что выкладывать на хостинг и всё ли на месте
 
   Зачем нужен зафиксированный эталон, а не просто прогон «до и после».
   Снимок, снятый с текущего кода, ловит только регрессии внутри одной сессии.
@@ -16,7 +17,7 @@
   Покрыты обе: fit-lab.html (посадка) и index.html (сравнение геометрий).
   Плюс структурная проверка всех страниц: подключены ли общие nav.js и model.js.
 */
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -81,6 +82,7 @@ function loadModel(page = PAGE, marker = 'function solveFit', expose = null) {
 
   const tail = expose || ('\nglobalThis.__M = {state, solveFit, solveStand, solveFrame, solveCockpit,'
                + ' segments, elbow3D, buildTable, buildStandTable, buildSummary, buildWarns,'
+               + ' cockpitEnvelope, CK_CATALOG, RAAD_SECTORS,'
                + ' HK, PS_FITKEYS, fixReq};');
   (0, eval)(src + tail);
   return { ...globalThis.__M, out };
@@ -165,6 +167,75 @@ function run() {
               if (typeof v === 'number' && !isFinite(v)) o[k] = 'НЕ ЧИСЛО';
             rows[id] = o;
           }
+  return rows;
+}
+
+/* ---------- конверт кокпита ----------
+   Числа посадки этот блок не дублирует: он сторожит перебор, отбор
+   представителей и вердикт — то, чего в сетке выше нет вовсе. Рамы подобраны
+   по веткам вердикта, а не по реалистичности: Hagen 5 XL и Torque на этом росте
+   заведомо велики, Radius S при росте 200 заведомо мал, «Floater 140 Old» —
+   кокпит с 55 мм проставок и загибом 5°, то есть вне рабочих диапазонов. */
+const ENV_CASES = [
+  ['Speedone Floater L 120',       'Floater 120',    0,  null],
+  ['Outleap Warhog L 2025 140',    'WARHOG',         0,  null],
+  ['Outleap Warhog L 2025 140',    'WARHOG',        25,  null],   // RAD обязан не измениться, RAAD — обязан
+  ['Canyon Exeed L Cross-country', 'WARHOG',         0,  null],
+  ['Hagen 5 XL Cross-country',     'WARHOG',         0,  null],   // ветка «рама велика»
+  ['Canyon Torque L Downhill',     'WARHOG',         0,  null],   // она же на другой геометрии
+  ['Outleap Radius S 27,5',        'WARHOG',         0,  null],
+  ['Outleap Radius S 27,5',        'WARHOG',         0,  2000],   // ветка «рама мала»
+  ['Speedone Floater L 120',       'Floater 140 Old',0,  null],   // кокпит вне каталога
+];
+
+function runEnv() {
+  const X = loadModel();
+  const P = JSON.parse(readFileSync(FIXT, 'utf8'));
+  const rows = {};
+  for (const [geo, ck, sag, height] of ENV_CASES) {
+    applyPreset(X, P, geo, ck, 'EVO');
+    X.state.bike.sag = sag;
+    if (height) X.state.body.height = height;
+    const E = X.cockpitEnvelope({ sag });
+    const o = {};
+    o['env.n']       = E.envelope.n;
+    o['env.radMin']  = r4(E.envelope.radMin);
+    o['env.radMax']  = r4(E.envelope.radMax);
+    o['env.raadMin'] = r4(E.envelope.raadMin);
+    o['env.raadMax'] = r4(E.envelope.raadMax);
+    o['v.code']      = E.verdict.code;
+    o['v.target']    = r4(E.verdict.target);
+    o['v.inTarget']  = E.verdict.inTarget;
+    o['v.raadMin']   = r4(E.verdict.raadMin);
+    o['v.raadMax']   = r4(E.verdict.raadMax);
+    o['v.text']      = E.verdict.text;
+    o['v.needReach']  = E.verdict.advice ? r4(E.verdict.advice.reach) : '—';
+    for (const s of E.sectors) {
+      o[`s.${s.key}.n`] = s.n;
+      const p = s.picks[0];
+      if (!p) continue;
+      o[`s.${s.key}.cfg`]   = p.label;
+      o[`s.${s.key}.rad`]   = r4(p.rad);
+      o[`s.${s.key}.raad`]  = r4(p.raad);
+      o[`s.${s.key}.lvl`]   = p.body.level;
+      o[`s.${s.key}.arm`]   = r4(p.body.armUse);
+      o[`s.${s.key}.wrist`] = r4(p.body.wristDev);
+      o[`s.${s.key}.torso`] = r4(p.body.torsoStand);
+    }
+    const C = E.current;
+    o['cur.rad']      = r4(C.rad);
+    o['cur.raad']     = r4(C.raad);
+    o['cur.radDelta'] = r4(C.radDelta);
+    o['cur.sector']   = C.sector;
+    o['cur.inTarget'] = C.inTarget;
+    o['cur.rollEff']  = r4(C.rollEffect);
+    o['cur.lvl']      = C.body.level;
+    o['cur.off']      = C.offCatalog.join(' | ') || '—';
+    o['cur.near']     = C.nearest ? C.nearest.label : '—';
+    for (const [k, v] of Object.entries(o))
+      if (typeof v === 'number' && !isFinite(v)) o[k] = 'НЕ ЧИСЛО';
+    rows[`env|${geo}|${ck}|sag${sag}${height ? '|рост' + height : ''}`] = o;
+  }
   return rows;
 }
 
@@ -266,17 +337,60 @@ function checkPages() {
     return out;
   };
   const first = render('/index.html');
-  for (const href of [...first.matchAll(/href="([^"]+)"/g)].map(m => m[1]))
+  let outward = 0;
+  for (const href of [...first.matchAll(/href="([^"]+)"/g)].map(m => m[1])) {
+    // ссылка наружу — на сайт автора; проверяем только что она абсолютная и по https
+    if (/^https?:\/\//.test(href)) {
+      outward++;
+      if (!href.startsWith('https://')) bad.push(`nav.js: внешняя ссылка ${href} не по https`);
+      continue;
+    }
     if (!pages.includes(href)) bad.push(`nav.js: ссылка на ${href}, а такого файла нет`);
+  }
+  if (outward !== 1) bad.push(`nav.js: ссылок наружу ${outward}, а должна быть одна — на сайт автора`);
   for (const f of pages) {
-    const cur = [...render('/' + f).matchAll(/href="([^"]+)" aria-current/g)].map(m => m[1]);
+    const h = render('/' + f);
+    const cur = [...h.matchAll(/href="([^"]+)" aria-current/g)].map(m => m[1]);
     if (cur.length !== 1) bad.push(`nav.js на ${f}: помечено текущими ${cur.length} ссылок вместо одной`);
+    // внешняя ссылка не должна притворяться текущим разделом ни на одной странице
+    if (/href="https?:[^"]*" aria-current/.test(h)) bad.push(`nav.js на ${f}: внешняя ссылка помечена как текущий раздел`);
+    if (!/class="nhome"/.test(h)) bad.push(`nav.js на ${f}: пропала ссылка на сайт автора`);
   }
   // GitHub Pages отдаёт индекс без имени файла — этот путь тоже должен работать
   if (!/href="index\.html" aria-current/.test(render('/bike-geometry-lab/')))
     bad.push('nav.js: на корневом адресе не подсвечен индекс');
 
+  const D = deployList();
+  D.missing.forEach(x => bad.push(x));
+  D.leaks.forEach(x => bad.push(x));
+
   return { bad, nPages: pages.length };
+}
+
+/* ---------- что выкладывать на хостинг ----------
+   Список не написан руками, а выводится из самих страниц: берём все локальные
+   ссылки из src= и href=, добавляем сами страницы. Забыть новый общий файл
+   таким способом нельзя. Заодно ловим ссылки в никуда и файлы с личными
+   данными, которым на публичном сервере делать нечего. */
+const PRIVATE = ['fixtures-evo.json', 'bikefit_evgeny_reference.md', 'regress-golden.json'];
+
+function deployList() {
+  const pages = readdirSync(DIR).filter(f => f.endsWith('.html'));
+  const need = new Set(pages), missing = [], leaks = [];
+  for (const f of pages) {
+    const html = readFileSync(join(DIR, f), 'utf8');
+    for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
+      let r = m[1];
+      if (/^(https?:)?\/\/|^mailto:|^data:|^#/.test(r)) continue;
+      if (r.includes('${')) continue;              // шаблонная строка, не файл
+      r = r.split('#')[0].split('?')[0];
+      if (!r) continue;
+      if (!existsSync(join(DIR, r))) missing.push(`${f} ссылается на ${r}, а файла нет`);
+      else need.add(r);
+      if (PRIVATE.includes(r)) leaks.push(`${f} тянет ${r} — это личные данные, на сервер нельзя`);
+    }
+  }
+  return { files: [...need].sort(), missing, leaks, pages: pages.length };
 }
 
 /* ---------- запуск ---------- */
@@ -289,10 +403,23 @@ if (S.bad.length) {
   process.exit(1);
 }
 
-const cur = { ...run(), ...runGeom() };
+const cur = { ...run(), ...runEnv(), ...runGeom() };
 const nCases = Object.keys(cur).length;
 const nVals = Object.values(cur).reduce((t, o) => t + Object.keys(o).length, 0);
 
+if (arg === '--deploy') {
+  const D = deployList();
+  if (D.missing.length || D.leaks.length) {
+    [...D.missing, ...D.leaks].forEach(x => console.log('  ' + x));
+    process.exit(1);
+  }
+  console.log(`выкладывать на хостинг (${D.files.length} файлов, ${D.pages} страниц):\n`);
+  D.files.forEach(f => console.log('  ' + f));
+  const rest = readdirSync(DIR).filter(f => !D.files.includes(f) && !f.startsWith('.'));
+  console.log(`\nостальное на сервер не нужно: ${rest.join(', ')}`);
+  console.log('\nfixtures-evo.json и bikefit_evgeny_reference.md — личные замеры, их не выкладывать.');
+  process.exit(0);
+}
 if (arg === '--list') {
   console.log(JSON.stringify(cur, null, 1));
   process.exit(0);

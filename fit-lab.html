@@ -75,6 +75,54 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .sumr .k{font-size:12.5px;color:#4a4f57}
 .sumr .v{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sumn{font-size:11.5px;color:#9aa1ac;margin-top:5px;line-height:1.45}
+
+/* ---- конверт кокпита ----
+   Вердикт крупно, потому что за ним и приходят; всё остальное — обоснование
+   под ним и набирается мельче, чтобы не спорить с ним за внимание. */
+.envv{font-size:15px;line-height:1.5;font-weight:600;padding:11px 13px;border-radius:9px;
+      border:1px solid #d9e6dd;background:#f1f8f3;color:#1c4c31}
+.envv.bad{border-color:#f3c4bf;background:#fdecea;color:#8c1d18}
+.envmeta{font-size:11.5px;color:#9aa1ac;margin:8px 0 4px;line-height:1.5}
+/* Карточка — грид-элемент колонки результатов, а грид-элементы по умолчанию не
+   ужимаются уже своего содержимого (min-width:auto). Без этой строки
+   прокручиваемая линейка ниже растягивала не себя, а всю колонку, и на телефоне
+   появлялась горизонтальная прокрутка всего документа. У самой колонки
+   min-width:0 в site.css уже стоит — дублировать его здесь не нужно. */
+#envcard{min-width:0}
+
+/* Линейка — единственный элемент карточки, который нельзя переносить по словам:
+   ужимаясь вместе с шириной экрана, она превращает подписи в 6 пикселей. Ниже
+   600 px она прокручивается вбок, а не мельчает. */
+.envruler{margin:2px 0 6px;overflow-x:auto}
+.envruler svg{width:100%;min-width:600px;height:auto;display:block}
+/* Секторы в ряд по той же логике, что и сводка: 300px минимума дают 3 колонки
+   на широкой панели, 2 на средней, 1 на телефоне — без своих брейкпоинтов. */
+.envsecs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-top:8px}
+.envsec{border:1px solid #e8eaee;border-radius:9px;padding:9px 11px;background:#fcfcfd}
+.envsec .sh{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+.envsec .sh b{font-size:13px}
+.envsec .sh .disc{font-size:11.5px;color:#8b93a1}
+.envsec .sh .cnt{font-size:11.5px;color:#8b93a1;margin-left:auto;white-space:nowrap}
+.envcfg{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+/* Уровни называются lvl-*, а не ok/warn/bad: последние на этой странице уже
+   заняты — .warn это жёлтая плашка предупреждения, .ok и .bad красят текст.
+   Первая версия их переиспользовала, и половина конфигураций уехала в рамки
+   предупреждений, а половина позеленела. */
+.envcfg li{border-left:3px solid #cfd5dd;padding:1px 0 1px 9px}
+.envcfg li.lvl-ok{border-left-color:#1f8a52}
+.envcfg li.lvl-warn{border-left-color:#b8860b}
+.envcfg li.lvl-bad{border-left-color:#b3261e}
+.envcfg .cl{font-size:12.5px;line-height:1.45}
+.envcfg .cn{font-size:11.5px;color:#8b93a1;font-variant-numeric:tabular-nums;margin-top:2px}
+.envcfg .cf{font-size:11.5px;margin-top:2px;color:#8b93a1}
+.envcfg li.lvl-warn .cf{color:#8a5a00}
+.envcfg li.lvl-bad .cf{color:#b3261e}
+.envnote{font-size:11.5px;color:#9aa1ac;line-height:1.45;margin-top:7px}
+.envcur{margin-top:10px;border:1px solid #e8eaee;border-radius:9px;padding:9px 11px;background:#fff}
+.envcur .t{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;margin-bottom:5px}
+.envcur p{margin:0 0 5px;font-size:12.5px;line-height:1.5}
+.envcur p:last-child{margin-bottom:0}
+.envcur .flag{color:#8a5a00}
 /* ---- строка пресетов (одинаковая на обеих страницах) ---- */
 
 .psrow select{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
@@ -199,6 +247,11 @@ window.goatcounter.path = function(){
 <div class="card"><h3>Сводка — то, на что смотришь чаще всего</h3>
   <div id="summary"></div>
   <div class="hint" style="margin-top:10px">Все эти числа есть и в полной таблице внизу — здесь они собраны наверх и сгруппированы по смыслу.</div>
+</div>
+
+<div class="card" id="envcard">
+  <h3>Что эта рама позволяет</h3>
+  <div id="env"></div>
 </div>
 
 <div class="card noprint" id="photocard">
@@ -370,8 +423,13 @@ function forkCheck(b){
    -> вынос -> центр руля -> отгиб -> центр хвата.
    Ключевое: угол выноса задан от ПЕРПЕНДИКУЛЯРА к штоку.
    Подъём от горизонта = (90 - HTA) + угол выноса. */
-function solveCockpit(F){
-  const c=state.ck, hta=rad(F.hta), ht=F.P.htTop;
+/* Второй аргумент — набор параметров кокпита. Без него берётся введённый
+   пользователем: так работали все вызовы до появления перебора конфигураций
+   (§5b), и поведение для них не изменилось ни на разряд. Явный аргумент нужен
+   только конверту, который прогоняет через ту же цепочку сотни вариантов
+   железа, не трогая состояние страницы. */
+function solveCockpit(F, ck){
+  const c=ck||state.ck, hta=rad(F.hta), ht=F.P.htTop;
   const up=[-Math.cos(hta),0,Math.sin(hta)];
   const h=c.headsetStack+c.spacers+c.stemClampH/2;
   const steer=[ht[0]+up[0]*h, 0, ht[1]+up[2]*h];
@@ -845,6 +903,286 @@ function solveStand(M){
   return P;
 }
 
+/* ===================== 4c. конверт кокпита ===================== */
+/* Вопрос, на который отвечает этот блок: что эта РАМА вообще позволяет данному
+   райдеру, а не как ощущается один конкретный кокпит.
+
+   Геометрия задачи, из которой всё следует. Начало координат — каретка.
+   • Цель по росту — не точка, а ДУГА окружности радиуса RAD = рост × множитель:
+     любая точка хвата на ней даёт правильный RAD, отличается только угол.
+   • Назначение катания — УГЛОВОЙ СЕКТОР от каретки (RAAD).
+   • Рама с перебираемым железом — ОБЛАКО достижимых точек хвата.
+   Вердикт — пересечение трёх. Пусто на дуге — размер рамы не тот, и это
+   доказуемо: RAD растёт почти по всем ручкам кокпита, поэтому минимум конверта
+   и есть жёсткий пол рамы, ниже которого её не опустить ничем.
+
+   Перебор — чистая тригонометрия: solveFrame зовётся один раз, дальше только
+   solveCockpit. Тело подключается на последнем шаге и лишь к финалистам —
+   полный IK на всей сетке не нужен и стоил бы на три порядка дороже. */
+
+/* Каталог реальных деталей, а не декартово произведение диапазонов: последнее
+   даёт несуществующее железо (вынос 35 мм с подъёмом 30°) и топит вывод в мусоре.
+   Каждую строку можно показать пальцем в магазине — это наблюдаемый ассортимент,
+   а не подобранный коэффициент. Границы каталога намеренно совпадают с теми, что
+   в литературе считаются пределом настройки: вынос 35–60, проставки до 40,
+   rise до 38, backsweep 8–16. Поэтому выход за каталог — это и есть признанный
+   красный флаг «размер рамы выбран неверно», встроенный в саму постановку.
+   Отрицательный угол — вынос, перевёрнутый вниз. */
+const CK_CATALOG={
+  stems:[{len:35,ang:0},{len:40,ang:0},{len:45,ang:0},{len:50,ang:0},{len:60,ang:0},
+         {len:45,ang:-6},{len:50,ang:-7},{len:60,ang:-7},
+         {len:40,ang:6},{len:50,ang:6},{len:60,ang:6},{len:50,ang:7},{len:60,ang:7},
+         {len:50,ang:17},{len:50,ang:30},{len:60,ang:30}],
+  /* upsweep у серийных рулей 4–6° и на длину почти не влияет — держим 5 общим,
+     чтобы перебор не разбухал вдвое ради десятых долей миллиметра. */
+  bars:[{rise:0,bs:8},{rise:10,bs:8},{rise:15,bs:8},{rise:20,bs:9},{rise:25,bs:9},
+        {rise:30,bs:9},{rise:35,bs:9},{rise:38,bs:8},{rise:15,bs:12},{rise:25,bs:12},
+        {rise:20,bs:16}],
+  spacers:[0,5,10,15,20,25,30,35,40],
+  us:5
+};
+/* Что каталог НЕ перебирает и берёт из введённого кокпита: ширину руля, отступ
+   хвата, ширину отгиба, чашку рулевой и высоту обхвата выноса. Ширина здесь не
+   «не влияет», а именно берётся своя: вместе с загибом она реально двигает хват
+   назад, и подставлять вместо неё каталожную значило бы менять пользователю руль
+   в вопросе, который он не задавал. */
+
+/* Секторы названы по СВОЙСТВУ ПОСАДКИ, дисциплина — в скобках. Так честнее:
+   опубликованы у Маккормака только три узких ориентира (XC 55–56, трейл 58–60,
+   DH 62–63), а «город/парк» — наша экстраполяция той же логики «выше угол =
+   вертикальнее», и она залезает в DH-полосу. Называя сектор свойством, мы не
+   выдаём интерполяцию за опубликованный диапазон; anchor хранит сам ориентир
+   отдельно, чтобы интерфейс мог показать его внутри сектора. */
+const RAAD_SECTORS=[
+  {key:'ultraflat',name:'Очень распластанная',acc:'очень распластанную',disc:'за пределами опубликованного',lo:-Infinity,hi:54.5},
+  {key:'flat',     name:'Распластанная',   acc:'распластанную',   disc:'XC, подъёмы',lo:54.5,hi:57,   anchor:[55,56],anchorOf:'XC'},
+  {key:'balanced', name:'Сбалансированная',acc:'сбалансированную',disc:'трейл',      lo:57,  hi:60.5, anchor:[58,60],anchorOf:'трейл'},
+  {key:'upright',  name:'Вертикальная',    acc:'вертикальную',    disc:'город, парк',lo:60.5,hi:64,   anchor:[62,63],anchorOf:'DH',extrapolated:true},
+  {key:'ultraupright',name:'Очень вертикальная',acc:'очень вертикальную',disc:'за пределами опубликованного',lo:64,hi:Infinity}
+];
+const sectorOf=a=>RAAD_SECTORS.find(s=>a>=s.lo&&a<s.hi)||RAAD_SECTORS[0];
+
+/* Пределы «нормальной настройки» — по ним помечаются детали введённого кокпита,
+   вышедшие за каталог. Не запрет, а тот самый красный флаг из литературы. */
+const CK_LIMITS={stemLen:[35,60],spacers:[0,40],barRise:[0,40],backsweep:[7,16]};
+
+/* Ролл руля в переборе НЕ участвует и держится в нейтрали. Он стоит до 12 мм
+   RAD — больше допуска, — но это не покупка, а поворот руля в обхвате, и
+   выставляют его по запястьям, а не по RAD. Позволить перебору тратить ролл на
+   попадание в цель значило бы ровно то, что инструмент должен ловить:
+   компенсацию неверного размера рамы кокпитом. Поэтому конверт считается на
+   нейтрали, а собственный ролл райдера показывается отдельной строкой — видно,
+   сколько миллиметров он уже съел (current.rollEffect). */
+function cfgToCk(c){
+  return {spacers:c.sp, stemLen:c.st.len, stemAngle:c.st.ang, stemFlip:0,
+          barRise:c.bar.rise, backsweep:c.bar.bs, upsweep:CK_CATALOG.us, barRoll:0};
+}
+function cfgLabel(c){
+  return `вынос ${c.st.len} мм ${c.st.ang>0?'+':''}${c.st.ang}°, проставки ${c.sp} мм, `
+       + `руль rise ${c.bar.rise} мм, загиб ${c.bar.bs}°`;
+}
+
+/* Телесная проверка. Одного RAD мало: конфигурация может попасть в цель и в
+   сектор, но поставить руки в замок — прогон на реальной раме это показывает.
+   Считается только для финалистов, полным солвером, с восстановлением состояния. */
+function cfgBody(ck){
+  const saveCk={...state.ck};
+  let M,ST;
+  try{
+    Object.assign(state.ck,ck);
+    M=solveFit(); ST=solveStand(M);
+  } finally { Object.assign(state.ck,saveCk); }
+  const flags=[];
+  let level='ok';
+  const bad=t=>{flags.push(t);level='bad';}, warn=t=>{flags.push(t);if(level!=='bad')level='warn';};
+  if(M.armUse>96) bad('руки почти в замок'); else if(M.armUse>92) warn('рука работает на пределе');
+  if(Math.abs(M.wristDev)>12) bad('залом запястья'); else if(Math.abs(M.wristDev)>6) warn('запястье подвыкручено');
+  if(M.load){ if(M.load.hPct>28) bad('много веса на ладонях'); else if(M.load.hPct<4) warn('руль почти не нагружен'); }
+  return {armUse:M.armUse, wristDev:M.wristDev, hPct:M.load?M.load.hPct:null,
+          torsoStand:ST.torso, flags, level};
+}
+
+/* Отбор представителей сектора. Сортировка не по одной близости к цели: три
+   конфигурации, различающиеся проставкой в 5 мм, — это один совет, а не три.
+   Поэтому цена складывается из промаха по RAD и штрафа за экзотику железа,
+   а одинаковые по связке «вынос+руль» варианты схлопываются. */
+function pickConfigs(list,target,tol,n){
+  const cost=c=>{
+    let p=Math.abs(c.rad-target)/Math.max(tol,1);
+    if(c.sp>30) p+=1; else if(c.sp>20) p+=0.35;
+    if(Math.abs(c.st.ang)>=17) p+=1;
+    if(c.st.len<40||c.st.len>60) p+=0.4;
+    if(c.bar.bs>=12) p+=0.5;
+    if(c.bar.rise>=38) p+=0.5;
+    return p;
+  };
+  const out=[],seen=new Set();
+  for(const c of [...list].sort((a,b)=>cost(a)-cost(b))){
+    const k=`${c.st.len}/${c.st.ang}/${c.bar.rise}/${c.bar.bs}`;
+    if(seen.has(k)) continue;
+    seen.add(k); out.push({...c,cost:cost(c)});
+    if(out.length>=n) break;
+  }
+  return out;
+}
+
+/* Расстояние по железу для совета «что подвинуть». Считаются ДЕТАЛИ, а не
+   миллиметры: вынос — одна покупка независимо от того, на сколько он другой,
+   руль — тоже одна, а проставки уже лежат на штоке и не стоят ничего. Первая
+   версия складывала миллиметры и выдавала вынос с подъёмом 30° вместо соседнего
+   по длине — арифметически ближе, практически абсурдно. */
+const cfgDist=(cur,c)=>{
+  const a=cur.stemFlip?-cur.stemAngle:cur.stemAngle;
+  const newStem=(cur.stemLen!==c.st.len||a!==c.st.ang);
+  const newBar =(cur.barRise!==c.bar.rise||cur.backsweep!==c.bar.bs);
+  return (newStem?1:0) + (newBar?1.2:0)
+       + Math.abs(cur.stemLen-c.st.len)/60 + Math.abs(a-c.st.ang)/40
+       + Math.abs(cur.spacers-c.sp)/60
+       + Math.abs(cur.barRise-c.bar.rise)/50 + Math.abs(cur.backsweep-c.bar.bs)/12;
+};
+
+/* Главная функция. sag по умолчанию 0: опубликованные ориентиры RAAD сняты со
+   СТОЯЩЕГО велосипеда, а просадка вилки уводит угол почти на полтора градуса —
+   на секторах шириной 2–3° это меняет вердикт. RAD от sag не зависит вовсе. */
+function cockpitEnvelope(opt){
+  const o=Object.assign({sag:0,tol:10,picks:3},opt||{});
+  /* Просадка задаётся через состояние, а не аргументом solveFrame: при явном
+     аргументе обёртка намеренно обнуляет pitchSag (он нужен отрисовке стойки,
+     которая крутит раму сама). Руль тогда не клюёт вместе с рамой, и RAD
+     начинает зависеть от sag — прямое нарушение инварианта модели. Здесь нужен
+     ровно тот же путь, которым идёт solveFit. */
+  const saveSag=state.bike.sag;
+  state.bike.sag=o.sag;
+  let out;
+  try{ out=envelopeAt(o); } finally { state.bike.sag=saveSag; }
+  return out;
+}
+/* Перебор каталога на готовой раме. Отдельной функцией, потому что им
+   пользуются двое: конверт (§4c) и обмерный слой вида сбоку, который рисует
+   облако достижимых точек хвата. Тела здесь нет вовсе — чистая тригонометрия,
+   1584 вызова solveCockpit на один solveFrame. */
+function sweepCatalog(F, base){
+  const BB=F.P.BB, out=[];
+  for(const sp of CK_CATALOG.spacers)
+    for(const st of CK_CATALOG.stems)
+      for(const bar of CK_CATALOG.bars){
+        const c={sp,st,bar};
+        const CO=solveCockpit(F,{...base, ...cfgToCk(c)});
+        c.er=CO.grip[0]-BB[0]; c.es=CO.grip[2]-BB[1];
+        c.rad=Math.hypot(c.er,c.es); c.raad=deg(Math.atan2(c.es,c.er));
+        out.push(c);
+      }
+  return out;
+}
+
+function envelopeAt(o){
+  const F=solveFrame(), BB=F.P.BB, base=state.ck;
+  const target=(state.body.height/10)*state.fit.radMult;
+  const at=ck=>{
+    const CO=solveCockpit(F,ck), er=CO.grip[0]-BB[0], es=CO.grip[2]-BB[1];
+    return {rad:Math.hypot(er,es), raad:deg(Math.atan2(es,er)), er, es};
+  };
+
+  const all=sweepCatalog(F,base);
+  const rads=all.map(c=>c.rad), raads=all.map(c=>c.raad);
+  const envelope={n:all.length, radMin:Math.min(...rads), radMax:Math.max(...rads),
+                  raadMin:Math.min(...raads), raadMax:Math.max(...raads)};
+
+  const inTarget=all.filter(c=>Math.abs(c.rad-target)<=o.tol);
+  /* Кандидатов гоняем через тело больше, чем покажем, и потом пересортировываем:
+     иначе сектор, где удобные варианты лежат чуть дальше от центра цели, весь
+     показывался бы вариантами «руки в замок», хотя в нём есть живые. Гейт стоит
+     полного солвера, поэтому расширяем список, а не гоняем весь сектор. */
+  const RANK={ok:0,warn:1,bad:2};
+  const sectors=RAAD_SECTORS.map(s=>{
+    const list=inTarget.filter(c=>c.raad>=s.lo&&c.raad<s.hi);
+    const cand=pickConfigs(list,target,o.tol,o.picks+5)
+      .map(c=>({...c, label:cfgLabel(c), body:cfgBody({...base,...cfgToCk(c)})}))
+      .sort((a,b)=>(RANK[a.body.level]-RANK[b.body.level])||(a.cost-b.cost));
+    return {...s, n:list.length, picks:cand.slice(0,o.picks)};
+  });
+
+  /* Введённый кокпит — на той же шкале и при том же sag, что и конверт, иначе
+     метка «ты здесь» стояла бы не в тех координатах, что сама шкала. */
+  const cur=at(base), curSector=sectorOf(cur.raad);
+  const off=[];
+  const effAng=base.stemFlip?-base.stemAngle:base.stemAngle;
+  const chk=(v,[lo,hi],name,unit)=>{ if(v<lo) off.push(`${name} ${v}${unit} — меньше рабочих ${lo}`);
+                                     else if(v>hi) off.push(`${name} ${v}${unit} — больше рабочих ${hi}`); };
+  chk(base.stemLen,CK_LIMITS.stemLen,'вынос',' мм');
+  chk(base.spacers,CK_LIMITS.spacers,'проставки',' мм');
+  chk(base.barRise,CK_LIMITS.barRise,'rise руля',' мм');
+  chk(base.backsweep,CK_LIMITS.backsweep,'загиб руля','°');
+  const curInTarget=Math.abs(cur.rad-target)<=o.tol;
+  const nearest=(inTarget.length&&!curInTarget)
+    ? (()=>{ const c=[...inTarget].sort((a,b)=>cfgDist(base,a)-cfgDist(base,b))[0];
+             return {...c, label:cfgLabel(c),
+                     move:{stemLen:c.st.len-base.stemLen, stemAngle:c.st.ang-effAng,
+                           spacers:c.sp-base.spacers, barRise:c.bar.rise-base.barRise,
+                           backsweep:c.bar.bs-base.backsweep, barRoll:-base.barRoll}}; })()
+    : null;
+  /* Сколько RAD съедает собственный доворот руля: то же железо в нейтрали минус
+     то же железо как оно выставлено. Без этой строки конверт (нейтраль) и метка
+     «ты здесь» (свой ролл) стояли бы в разных системах отсчёта молча. */
+  const rollEffect=base.barRoll ? cur.rad-at({...base, barRoll:0}).rad : 0;
+  const current={rad:cur.rad, raad:cur.raad, radDelta:cur.rad-target, inTarget:curInTarget, rollEffect,
+                 sector:curSector.key, sectorName:curSector.name,
+                 offCatalog:off, nearest, body:cfgBody(base)};
+
+  /* Какой reach искать, если размер не тот. Считается точно, а не на глаз:
+     сдвиг reach рамы — это ЧИСТЫЙ горизонтальный перенос всей цепочки кокпита
+     (stack рамы не меняется, углы тоже), поэтому нужный сдвиг решается из
+     прямоугольного треугольника с той же вертикалью. Берётся крайняя
+     конфигурация — та, что упёрлась, — иначе совет считался бы по конфигурации,
+     которая и так не подходит. */
+  function reachAdvice(extreme){
+    const under=target*target-extreme.es*extreme.es;
+    if(under<=0) return null;                       // цель ниже стека — совет бессмыслен
+    const d=Math.sqrt(under)-extreme.er;
+    return {delta:d, reach:state.bike.reach+d};
+  }
+
+  /* Вердикт. Три исхода, и первые два — геометрические, а не оценочные:
+     кокпитом их не лечат, потому что весь каталог уже перебран. */
+  const near=v=>v.toFixed(0);
+  let code,text,advice=null;
+  if(envelope.radMin>target+o.tol){
+    code='big';
+    advice=reachAdvice(all.reduce((a,b)=>b.rad<a.rad?b:a));
+    text=`Рама велика. Минимальный RAD на ней ${near(envelope.radMin)} мм против целевых `
+       + `${near(target)} — это самая низко-близкая конфигурация каталога при руле в нейтрали. `
+       + `Дотянуть можно только доворотом руля назад, а это уже компенсация размера рамы, а не настройка.`;
+  } else if(envelope.radMax<target-o.tol){
+    code='small';
+    advice=reachAdvice(all.reduce((a,b)=>b.rad>a.rad?b:a));
+    text=`Рама мала. Даже в самой высоко-далёкой конфигурации RAD ${near(envelope.radMax)} мм `
+       + `против целевых ${near(target)} — при руле в нейтрали; дотянуть можно только железом `
+       + `за пределами рабочих диапазонов.`;
+  } else code='fits';
+  if(advice)
+    text+=` При том же stack ${near(state.bike.stack)} в цель попала бы рама с reach около `
+        + `${near(advice.reach)} мм — на ${near(Math.abs(advice.delta))} мм `
+        + `${advice.delta<0?'короче':'длиннее'} нынешних ${near(state.bike.reach)}.`;
+  if(code==='fits'){
+    const live=sectors.filter(s=>s.n>0);
+    const good=live.filter(s=>s.picks.some(p=>p.body.level!=='bad'));
+    const nm=s=>`${s.acc} посадку (${s.disc})`;
+    text=good.length
+      ? `Рама настраивается под ${good.map(nm).join(', ')}. Всего ${inTarget.length} конфигураций `
+        + `из каталога попадают в целевой RAD ${near(target)} ± ${o.tol} мм.`
+      : `Рама попадает в целевой RAD, но ни один вариант не проходит по телу — `
+        + `смотри пометки у конфигураций.`;
+    const only=live.filter(s=>!good.includes(s));
+    if(only.length) text+=` Под ${only.map(nm).join(', ')} RAD тоже попадает, но тело упирается: `
+      + `${[...new Set(only.flatMap(s=>s.picks.flatMap(p=>p.body.flags)))].join(', ')}.`;
+  }
+  const verdict={code,text,advice,target,tol:o.tol,sag:o.sag,inTarget:inTarget.length,
+                 raadMin:inTarget.length?Math.min(...inTarget.map(c=>c.raad)):null,
+                 raadMax:inTarget.length?Math.max(...inTarget.map(c=>c.raad)):null};
+
+  return {verdict, envelope, sectors, current, target, catalog:CK_CATALOG};
+}
+
 /* ===================== 5. отрисовка ===================== */
 const BC='#4f7fe0', BF='#eaf1fd', FR='#2f3640', ACC='#e8543f', MUT='#aeb6c2',
       GRN='#1f8a52', AMB='#b8860b', VIO='#7c5cd6', TEAL='#0f766e';
@@ -880,6 +1218,114 @@ function svgTag(x,y,w,h,title,vhCap,inner){
 }
 function callout(from,to,label,c,anchor){
   return ln(from,to,c,3.5,null,.85)+tx(to[0]+(anchor==='end'?-15:15),to[1]-14,label,c,36,anchor,700);
+}
+
+/* Выпуклая оболочка (Эндрю). Облако достижимых точек хвата — это по сути сумма
+   нескольких независимых отрезков (проставки вдоль штока, вынос вдоль своего
+   угла, rise и загиб руля), то есть зонотоп, и он выпуклый: оболочка описывает
+   множество без потерь, а рисуется десятком точек вместо полутора тысяч. */
+function hull2(pts){
+  const p=[...pts].sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(p.length<3) return p;
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],up=[];
+  for(const q of p){ while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0) lo.pop(); lo.push(q); }
+  for(let i=p.length-1;i>=0;i--){ const q=p[i]; while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0) up.pop(); up.push(q); }
+  lo.pop(); up.pop();
+  return lo.concat(up);
+}
+
+/* Обмерный слой вида сбоку: где вообще может оказаться хват на этой раме.
+   Три вещи в одних координатах с самим велосипедом:
+     облако — куда достаёт центр хвата при переборе каталога кокпита;
+     дуга — целевой RAD по росту, полосой шириной в допуск ±10 мм;
+     текущий хват — точка, которая на раме стоит сейчас.
+   Видно главное: пересекает дуга облако или проходит мимо, то есть можно ли на
+   этой раме вообще получить нужную длину посадки. Вердикт отсюда не выводится,
+   для него есть карточка.
+
+   Считается на ТЕКУЩЕЙ просадке, как и всё остальное на схеме: накладывать
+   облако, посчитанное при другом состоянии вилки, на нарисованную раму значило
+   бы врать про геометрию. Поэтому углы здесь при рабочем sag ниже, чем
+   опубликованные, — карточка считает конверт на стоящем велосипеде.
+
+   Почему выноска-лупа, а не просто слой на раме. Весь диапазон настройки
+   кокпита — это пятно размером с кулак: сотня миллиметров на полутора тысячах
+   колёсной базы. В масштабе рамы облако и дуга сливаются в одно сиреневое
+   пятно, а подписи попадают в самый тесный угол схемы, где уже стоят «перепад»,
+   «седло → ручка» и вершина треугольника RAD. Поэтому на раме остаётся тихий
+   контур с рамкой охвата, а разбирается всё в увеличенной врезке, для которой
+   слева над задним колесом есть пустое поле. Заодно врезка честно показывает
+   то, ради чего её масштаб и нужен: насколько мал этот диапазон.
+
+   Секторов RAAD нет ни там, ни там. Два градуса — это тридцать миллиметров
+   дуги; углы читаются на линейке в карточке, где под них есть ширина экрана. */
+function sideEnvelope(M){
+  const F=M.F, B=F.P.BB, G=[M.CO.grip[0],M.CO.grip[2]];
+  const all=sweepCatalog(F,state.ck);
+  if(!all.length) return null;
+  const H=hull2(all.map(c=>[B[0]+c.er, B[1]+c.es]));
+  const target=(state.body.height/10)*state.fit.radMult, tol=10;
+  const as=all.map(c=>c.raad), a1=Math.min(...as)-2.5, a2=Math.max(...as)+2.5;
+  const arcP=[]; for(let i=0;i<=24;i++){ const t=rad(a1+(a2-a1)*i/24);
+    arcP.push([B[0]+target*Math.cos(t), B[1]+target*Math.sin(t)]); }
+
+  const g=[];
+  let top=-1e9, right=-1e9;
+  const note=q=>{ top=Math.max(top,q[1]); right=Math.max(right,q[0]); };
+  const poly=(pts,f,fo,st,w,dash)=>`<polygon points="${pts.map(q=>q[0].toFixed(1)+','+(-q[1]).toFixed(1)).join(' ')}" `
+      +`fill="${f}" fill-opacity="${fo}" stroke="${st}" stroke-width="${w}"${da(dash)} stroke-linejoin="round"/>`;
+  const line=pts=>'M '+pts.map(q=>q[0].toFixed(1)+' '+(-q[1]).toFixed(1)).join(' L ');
+  const dot=(q,c,r)=>`<circle cx="${q[0].toFixed(1)}" cy="${(-q[1]).toFixed(1)}" r="${r}" fill="${c}"/>`;
+
+  /* ---- слой в масштабе рамы: только контуры, без единой подписи ---- */
+  g.push(`<path d="${line(arcP)}" fill="none" stroke="${VIO}" stroke-width="${2*tol}" opacity=".22"/>`);
+  g.push(poly(H,VIO,'.16',VIO,5,'16 11'));
+  H.forEach(note);
+
+  // рамка охвата — она же то, что увеличено во врезке
+  const xs=[...H.map(q=>q[0]),...arcP.map(q=>q[0]),G[0]], zs=[...H.map(q=>q[1]),...arcP.map(q=>q[1]),G[1]];
+  const pad=tol+16;
+  const R0={x0:Math.min(...xs)-pad, x1:Math.max(...xs)+pad, z0:Math.min(...zs)-pad, z1:Math.max(...zs)+pad};
+  g.push(`<rect x="${R0.x0.toFixed(1)}" y="${(-R0.z1).toFixed(1)}" width="${(R0.x1-R0.x0).toFixed(1)}" `
+       + `height="${(R0.z1-R0.z0).toFixed(1)}" fill="none" stroke="${VIO}" stroke-width="3.5" `
+       + `stroke-dasharray="12 9" opacity=".8" rx="10"/>`);
+  note([R0.x1,R0.z1]);
+
+  /* ---- врезка ---- */
+  const BW=560, BH=430;
+  const ix=F.P.rear[0]-F.wheelR+20, iz=Math.max(G[1],M.sat[1])+96;
+  const k=Math.min(BW/(R0.x1-R0.x0), BH/(R0.z1-R0.z0));
+  const w2=(R0.x1-R0.x0)*k, h2=(R0.z1-R0.z0)*k;
+  const m=q=>[ix+(q[0]-R0.x0)*k, iz+(q[1]-R0.z0)*k];
+  g.push(`<rect x="${ix.toFixed(1)}" y="${(-(iz+h2)).toFixed(1)}" width="${w2.toFixed(1)}" height="${h2.toFixed(1)}" `
+       + `fill="#fff" stroke="${MUT}" stroke-width="3.5" rx="12"/>`);
+  // поводок от рамки охвата к врезке
+  g.push(ln([ix+w2,iz+h2],[R0.x0,R0.z0],VIO,3,'12 10',.55));
+
+  g.push(`<path d="${line(arcP.map(m))}" fill="none" stroke="${VIO}" stroke-width="${2*tol*k}" opacity=".22"/>`);
+  g.push(`<path d="${line(arcP.map(m))}" fill="none" stroke="${VIO}" stroke-width="4" stroke-dasharray="20 14" opacity=".9"/>`);
+  g.push(poly(H.map(m),VIO,'.16',VIO,5));
+  const gm=m(G);
+  g.push(dot(gm,ACC,15));
+
+  /* Подписи — легендой НАД врезкой, а не выносками к элементам. Внутри врезки
+     содержимое растянуто на всю рамку и свободного места нет, под ней проходит
+     красная линия «седло → ручка». Элементов всего два и они различаются
+     рисунком, так что легенда читается однозначно и ни на что не наезжает. */
+  g.push(tx(gm[0]+26, gm[1]+14, 'сейчас', ACC,30,'start',700));
+  const lz=iz+h2, sw=46;
+  g.push(`<rect x="${ix.toFixed(1)}" y="${(-(lz+50)).toFixed(1)}" width="${sw}" height="26" `
+       + `fill="${VIO}" fill-opacity=".16" stroke="${VIO}" stroke-width="4" rx="5"/>`);
+  g.push(tx(ix+sw+16, lz+32, 'куда достаёт хват при любом кокпите каталога', VIO,29,'start',700));
+  g.push(ln([ix,lz+104],[ix+sw,lz+104],VIO,9,null,.28));
+  g.push(ln([ix,lz+104],[ix+sw,lz+104],VIO,4,'14 10',.9));
+  g.push(tx(ix+sw+16, lz+94, `цель RAD ${target.toFixed(0)} ±${tol} мм`, VIO,29,'start',700));
+  g.push(tx(ix, lz+156, `кокпит крупно, ×${k.toFixed(1)}`, MUT,27,'start',500));
+  note([ix+w2, lz+200]);
+  right=Math.max(right, ix+sw+16+44*29*0.55, ix+w2);
+
+  return {svg:g.join(''), top, right};
 }
 
 function drawSide(M){
@@ -978,8 +1424,16 @@ function drawSide(M){
   /* Обмерный слой. Всё, что здесь нарисовано, снимается с реального велосипеда
      рулеткой между тремя точками: каретка, точка опоры на седле, центр хвата.
      Треугольник каретка → ручка показывает reach, stack и RAD разом: RAD — его
-     гипотенуза, RAAD — угол при каретке. */
+     гипотенуза, RAAD — угол при каретке. Плюс облако достижимых точек хвата:
+     оно ставит этот треугольник в контекст — видно, что рама позволяет кроме
+     той конфигурации, которая на ней стоит сейчас. */
+  let envTop=null, envRight=null;
   if(sideBare){
+    /* Перебор стоит порядка десяти миллисекунд, поэтому считается только в
+       обмерном режиме — в обычном облако всё равно не рисуется, а рама с
+       райдером перерисовывается на каждое движение слайдера. */
+    let EV=null; try{ EV=sideEnvelope(M); }catch(e){}
+    if(EV){ g.push(EV.svg); envTop=EV.top; envRight=EV.right; }
     const B=[P.BB[0],P.BB[1]], SA=[M.sat[0],M.sat[1]+20], GR=[G[0],G[2]];
     const corner=[GR[0],B[1]];                       // прямой угол треугольника
     // катеты: эффективные reach и stack
@@ -1023,9 +1477,10 @@ function drawSide(M){
     g.push(tx(M.sat[0]-175,M.sat[1]+70,'от каретки',MUT,30,'end',500));
   }
 
-  const top=sideBare ? Math.max(G[2],M.sat[1])+280
+  const top=sideBare ? Math.max(G[2],M.sat[1],envTop!=null?envTop+60:0)+280
                      : Math.max(M.HEAD[2]+S.headR+140, G[2]+300);
-  const x0=Math.min(P.rear[0]-R,M.sat[0])-330, x1=Math.max(P.front[0]+R,G[0]+560,elbRight)+60;
+  const x0=Math.min(P.rear[0]-R,M.sat[0])-330,
+        x1=Math.max(P.front[0]+R,G[0]+560,elbRight,envRight!=null?envRight+40:0)+60;
   return svgTag(x0,-top,x1-x0,top+560,'Посадка райдера, вид сбоку',82,g.join(''));
 }
 
@@ -1271,6 +1726,142 @@ function buildSummary(M,ST){
   el.innerHTML=h+'</div>';
 }
 
+/* Карточка «Что эта рама позволяет» — вид для конверта из §4c.
+   Порядок подачи: сначала вердикт словами, потом линейка, потом конкретные
+   конфигурации, и только в конце — где на этой шкале стоит текущий кокпит.
+   Обратный порядок («вот твои числа, разбирайся») уже есть в сводке и таблице;
+   смысл этой карточки именно в том, что ответ идёт первым. */
+function buildEnvelope(M){
+  const el=document.getElementById('env'); if(!el) return;
+  let E;
+  try{ E=cockpitEnvelope(); }catch(e){ el.innerHTML='<div class="hint">Конверт не посчитался: '+esc(e.message)+'</div>'; return; }
+  const n0=v=>v.toFixed(0), sg=v=>(v>0?'+':'')+v.toFixed(0);
+
+  let h=`<div class="envv${E.verdict.code==='fits'?'':' bad'}">${esc(E.verdict.text)}</div>`;
+
+  /* Оговорка про просадку — числом, а не словом «примерно»: разница берётся
+     из двух настоящих прогонов, конверта (sag 0) и текущего состояния. */
+  const sagNote = state.bike.sag
+    ? ` При твоём рабочем sag ${n0(state.bike.sag)} % те же углы читаются на ${Math.abs(M.raad-E.current.raad).toFixed(1)}° меньше — конверт считается на стоящем велосипеде, как и опубликованные ориентиры.`
+    : '';
+  h+=`<div class="envmeta">Перебрано ${E.envelope.n} комбинаций каталога: вынос 35–60 мм, проставки 0–40 мм, `
+   + `руль rise 0–38 мм с загибом 8–16°. Ширина руля, отступ хвата и чашка рулевой — твои, руль в нейтрали. `
+   + `Достижимый RAD ${n0(E.envelope.radMin)}–${n0(E.envelope.radMax)} мм при целевых ${n0(E.target)}.${sagNote}</div>`;
+
+  h+=envRuler(E);
+  h+='<div class="envmeta" style="margin-top:0">Залиты сектора, в которые попадание есть. '
+   + 'Тёмная полоса внутри сектора — опубликованный ориентир Маккормака, остальная ширина сектора — '
+   + 'наша интерполяция между его тремя точками.</div>';
+
+  const live=E.sectors.filter(s=>s.n>0);
+  if(live.length){
+    h+='<div class="envsecs">';
+    for(const s of live){
+      h+=`<div class="envsec"><div class="sh"><b>${esc(s.name)}</b>`
+       + `<span class="disc">${esc(s.disc)}</span><span class="cnt">${s.n} конфиг.</span></div>`;
+      h+='<ul class="envcfg">';
+      for(const p of s.picks){
+        h+=`<li class="lvl-${p.body.level}"><div class="cl">${esc(p.label)}</div>`
+         + `<div class="cn">RAD ${n0(p.rad)} · RAAD ${p.raad.toFixed(1)}° · рука ${n0(p.body.armUse)} % · `
+         + `залом ${sg(p.body.wristDev)}° · корпус стоя ${n0(p.body.torsoStand)}°</div>`
+         + (p.body.flags.length?`<div class="cf">${esc(p.body.flags.join(', '))}</div>`:'')
+         + '</li>';
+      }
+      h+='</ul>';
+      if(s.extrapolated)
+        h+='<div class="envnote">Угол для этого сектора — экстраполяция той же логики «выше угол = вертикальнее», а не опубликованное значение.</div>';
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+
+  h+=envCurrent(E,M);
+
+  h+='<div class="hint" style="margin-top:10px">Множитель RAD и границы секторов — эмпирические правила одного специалиста, '
+   + 'а не физический закон: у отдельных райдеров удобный RAD лежит на 30–40 мм в стороне от формулы. '
+   + 'Карточка показывает, что рама <b>позволяет</b>, и чем за это платит тело; выбирает человек.</div>';
+  el.innerHTML=h;
+}
+
+/* Линейка RAAD. Одна картинка вместо трёх абзацев: видно и куда рама вообще
+   дотягивается, и какая часть этого попадает в целевой RAD, и где на этой
+   шкале стоит текущий кокпит. Зелёным залиты сектора, в которые попадание
+   есть, — цвет здесь несёт данные, а не украшает. */
+function envRuler(E){
+  const W=1000, H=162;
+  const vals=E.sectors.flatMap(s=>[s.lo,s.hi]).filter(isFinite)
+    .concat([E.envelope.raadMin,E.envelope.raadMax,E.current.raad]);
+  const lo=Math.floor(Math.min(...vals,54)-1), hi=Math.ceil(Math.max(...vals,64)+1);
+  const x=a=>((clamp(a,lo,hi)-lo)/(hi-lo))*W;
+  const g=[];
+  const rect=(a,b,y,hh,fill,extra='')=>g.push(`<rect x="${x(a).toFixed(1)}" y="${y}" width="${Math.max(x(b)-x(a),0).toFixed(1)}" height="${hh}" ${extra} fill="${fill}"/>`);
+  const txt=(px,py,t,c,sz,anch='middle',w=600)=>g.push(`<text x="${px.toFixed(1)}" y="${py}" fill="${c}" font-size="${sz}" font-weight="${w}" text-anchor="${anch}" font-family="ui-sans-serif,system-ui">${t}</text>`);
+
+  // сектора
+  for(const s of E.sectors){
+    const a=Math.max(s.lo,lo), b=Math.min(s.hi,hi);
+    if(b-a<=0) continue;
+    rect(a,b,8,46,s.n?'#e3f0e8':'#eef0f3','rx="4" stroke="#fff" stroke-width="3"');
+    // опубликованный ориентир — тёмная полоса внутри сектора
+    if(s.anchor) rect(s.anchor[0],s.anchor[1],8,46,s.n?'rgba(31,138,82,.16)':'rgba(0,0,0,.05)','rx="4"');
+    /* Ширина подписи прикидывается по числу букв: обрезанное «ь распласта…»
+       читается как поломка вёрстки, а пустой сектор — просто как пустой. */
+    if(x(b)-x(a) > s.name.length*10.5+16) txt((x(a)+x(b))/2,37,esc(s.name),s.n?'#1f6b45':'#98a0ab','19');
+  }
+  // достижимое: весь конверт бледно, попадающее в целевой RAD — плотно
+  rect(E.envelope.raadMin,E.envelope.raadMax,64,14,'#ece6fa','rx="7"');
+  if(E.verdict.raadMin!=null) rect(E.verdict.raadMin,E.verdict.raadMax,64,14,VIO,'rx="7"');
+  txt(x(E.envelope.raadMin),96,'достижимо','#9aa1ac','16','start',500);
+  if(E.verdict.raadMin!=null)
+    txt(x(E.verdict.raadMax),96,'в целевом RAD','#7c5cd6','16','end',600);
+
+  // текущий кокпит
+  const cx=x(E.current.raad);
+  g.push(`<line x1="${cx.toFixed(1)}" y1="4" x2="${cx.toFixed(1)}" y2="78" stroke="${ACC}" stroke-width="4"/>`);
+  g.push(`<circle cx="${cx.toFixed(1)}" cy="78" r="7" fill="${ACC}"/>`);
+  txt(cx, 118, `твой кокпит ${E.current.raad.toFixed(1)}°`, ACC, '19',
+      cx>W*0.8?'end':(cx<W*0.2?'start':'middle'), 700);
+
+  // ось
+  g.push(`<line x1="0" y1="134" x2="${W}" y2="134" stroke="#d8dce2" stroke-width="3"/>`);
+  for(let a=Math.ceil(lo);a<=hi;a++){
+    if(a%2) continue;
+    g.push(`<line x1="${x(a).toFixed(1)}" y1="134" x2="${x(a).toFixed(1)}" y2="141" stroke="#d8dce2" stroke-width="3"/>`);
+    txt(x(a),159,a+'°','#aab1bb','17','middle',500);
+  }
+  return `<div class="envruler"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Достижимые углы посадки">${g.join('')}</svg></div>`;
+}
+
+/* Блок про введённый кокпит: где он на той же шкале, чем расплачивается тело,
+   что торчит за рабочие диапазоны и что подвинуть, чтобы попасть в цель. */
+function envCurrent(E,M){
+  const C=E.current, n0=v=>v.toFixed(0), sg=v=>(v>0?'+':'')+v.toFixed(0);
+  let h='<div class="envcur"><div class="t">Твой кокпит на этой раме</div>';
+  h+=`<p>RAD <b>${n0(C.rad)} мм</b> (${sg(C.radDelta)} от целевых ${n0(E.target)}), `
+   + `RAAD <b>${C.raad.toFixed(1)}°</b> — ${esc(C.sectorName.toLowerCase())} посадка. `
+   + `Рука ${n0(C.body.armUse)} %, залом ${sg(C.body.wristDev)}°, корпус стоя ${n0(C.body.torsoStand)}°.`
+   + (C.body.flags.length?` <span class="flag">${esc(C.body.flags.join(', '))}.</span>`:'')
+   + '</p>';
+  if(C.rollEffect)
+    h+=`<p>Доворот руля на ${n0(state.ck.barRoll)}° укорачивает твой RAD на <b>${Math.abs(C.rollEffect).toFixed(0)} мм</b> `
+     + 'относительно нейтрали, на которой считается конверт. Ролл выставляют по запястьям, а не по RAD, '
+     + 'поэтому в перебор он не входит — но знать, сколько он уже съел, надо.</p>';
+  if(C.offCatalog.length)
+    h+=`<p class="flag">За рабочими диапазонами: ${esc(C.offCatalog.join('; '))}. `
+     + 'Само по себе это не запрет, но именно так выглядит компенсация неверного размера рамы кокпитом.</p>';
+  if(C.inTarget)
+    h+='<p>По RAD ты уже в цели — дальше вопрос только в угле и в том, что говорит тело.</p>';
+  else if(C.nearest){
+    const nm={stemLen:'вынос, мм',stemAngle:'подъём выноса, °',spacers:'проставки, мм',
+              barRise:'rise руля, мм',backsweep:'загиб руля, °',barRoll:'ролл руля, °'};
+    const mv=Object.entries(C.nearest.move).filter(([,v])=>v)
+      .map(([k,v])=>`${nm[k]} ${sg(v)}`).join(', ');
+    h+=`<p>Ближайшее попадание в цель по количеству деталей: <b>${esc(C.nearest.label)}</b> `
+     + `→ RAD ${n0(C.nearest.rad)}, RAAD ${C.nearest.raad.toFixed(1)}°. Подвинуть: ${esc(mv)}.</p>`;
+  }
+  return h+'</div>';
+}
+
 /* Блок стойки живёт под своей схемой, а не в общей таблице. */
 function buildStandTable(M,ST){
   const el=document.getElementById('standtable'); if(!el) return;
@@ -1406,6 +1997,7 @@ function render(){
   try{ sdSync(M); }catch(e){}
   document.getElementById('top').innerHTML=drawTop(M);
   buildSummary(M,ST); buildStandTable(M,ST); buildTable(M,ST); buildWarns(M,ST);
+  try{ buildEnvelope(M); }catch(e){}
   try{ buildSetup(M); }catch(e){}
   const bc=document.getElementById('bodychk');
   if(bc){ const {out,line}=bodyChecks(M.S);
