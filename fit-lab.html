@@ -65,6 +65,44 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .subh{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;font-weight:600;margin:14px 0 7px;padding-top:11px;border-top:1px dashed #ddd}
 .lg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:9px}
 
+/* ---- сворачивание карточек результатов ----
+   Заголовок карточки становится кнопкой, всё остальное её содержимое уезжает в
+   .cardbody. Разметку карточек это не трогает: обёртку строит collapseInit() при
+   загрузке, поэтому новая карточка получает сворачивание сама, без правок здесь.
+   Печать раскрывает всё принудительно: свёрнутый блок не должен пропасть из
+   распечатки, а именно распечатку берут с собой к велосипеду. */
+.card > h3.cardtog{cursor:pointer;display:flex;align-items:center;gap:8px;margin:0;
+                   user-select:none;-webkit-user-select:none}
+.card > h3.cardtog:hover{color:#191919}
+/* Раскрытая карточка — галочка вниз, свёрнутая — вправо. Уголок нарисован
+   двумя бордюрами, поэтому «вниз» это поворот на 45°, а «вправо» на −45°;
+   нижний отступ компенсирует смещение оптического центра при повороте. */
+.card > h3.cardtog::before{content:'';width:8px;height:8px;flex:0 0 auto;border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;transform:rotate(45deg);margin:0 3px 4px 1px;transition:transform .12s}
+.card.closed > h3.cardtog::before{transform:rotate(-45deg);margin:0 2px 2px 2px}
+.card.closed > h3.cardtog{margin:0}
+.card > .cardbody{margin-top:10px}
+.card.closed > .cardbody{display:none}
+.card.closed{padding-top:13px;padding-bottom:13px}
+@media print{ .card > .cardbody{display:block!important} .card > h3.cardtog::before{display:none} }
+
+/* ---- режим перестановки ----
+   Отдельного экрана нет: в режиме у карточек прячется содержимое, и правая
+   колонка сама превращается в компактный список заголовков — все девять видно
+   разом, без прокрутки. Это и есть причина, по которой перетаскивание не нужно:
+   до любого места два-три нажатия, а стрелки одинаково работают мышью, пальцем
+   и с клавиатуры, чего про drag&drop сказать нельзя. */
+.cardsbar{display:flex;justify-content:flex-end;gap:8px;align-items:center}
+.cardsbar button{font-size:12px;padding:4px 10px}
+.results.editing > .card{border-style:dashed;background:#fcfcfd}
+.results.editing > .card > .cardbody{display:none}
+.results.editing > .card > h3.cardtog{cursor:default}
+.results.editing > .card > h3.cardtog::before{opacity:.2}
+.cardmove{display:none;margin-left:auto;gap:5px}
+.results.editing .cardmove{display:flex}
+.cardmove button{font-size:12px;line-height:1;padding:4px 8px;font-family:inherit}
+.cardmove button[disabled]{opacity:.35;cursor:default}
+
 /* сводка под видом сбоку — то, на что смотришь чаще всего */
 /* 300px минимума дают 3 колонки на широкой правой панели (3+3 при шести блоках),
    2 на средней и 1 на телефоне — без отдельных брейкпоинтов */
@@ -83,6 +121,11 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
       border:1px solid #d9e6dd;background:#f1f8f3;color:#1c4c31}
 .envv.bad{border-color:#f3c4bf;background:#fdecea;color:#8c1d18}
 .envmeta{font-size:11.5px;color:#9aa1ac;margin:8px 0 4px;line-height:1.5}
+.envcrit{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px;color:#4a4f57;
+         border:1px solid #e8eaee;border-radius:9px;padding:8px 11px;margin-bottom:10px;background:#fcfcfd}
+.envcrit b{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;font-weight:600}
+.envcrit input{width:52px;padding:3px 5px;border:1px solid #d5d5d5;border-radius:5px;font:inherit;
+               font-size:12.5px;text-align:right;background:#fff}
 /* Карточка — грид-элемент колонки результатов, а грид-элементы по умолчанию не
    ужимаются уже своего содержимого (min-width:auto). Без этой строки
    прокручиваемая линейка ниже растягивала не себя, а всю колонку, и на телефоне
@@ -212,7 +255,26 @@ window.goatcounter.path = function(){
 </aside>
 <main class="results">
 
-<div class="card"><h3>Вид сбоку</h3>
+<div class="cardsbar noprint" id="cardsbar">
+  <button id="cardsedit" type="button">Настроить порядок</button>
+  <button id="cardsreset" type="button" hidden>Вернуть исходный</button>
+</div>
+
+<div class="card" id="envcard">
+  <h3>Что эта рама позволяет</h3>
+  <!-- Критерии живут в статической разметке, а не внутри #env: тот пересобирается
+       на каждый рендер, и поле теряло бы фокус на первом же введённом символе.
+       Обработчик делегирован на document по той же причине. -->
+  <div class="envcrit noprint" id="envcrit">
+    <b>Критерии посадки:</b>
+    <span>рука <input type="number" step="1" data-g="crit" data-k="armTarget"> %</span>
+    <span>залом до <input type="number" step="1" data-g="crit" data-k="wristMax"> °</span>
+    <span>наклон корпуса <input type="number" step="1" data-g="crit" data-k="torsoLo">–<input type="number" step="1" data-g="crit" data-k="torsoHi"> °</span>
+  </div>
+  <div id="env"></div>
+</div>
+
+<div class="card" id="sidecard"><h3>Вид сбоку</h3>
   <div class="standctl noprint">
     <div class="srow">
       <span class="slbl">Наклон корпуса <span class="tval" id="v_torso"></span></span>
@@ -244,14 +306,9 @@ window.goatcounter.path = function(){
   </div>
 </div>
 
-<div class="card"><h3>Сводка — то, на что смотришь чаще всего</h3>
+<div class="card" id="sumcard"><h3>Сводка — то, на что смотришь чаще всего</h3>
   <div id="summary"></div>
   <div class="hint" style="margin-top:10px">Все эти числа есть и в полной таблице внизу — здесь они собраны наверх и сгруппированы по смыслу.</div>
-</div>
-
-<div class="card" id="envcard">
-  <h3>Что эта рама позволяет</h3>
-  <div id="env"></div>
 </div>
 
 <div class="card noprint" id="photocard">
@@ -270,9 +327,9 @@ window.goatcounter.path = function(){
   <div id="phout"></div>
 </div>
 
-<div class="card"><h3>Вид сверху — ширина руля против плеч</h3><div id="top"></div></div>
+<div class="card" id="topcard"><h3>Вид сверху — ширина руля против плеч</h3><div id="top"></div></div>
 
-<div class="card"><h3>Стойка на педалях — атакующая</h3>
+<div class="card" id="standcard"><h3>Стойка на педалях — атакующая</h3>
   <div class="standctl noprint">
     <div class="srow">
       <span class="slbl">Колено (среднее) <span class="tval" id="st_knee_v"></span><em class="stauto" id="st_knee_a">авто</em></span>
@@ -305,7 +362,7 @@ window.goatcounter.path = function(){
   <div id="standtable" style="margin-top:12px"></div>
 </div>
 
-<div class="card">
+<div class="card" id="tablecard"><h3>Полная таблица и предупреждения</h3>
   <div id="table"></div>
   <div id="warns"></div>
   <div class="hint" id="note"></div>
@@ -372,6 +429,12 @@ const state={
          sitHeight:null, trunkLen:null, femurLen:null, tibiaLen:null, upperArm:null, foreArm:null,
          footLen:null, heelToMet:null, sitBoneW:null, weight:null, shExt:null,
          spineFlex:null, lumbarPivot:null, palmDiag:null },
+  /* Критерии — отдельная группа, а не часть fit, и это принципиально. В fit
+     лежит ПОЗА: наклон корпуса, углы стойки, положение таза — то, что крутят,
+     разглядывая посадку. В crit лежат ТРЕБОВАНИЯ к посадке, из которых поза
+     выводится. Карточка вердикта считается только от рамы, тела, железа и этих
+     требований — ни один позный слайдер на неё больше не влияет. */
+  crit:{ armTarget:92, wristMax:12, torsoLo:35, torsoHi:72 },
   fit:{ crank:170, qFactor:172, torso:58, kneeTarget:145, postOffset:0, railPos:0, radMult:4.47, pedalUp:null, pedalBack:null, pedalShare:20,
         kneeStand:null, elbowStand:null, handShareStand:10, bikePitch:0, hipBackStand:null, elbowFlare:30 }
 };
@@ -977,29 +1040,82 @@ function cfgToCk(c){
   return {spacers:c.sp, stemLen:c.st.len, stemAngle:c.st.ang, stemFlip:0,
           barRise:c.bar.rise, backsweep:c.bar.bs, upsweep:CK_CATALOG.us, barRoll:0};
 }
+/* Подъём руля стоит в подписи рядом с загибом, хотя он у всего каталога один.
+   Без него рекомендация читалась бы как «любой руль с таким rise и загибом», а
+   она верна только для руля с подъёмом 5°: разница между 0° и 6° — 13 мм RAD,
+   больше допуска. Пока подъём в переборе константа, он обязан быть виден в
+   каждой строке, иначе умолчание молча уходит в совет. */
 function cfgLabel(c){
   return `вынос ${c.st.len} мм ${c.st.ang>0?'+':''}${c.st.ang}°, проставки ${c.sp} мм, `
-       + `руль rise ${c.bar.rise} мм, загиб ${c.bar.bs}°`;
+       + `руль rise ${c.bar.rise} мм, загиб ${c.bar.bs}°, подъём ${CK_CATALOG.us}°`;
 }
 
-/* Телесная проверка. Одного RAD мало: конфигурация может попасть в цель и в
-   сектор, но поставить руки в замок — прогон на реальной раме это показывает.
-   Считается только для финалистов, полным солвером, с восстановлением состояния. */
+/* Телесная проверка — с ИНВЕРСИЕЙ сидячего солвера.
+
+   Первая версия просто звала solveFit, и это была ошибка постановки. В сидячей
+   позе наклон корпуса — вход, а использование длины руки — выход; значит
+   карточка наследовала слайдер наклона, пересчитывалась от каждого его движения,
+   а строка «рука 95%» означала не свойство конфигурации, а «рука при твоём
+   текущем наклоне». Сама посадка при этом не показывалась вовсе — она была
+   входом и была одинаковой для всех конфигураций.
+
+   Здесь солвер развёрнут: задан КРИТЕРИЙ (рука на armTarget процентов), а
+   наклон корпуса — результат. Это ровно то, что спрашивают у карточки: не
+   «оцени мою позу», а «какая поза получится на этой раме с этим кокпитом».
+   Использование руки монотонно растёт с наклоном (на реальной связке 61% при
+   35° и 99% при 60°), поэтому дихотомия сходится надёжно.
+
+   Стойка считается на ФИКСИРОВАННЫХ критериях, а не на текущих слайдерах: иначе
+   карточка снова начала бы зависеть от позы. Колено 140°, локоть 130°, 10% веса
+   на руках, ровный байк — дефолты модели.
+
+   Наклон корпуса и RAAD — разные вещи, и путать их нельзя: RAAD свойство
+   велосипеда, наклон — свойство райдера на нём. На одном и том же целевом RAD
+   ±10 мм RAAD гуляет на 4–5°, а наклон корпуса сидя — на 7°. */
+const STAND_CRIT={kneeStand:140, elbowStand:130, handShareStand:10, bikePitch:0, hipBackStand:null};
+
 function cfgBody(ck){
-  const saveCk={...state.ck};
-  let M,ST;
+  const saveCk={...state.ck}, saveFit={...state.fit};
+  const c=state.crit;
+  let out;
   try{
     Object.assign(state.ck,ck);
-    M=solveFit(); ST=solveStand(M);
-  } finally { Object.assign(state.ck,saveCk); }
-  const flags=[];
-  let level='ok';
+    Object.assign(state.fit,STAND_CRIT);
+    const armAt=t=>{ state.fit.torso=t; return solveFit(); };
+    const lo0=20, hi0=88;
+    const aLo=armAt(lo0).armUse, aHi=armAt(hi0).armUse;
+    let lo=lo0, hi=hi0, reach=null;
+    /* Критерий может быть недостижим с двух сторон, и это разные диагнозы.
+       Рука не доходит до цели даже в самой вертикальной посадке — кокпит
+       короток, локти согнуты всегда. Рука уже за целью в самой распластанной —
+       кокпит длинен настолько, что не помогает даже лечь. */
+    if(aHi<c.armTarget) reach='short';
+    else if(aLo>c.armTarget) reach='long';
+    else for(let i=0;i<18;i++){ const m=(lo+hi)/2; (armAt(m).armUse<c.armTarget)?lo=m:hi=m; }
+    const torso=reach ? (reach==='short'?hi0:lo0) : (lo+hi)/2;
+    const M=armAt(torso), ST=solveStand(M);
+    out={torso, armUse:M.armUse, wristDev:M.wristDev, hPct:M.load?M.load.hPct:null,
+         torsoStand:ST.torso, reach};
+  } finally { Object.assign(state.ck,saveCk); Object.assign(state.fit,saveFit); }
+
+  const flags=[]; let level='ok';
   const bad=t=>{flags.push(t);level='bad';}, warn=t=>{flags.push(t);if(level!=='bad')level='warn';};
-  if(M.armUse>96) bad('руки почти в замок'); else if(M.armUse>92) warn('рука работает на пределе');
-  if(Math.abs(M.wristDev)>12) bad('залом запястья'); else if(Math.abs(M.wristDev)>6) warn('запястье подвыкручено');
-  if(M.load){ if(M.load.hPct>28) bad('много веса на ладонях'); else if(M.load.hPct<4) warn('руль почти не нагружен'); }
-  return {armUse:M.armUse, wristDev:M.wristDev, hPct:M.load?M.load.hPct:null,
-          torsoStand:ST.torso, flags, level};
+  if(out.reach==='short') bad('рука не выпрямляется до цели ни в какой посадке');
+  if(out.reach==='long')  bad('слишком далеко даже в самой распластанной посадке');
+  const wm=Math.max(c.wristMax,1);
+  /* Жёлтая граница залома — половина заданного предела, а не отдельное число:
+     так в таблице зоны и стоят (6 и 12), и одна ручка тянет обе. */
+  if(Math.abs(out.wristDev)>wm) bad('залом запястья');
+  else if(Math.abs(out.wristDev)>wm/2) warn('запястье подвыкручено');
+  if(out.hPct!=null){ if(out.hPct>28) bad('много веса на ладонях'); else if(out.hPct<4) warn('руль почти не нагружен'); }
+  /* Наклон корпуса модель не судит — гибкости она не знает. Пометка мягкая и
+     только за границами, которые в справке названы описательно: 40–45 XC,
+     50–60 трейл, 65+ комфорт. */
+  if(!out.reach){
+    if(out.torso<c.torsoLo) warn('посадка распластаннее гоночной');
+    else if(out.torso>c.torsoHi) warn('посадка почти вертикальная');
+  }
+  return {...out, flags, level};
 }
 
 /* Отбор представителей сектора. Сортировка не по одной близости к цели: три
@@ -1044,8 +1160,21 @@ const cfgDist=(cur,c)=>{
 /* Главная функция. sag по умолчанию 0: опубликованные ориентиры RAAD сняты со
    СТОЯЩЕГО велосипеда, а просадка вилки уводит угол почти на полтора градуса —
    на секторах шириной 2–3° это меняет вердикт. RAD от sag не зависит вовсе. */
+/* Ключ пересчёта. Конверт зависит от рамы, колеса, тела, железа кокпита и
+   критериев — и ни от чего больше. Позные слайдеры (наклон корпуса, углы стойки,
+   вынос таза, наклон байка) в ключ не входят намеренно: раньше карточка
+   пересчитывалась от каждого их движения, хотя ответ на вопрос «подходит ли
+   рама» от позы зависеть не может. */
+const ENV_POSE_KEYS=['torso','kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand'];
+let ENV_MEMO={key:null,val:null};
+function envKey(o){
+  const fit=Object.fromEntries(Object.entries(state.fit).filter(([k])=>!ENV_POSE_KEYS.includes(k)));
+  return JSON.stringify([o.sag,o.tol,o.picks,state.wheelR,state.bike,state.ck,state.body,fit,state.crit]);
+}
 function cockpitEnvelope(opt){
   const o=Object.assign({sag:0,tol:10,picks:3},opt||{});
+  const key=envKey(o);
+  if(ENV_MEMO.key===key) return ENV_MEMO.val;
   /* Просадка задаётся через состояние, а не аргументом solveFrame: при явном
      аргументе обёртка намеренно обнуляет pitchSag (он нужен отрисовке стойки,
      которая крутит раму сама). Руль тогда не клюёт вместе с рамой, и RAD
@@ -1055,6 +1184,7 @@ function cockpitEnvelope(opt){
   state.bike.sag=o.sag;
   let out;
   try{ out=envelopeAt(o); } finally { state.bike.sag=saveSag; }
+  ENV_MEMO={key,val:out};
   return out;
 }
 /* Перебор каталога на готовой раме. Отдельной функцией, потому что им
@@ -1119,7 +1249,11 @@ function envelopeAt(o){
              return {...c, label:cfgLabel(c),
                      move:{stemLen:c.st.len-base.stemLen, stemAngle:c.st.ang-effAng,
                            spacers:c.sp-base.spacers, barRise:c.bar.rise-base.barRise,
-                           backsweep:c.bar.bs-base.backsweep, barRoll:-base.barRoll}}; })()
+                           backsweep:c.bar.bs-base.backsweep,
+                           /* Подъём попадает в список, только если твой руль
+                              отличается от каталожного: тогда это не «подвинь»,
+                              а «нужен другой руль», и молчать об этом нельзя. */
+                           upsweep:CK_CATALOG.us-base.upsweep, barRoll:-base.barRoll}}; })()
     : null;
   /* Сколько RAD съедает собственный доворот руля: то же железо в нейтрали минус
      то же железо как оно выставлено. Без этой строки конверт (нейтраль) и метка
@@ -1745,10 +1879,15 @@ function buildEnvelope(M){
     ? ` При твоём рабочем sag ${n0(state.bike.sag)} % те же углы читаются на ${Math.abs(M.raad-E.current.raad).toFixed(1)}° меньше — конверт считается на стоящем велосипеде, как и опубликованные ориентиры.`
     : '';
   h+=`<div class="envmeta">Перебрано ${E.envelope.n} комбинаций каталога: вынос 35–60 мм, проставки 0–40 мм, `
-   + `руль rise 0–38 мм с загибом 8–16°. Ширина руля, отступ хвата и чашка рулевой — твои, руль в нейтрали. `
+   + `руль rise 0–38 мм с загибом 8–16° и <b>подъёмом ${E.catalog.us}°</b> у всех. `
+   + `Ширина руля, отступ хвата и чашка рулевой — твои, руль в нейтрали. `
    + `Достижимый RAD ${n0(E.envelope.radMin)}–${n0(E.envelope.radMax)} мм при целевых ${n0(E.target)}.${sagNote}</div>`;
 
   h+=envRuler(E);
+  h+=`<div class="envmeta" style="margin-top:0">Наклон корпуса у каждой конфигурации — не настройка, а <b>результат</b>: `
+   + `это поза, в которой рука выходит на заданные ${n0(state.crit.armTarget)} % длины. `
+   + `RAAD — свойство велосипеда, наклон корпуса — свойство райдера на нём, и совпадать они не обязаны. `
+   + `Стойка считается на дефолтных критериях (колено 140°, локоть 130°), поэтому позные слайдеры на карточку не влияют.</div>`;
   h+='<div class="envmeta" style="margin-top:0">Залиты сектора, в которые попадание есть. '
    + 'Тёмная полоса внутри сектора — опубликованный ориентир Маккормака, остальная ширина сектора — '
    + 'наша интерполяция между его тремя точками.</div>';
@@ -1762,8 +1901,9 @@ function buildEnvelope(M){
       h+='<ul class="envcfg">';
       for(const p of s.picks){
         h+=`<li class="lvl-${p.body.level}"><div class="cl">${esc(p.label)}</div>`
-         + `<div class="cn">RAD ${n0(p.rad)} · RAAD ${p.raad.toFixed(1)}° · рука ${n0(p.body.armUse)} % · `
-         + `залом ${sg(p.body.wristDev)}° · корпус стоя ${n0(p.body.torsoStand)}°</div>`
+         + `<div class="cn">RAD ${n0(p.rad)} · RAAD ${p.raad.toFixed(1)}° · <b>посадка сидя ${n0(p.body.torso)}°</b> · `
+         + `стоя ${n0(p.body.torsoStand)}° · залом ${sg(p.body.wristDev)}°`
+         + (p.body.hPct!=null?` · ладони ${n0(p.body.hPct)} %`:'')+'</div>'
          + (p.body.flags.length?`<div class="cf">${esc(p.body.flags.join(', '))}</div>`:'')
          + '</li>';
       }
@@ -1839,7 +1979,9 @@ function envCurrent(E,M){
   let h='<div class="envcur"><div class="t">Твой кокпит на этой раме</div>';
   h+=`<p>RAD <b>${n0(C.rad)} мм</b> (${sg(C.radDelta)} от целевых ${n0(E.target)}), `
    + `RAAD <b>${C.raad.toFixed(1)}°</b> — ${esc(C.sectorName.toLowerCase())} посадка. `
-   + `Рука ${n0(C.body.armUse)} %, залом ${sg(C.body.wristDev)}°, корпус стоя ${n0(C.body.torsoStand)}°.`
+   + `Чтобы держать руку на ${n0(state.crit.armTarget)} %, сидеть придётся под <b>${n0(C.body.torso)}°</b> `
+   + `(стоя ${n0(C.body.torsoStand)}°), залом ${sg(C.body.wristDev)}°`
+   + (C.body.hPct!=null?`, на ладонях ${n0(C.body.hPct)} %`:'')+'.'
    + (C.body.flags.length?` <span class="flag">${esc(C.body.flags.join(', '))}.</span>`:'')
    + '</p>';
   if(C.rollEffect)
@@ -1853,7 +1995,8 @@ function envCurrent(E,M){
     h+='<p>По RAD ты уже в цели — дальше вопрос только в угле и в том, что говорит тело.</p>';
   else if(C.nearest){
     const nm={stemLen:'вынос, мм',stemAngle:'подъём выноса, °',spacers:'проставки, мм',
-              barRise:'rise руля, мм',backsweep:'загиб руля, °',barRoll:'ролл руля, °'};
+              barRise:'rise руля, мм',backsweep:'загиб руля, °',upsweep:'подъём руля, °',
+              barRoll:'ролл руля, °'};
     const mv=Object.entries(C.nearest.move).filter(([,v])=>v)
       .map(([k,v])=>`${nm[k]} ${sg(v)}`).join(', ');
     h+=`<p>Ближайшее попадание в цель по количеству деталей: <b>${esc(C.nearest.label)}</b> `
@@ -1997,7 +2140,7 @@ function render(){
   try{ sdSync(M); }catch(e){}
   document.getElementById('top').innerHTML=drawTop(M);
   buildSummary(M,ST); buildStandTable(M,ST); buildTable(M,ST); buildWarns(M,ST);
-  try{ buildEnvelope(M); }catch(e){}
+  try{ critSync(); buildEnvelope(M); }catch(e){}
   try{ buildSetup(M); }catch(e){}
   const bc=document.getElementById('bodychk');
   if(bc){ const {out,line}=bodyChecks(M.S);
@@ -2184,6 +2327,24 @@ function buildInputs(){
 }
 function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; render(); }
 
+/* Критерии карточки. Делегированный обработчик, потому что блок стоит в карточке
+   результатов; критерии нарочно не попадают в пресеты рамы, кокпита и райдера —
+   это не замер и не железо, а требования, с которыми сверяют. В ссылку они
+   входят, иначе присланный расчёт читался бы с чужими порогами. */
+document.addEventListener('input',e=>{
+  const el=e.target.closest&&e.target.closest('#envcrit input[data-k]'); if(!el) return;
+  const k=el.dataset.k;
+  state.crit[k]=el.value===''?REQ.crit[k]:parseFloat(el.value);
+  if(!isFinite(state.crit[k])) state.crit[k]=REQ.crit[k];
+  render();
+});
+function critSync(){
+  document.querySelectorAll('#envcrit input[data-k]').forEach(el=>{
+    if(el===document.activeElement) return;      // не перебивать то, что печатают
+    el.value=state.crit[el.dataset.k];
+  });
+}
+
 /* ==================== пресеты ====================
    Тот же формат и тот же ключ, что на странице сравнения: пресеты рам,
    сохранённые там, видны здесь и наоборот. Имя пресета — ключ в объекте,
@@ -2338,7 +2499,8 @@ const REQ={
       barRise:25,barWidth:760,backsweep:8,upsweep:5,barRoll:0,gripInset:70,riserBendHalf:100,pedalStack:8},
   body:{height:1800,inseam:840,shoulderW:420,armLen:598,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,femurPct:50},
   fit:{crank:170,qFactor:172,torso:58,kneeTarget:145,postOffset:0,railPos:0,radMult:4.47,
-       pedalShare:20,handShareStand:10,bikePitch:0,elbowFlare:30}
+       pedalShare:20,handShareStand:10,bikePitch:0,elbowFlare:30},
+  crit:{armTarget:92,wristMax:12,torsoLo:35,torsoHi:72}
 };
 function fixReq(){
   Object.entries(REQ).forEach(([g,def])=>Object.entries(def).forEach(([k,v])=>{
@@ -2425,10 +2587,11 @@ const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travel
         'sitHeight','trunkLen','femurLen','tibiaLen','upperArm','foreArm','footLen','heelToMet','sitBoneW','weight','shExt',
         'spineFlex','lumbarPivot','palmDiag','pedalPos','soleTilt'],
   fit:['crank','qFactor','torso','kneeTarget','postOffset','railPos','radMult','pedalUp','pedalBack','pedalShare',
-       'kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand','elbowFlare']};
+       'kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand','elbowFlare'],
+  crit:['armTarget','wristMax','torsoLo','torsoHi']};
 function stateToHash(){
   const enc=g=>HK[g].map(k=>state[g][k]==null?'':state[g][k]).join('~');
-  return `#w=${state.wheelR}&n=${encodeURIComponent(state.bike.name||'')}&f=${enc('bike')}&c=${enc('ck')}&b=${enc('body')}&t=${enc('fit')}`;
+  return `#w=${state.wheelR}&n=${encodeURIComponent(state.bike.name||'')}&f=${enc('bike')}&c=${enc('ck')}&b=${enc('body')}&t=${enc('fit')}&r=${enc('crit')}`;
 }
 function hashToState(hs){
   const h=(hs!=null?hs:location.hash).replace(/^#/,''); if(!h) return false;
@@ -2436,7 +2599,10 @@ function hashToState(hs){
     const q={}; h.split('&').forEach(p=>{const i=p.indexOf('='); q[p.slice(0,i)]=p.slice(i+1);});
     if(q.w) state.wheelR=parseFloat(q.w)||368;
     if(q.n) state.bike.name=decodeURIComponent(q.n);
-    [['f','bike'],['c','ck'],['b','body'],['t','fit']].forEach(([key,g])=>{
+    /* Ключа r в старых ссылках нет. Критерии тогда не обнуляются, а остаются
+       теми, что стоят в состоянии, — в свежей вкладке это дефолты из REQ.
+       Ссылки, разосланные до появления блока критериев, открываются как прежде. */
+    [['f','bike'],['c','ck'],['b','body'],['t','fit'],['r','crit']].forEach(([key,g])=>{
       if(!q[key]) return;
       const parts=q[key].split('~');
       /* Ключи, которых в старой ссылке не было, обнуляем: иначе переход по ссылке
@@ -2468,7 +2634,7 @@ function doPrint(){
     `<div style="font-size:11px;margin:0 0 8px"><b>${esc(state.bike.name)}</b> — ход ${state.bike.travel} мм, sag ${state.bike.sag}% · `
     +`райдер ${state.body.height} мм, inseam ${state.body.inseam} · шатун ${state.fit.crank} · `
     +`вынос ${state.ck.stemLen}/${state.ck.stemFlip?'−':'+'}${Math.abs(state.ck.stemAngle)}° + ${state.ck.spacers} мм проставок · `
-    +`руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°</div>`
+    +`руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°/${state.ck.upsweep}°</div>`
     +`<div style="font-size:8px;color:#999;word-break:break-all">${esc(currentLink())}</div>`;
   window.print();
 }
@@ -2652,7 +2818,7 @@ function jrAdd(){
   if(!PS.ok){ jrToast('хранилище недоступно в этом браузере',true); return; }
   const M=solveFit();
   const e={t:Date.now(), name:state.bike.name||'', note:document.getElementById('jrnote').value.trim(), h:stateToHash(),
-    sum:`седло→ручка ${M.s2gX.toFixed(0)} · перепад ${M.s2gZ>0?'+':''}${M.s2gZ.toFixed(0)} · RAD ${M.rad.toFixed(0)} · седло ${M.satH.toFixed(0)} · вынос ${state.ck.stemLen}+${state.ck.spacers}пр · руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°${M.load?' · ладони '+M.load.hPct.toFixed(0)+'%':''}`};
+    sum:`седло→ручка ${M.s2gX.toFixed(0)} · перепад ${M.s2gZ>0?'+':''}${M.s2gZ.toFixed(0)} · RAD ${M.rad.toFixed(0)} · седло ${M.satH.toFixed(0)} · вынос ${state.ck.stemLen}+${state.ck.spacers}пр · руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°/${state.ck.upsweep}°${M.load?' · ладони '+M.load.hPct.toFixed(0)+'%':''}`};
   const a=JR.read(); a.unshift(e);
   if(!JR.write(a)){ jrToast('не удалось сохранить',true); return; }
   document.getElementById('jrnote').value='';
@@ -2851,9 +3017,157 @@ function stSync(ST){
   set('st_pitch',ST.pitch, (ST.pitch>0?'+':'')+ST.pitch+'°', false);
 }
 
+/* ===================== 14. сворачивание карточек результатов =====================
+   Правая колонка выросла до девяти карточек, и первое, что видит пришедший, —
+   схема вида сбоку, хотя вопрос у него обычно один: подходит ли рама. Поэтому
+   карточка вердикта стоит первой и раскрыта, остальные свёрнуты: сначала ответ,
+   потом подробности по требованию.
+
+   Обёртка строится здесь, а не в разметке, по двум причинам. Во-первых, карточек
+   девять, и девять пар ручной разметки разъедутся при первой же правке. Во-вторых,
+   новая карточка получает сворачивание автоматически — забыть его нельзя.
+
+   Содержимое свёрнутых карточек остаётся в DOM и продолжает считаться: render()
+   пишет в узлы по id, и если бы их не было, пришлось бы разбираться, что и когда
+   пересчитывать. Расчёт всей страницы стоит единицы миллисекунд — не та цена,
+   ради которой стоит усложнять поток данных. */
+/* Что раскрыто — запоминается между заходами. Ключом служит id карточки, а не
+   заголовок: заголовки правятся, и слаг от текста молча терял бы состояние при
+   каждой такой правке. Поэтому у всех карточек результатов id обязателен.
+   Карточки, которой в сохранённом объекте нет (новая или переименованная),
+   достаётся значение по умолчанию — это же и путь для первого захода. */
+const COLL_KEY='bikelab.cards.v1';
+const COLL={
+  /* Хранится и раскрытие, и порядок: {open:{id:bool}, order:[id]}. Первая версия
+     держала под этим ключом плоскую карту раскрытия, поэтому старая форма
+     распознаётся и переносится на месте — терять уже сохранённое ради смены
+     формы незачем, а второй ключ развёл бы две половины одного состояния. */
+  read(){
+    if(!PS.ok) return {open:{},order:[]};
+    let o; try{ o=JSON.parse(localStorage.getItem(COLL_KEY)); }catch(e){}
+    if(!o||typeof o!=='object') return {open:{},order:[]};
+    if(!o.open && !o.order) return {open:o, order:[]};      // старая плоская форма
+    return {open:o.open&&typeof o.open==='object'?o.open:{},
+            order:Array.isArray(o.order)?o.order:[]};
+  },
+  write(o){ if(!PS.ok) return false; try{ localStorage.setItem(COLL_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } },
+  patch(fn){ const o=COLL.read(); fn(o); COLL.write(o); }
+};
+
+/* Порядок карточек. Исходный снимается из разметки до применения сохранённого:
+   он же и есть «вернуть как было». Карточка, которой в сохранённом порядке нет
+   (появилась новой), встаёт в конец — молча пропасть она не может, а угадывать
+   ей место среди переставленных пользователем незачем. */
+let CARDS_DEFAULT=[];
+const cardsBox=()=>document.querySelector('main.results');
+const cardsAll=()=>[...document.querySelectorAll('main.results > .card')];
+
+function applyOrder(order){
+  const box=cardsBox(); if(!box||!order.length) return;
+  const byId=new Map(cardsAll().map(c=>[c.id,c]));
+  order.forEach(id=>{ const c=byId.get(id); if(c) box.appendChild(c); byId.delete(id); });
+  byId.forEach(c=>box.appendChild(c));         // не упомянутые — в конец
+}
+function saveOrder(){ COLL.patch(o=>{ o.order=cardsAll().map(c=>c.id); }); }
+function moveCard(card,how){
+  const box=cardsBox();
+  if(how==='top') box.insertBefore(card, cardsAll()[0]);
+  else if(how<0){ const prev=card.previousElementSibling;
+                  if(prev&&prev.classList.contains('card')) box.insertBefore(card,prev); }
+  else { const next=card.nextElementSibling;
+         if(next&&next.classList.contains('card')) box.insertBefore(next,card); }
+  saveOrder(); syncMoveBtns();
+  card.querySelector(':scope > h3 .cardmove button')?.focus();
+  card.scrollIntoView({block:'nearest'});
+}
+function syncMoveBtns(){
+  const all=cardsAll();
+  all.forEach((c,i)=>{
+    const b=c.querySelectorAll(':scope > h3 .cardmove button');
+    if(b.length<3) return;
+    b[0].disabled = i===0;                     // наверх
+    b[1].disabled = i===0;                     // выше
+    b[2].disabled = i===all.length-1;          // ниже
+  });
+}
+function cardsEdit(on){
+  cardsBox().classList.toggle('editing',on);
+  document.getElementById('cardsedit').textContent = on?'Готово':'Настроить порядок';
+  document.getElementById('cardsreset').hidden = !on;
+  if(on) syncMoveBtns();
+}
+
+function collapseInit(){
+  const OPEN='envcard';                       // единственная раскрытая по умолчанию
+  const saved=COLL.read();
+  CARDS_DEFAULT=cardsAll().map(c=>c.id);
+  applyOrder(saved.order);
+  cardsAll().forEach(card=>{
+    const h=card.querySelector(':scope > h3');
+    if(!h){ console.warn('карточка без заголовка — сворачивать нечем', card); return; }
+    const body=document.createElement('div');
+    body.className='cardbody';
+    while(h.nextSibling) body.appendChild(h.nextSibling);
+    card.appendChild(body);
+    h.classList.add('cardtog');
+    h.setAttribute('role','button');
+    h.setAttribute('tabindex','0');
+    const id=card.id;
+    const open = (id && typeof saved.open[id]==='boolean') ? saved.open[id] : (id===OPEN);
+    card.classList.toggle('closed',!open);
+    h.setAttribute('aria-expanded',open?'true':'false');
+    const toggle=()=>{
+      if(cardsBox().classList.contains('editing')) return;   // в режиме заголовок не сворачивает
+      const now=!card.classList.toggle('closed');
+      h.setAttribute('aria-expanded',now?'true':'false');
+      if(id) COLL.patch(o=>{ o.open[id]=now; });
+      if(now) track('fit-open-'+(id||h.textContent.trim().slice(0,20)));
+    };
+    h.addEventListener('click',toggle);
+    h.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+
+    const mv=document.createElement('span');
+    mv.className='cardmove noprint';
+    mv.innerHTML='<button type="button" title="в начало" aria-label="Переместить в начало">наверх</button>'
+               + '<button type="button" title="выше" aria-label="Переместить выше">↑</button>'
+               + '<button type="button" title="ниже" aria-label="Переместить ниже">↓</button>';
+    // клик по кнопке не должен доходить до заголовка и сворачивать карточку
+    mv.addEventListener('click',e=>{
+      const b=e.target.closest('button'); if(!b) return;
+      e.stopPropagation();
+      moveCard(card, b===mv.children[0]?'top':(b===mv.children[1]?-1:1));
+    });
+    h.appendChild(mv);
+  });
+
+  const ed=document.getElementById('cardsedit'), rs=document.getElementById('cardsreset');
+  if(ed) ed.addEventListener('click',()=>{
+    const on=!cardsBox().classList.contains('editing');
+    cardsEdit(on); if(on) track('fit-cards-edit');
+  });
+  if(rs) rs.addEventListener('click',()=>{
+    applyOrder(CARDS_DEFAULT); saveOrder(); syncMoveBtns(); track('fit-cards-reset');
+  });
+}
+/* Открытая в соседней вкладке страница — то же рабочее место. Пресеты уже
+   синхронизируются так же (см. обработчик ниже по PS_KEY). */
+window.addEventListener('storage',e=>{
+  if(e.key!==COLL_KEY) return;
+  const saved=COLL.read();
+  applyOrder(saved.order);
+  cardsAll().forEach(card=>{
+    const h=card.querySelector(':scope > h3.cardtog');
+    if(!h||!card.id||typeof saved.open[card.id]!=='boolean') return;
+    card.classList.toggle('closed',!saved.open[card.id]);
+    h.setAttribute('aria-expanded',saved.open[card.id]?'true':'false');
+  });
+  syncMoveBtns();
+});
+
 hashToState();
 buildInputs();
 stCtlInit(); sdCtlInit();
+collapseInit();
 render();
 jrRender();
 window.addEventListener('hashchange',()=>{ if(location.hash!==stateToHash()&&hashToState()){ buildInputs(); render(); }});

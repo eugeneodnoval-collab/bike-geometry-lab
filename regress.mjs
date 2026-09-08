@@ -214,13 +214,18 @@ function runEnv() {
       o[`s.${s.key}.n`] = s.n;
       const p = s.picks[0];
       if (!p) continue;
-      o[`s.${s.key}.cfg`]   = p.label;
-      o[`s.${s.key}.rad`]   = r4(p.rad);
-      o[`s.${s.key}.raad`]  = r4(p.raad);
-      o[`s.${s.key}.lvl`]   = p.body.level;
-      o[`s.${s.key}.arm`]   = r4(p.body.armUse);
-      o[`s.${s.key}.wrist`] = r4(p.body.wristDev);
-      o[`s.${s.key}.torso`] = r4(p.body.torsoStand);
+      o[`s.${s.key}.cfg`]    = p.label;
+      o[`s.${s.key}.rad`]    = r4(p.rad);
+      o[`s.${s.key}.raad`]   = r4(p.raad);
+      o[`s.${s.key}.lvl`]    = p.body.level;
+      /* Наклон корпуса сидя — теперь ВЫХОД инверсии, и это главное число блока:
+         оно и сторожит, что критерий решается, а не наследуется от слайдера. */
+      o[`s.${s.key}.torsoSit`]   = r4(p.body.torso);
+      o[`s.${s.key}.arm`]    = r4(p.body.armUse);
+      o[`s.${s.key}.wrist`]  = r4(p.body.wristDev);
+      o[`s.${s.key}.hands`]  = p.body.hPct==null ? '—' : r4(p.body.hPct);
+      o[`s.${s.key}.torsoStand`] = r4(p.body.torsoStand);
+      o[`s.${s.key}.reach`]  = p.body.reach || '—';
     }
     const C = E.current;
     o['cur.rad']      = r4(C.rad);
@@ -230,12 +235,32 @@ function runEnv() {
     o['cur.inTarget'] = C.inTarget;
     o['cur.rollEff']  = r4(C.rollEffect);
     o['cur.lvl']      = C.body.level;
+    o['cur.torsoSit']   = r4(C.body.torso);
+    o['cur.arm']      = r4(C.body.armUse);
+    o['cur.wrist']    = r4(C.body.wristDev);
+    o['cur.torsoStand'] = r4(C.body.torsoStand);
     o['cur.off']      = C.offCatalog.join(' | ') || '—';
     o['cur.near']     = C.nearest ? C.nearest.label : '—';
     for (const [k, v] of Object.entries(o))
       if (typeof v === 'number' && !isFinite(v)) o[k] = 'НЕ ЧИСЛО';
     rows[`env|${geo}|${ck}|sag${sag}${height ? '|рост' + height : ''}`] = o;
   }
+  /* Сторож главного свойства: конверт не должен зависеть от позы. Гоняем один
+     кейс на трёх разных наклонах корпуса и углах стойки и требуем совпадения
+     байт в байт. Именно это свойство было сломано в первой версии карточки. */
+  applyPreset(X, P, 'Outleap Warhog L 2025 140', 'WARHOG', 'EVO');
+  X.state.bike.sag = 0;
+  const snap = [];
+  for (const [torso, knee, elbow] of [[45, 130, 120], [58, 140, 130], [70, 155, 150]]) {
+    X.state.fit.torso = torso; X.state.fit.kneeStand = knee; X.state.fit.elbowStand = elbow;
+    const E = X.cockpitEnvelope({ sag: 0 });
+    snap.push([r4(E.envelope.radMin), r4(E.verdict.raadMin), E.verdict.inTarget,
+               r4(E.current.body.torso), r4(E.current.body.wristDev), E.verdict.text.length].join('|'));
+  }
+  rows['env|поза не влияет на конверт'] = {
+    'поза45': snap[0], 'поза58': snap[1], 'поза70': snap[2],
+    'все три совпали': snap[0] === snap[1] && snap[1] === snap[2] ? 'да' : 'НЕТ',
+  };
   return rows;
 }
 
@@ -323,6 +348,21 @@ function checkPages() {
       bad.push(`${f}: блок проверки вилки собирается на месте, а должен звать BikeModel.forkReportHTML`);
     if (/BikeModel/.test(html) && !/<script src="model\.js"><\/script>/.test(html))
       bad.push(`${f}: зовёт BikeModel, но не подключает model.js`);
+    /* Заголовок карточки результатов — это ручка сворачивания. Карточка без него
+       не свернётся и молча останется всегда раскрытой; поймать это числами
+       нельзя, расчёт от заголовка не зависит. */
+    const main = /collapseInit\(\)/.test(html) && html.match(/<main class="results">([\s\S]*?)<\/main>/);
+    if (main) {
+      /* Класс матчится по границе токена: рядом живёт .cardsbar, и шаблон
+         "card[^"]*" считал бы панель режима десятой карточкой. */
+      const cards = (main[1].match(/<div class="card[" ]/g) || []).length;
+      const heads = (main[1].match(/<h3[ >]/g) || []).length;
+      if (heads < cards) bad.push(`${f}: карточек результатов ${cards}, а заголовков ${heads} — карточка без заголовка не сворачивается`);
+      /* id карточки — ключ, под которым запоминается, раскрыта она или нет.
+         Без id состояние карточки молча не сохранится. */
+      const ided = (main[1].match(/<div class="card(?:"|[^"]*") id="/g) || []).length;
+      if (ided < cards) bad.push(`${f}: карточек результатов ${cards}, а с id ${ided} — состояние карточки без id не запоминается`);
+    }
   }
 
   // nav.js исполняется по-настоящему: для каждой страницы ровно одна ссылка
