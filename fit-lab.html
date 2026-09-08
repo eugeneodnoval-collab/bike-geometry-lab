@@ -9,6 +9,9 @@
 <style>
 
 .card h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:600}
+/* В режиме перестановки колонка ввода тоже схлопывается в список заголовков,
+   поэтому её карточкам нужен тот же нулевой отступ заголовка, что и справа. */
+.editing > .card > h3.cardtog{margin:0}
 .bikename{font-weight:650;font-size:15px;border:none;background:transparent;width:100%;padding:0 0 8px;
           color:var(--c1);font-family:inherit}
 
@@ -92,14 +95,12 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
    разом, без прокрутки. Это и есть причина, по которой перетаскивание не нужно:
    до любого места два-три нажатия, а стрелки одинаково работают мышью, пальцем
    и с клавиатуры, чего про drag&drop сказать нельзя. */
-.cardsbar{display:flex;justify-content:flex-end;gap:8px;align-items:center}
-.cardsbar button{font-size:12px;padding:4px 10px}
-.results.editing > .card{border-style:dashed;background:#fcfcfd}
-.results.editing > .card > .cardbody{display:none}
-.results.editing > .card > h3.cardtog{cursor:default}
-.results.editing > .card > h3.cardtog::before{opacity:.2}
+.editing > .card{border-style:dashed;background:#fcfcfd}
+.editing > .card > .cardbody{display:none}
+.editing > .card > h3.cardtog{cursor:default}
+.editing > .card > h3.cardtog::before{opacity:.2}
 .cardmove{display:none;margin-left:auto;gap:5px}
-.results.editing .cardmove{display:flex}
+.editing .cardmove{display:flex}
 .cardmove button{font-size:12px;line-height:1;padding:4px 8px;font-family:inherit}
 .cardmove button[disabled]{opacity:.35;cursor:default}
 
@@ -231,6 +232,8 @@ window.goatcounter.path = function(){
 <div class="toolbar">
   <button class="primary" onclick="doPrint()">Сохранить в PDF</button>
   <button onclick="copyLink()">Скопировать ссылку с параметрами</button>
+  <button id="cardsedit" type="button">Настроить порядок блоков</button>
+  <button id="cardsreset" type="button" hidden>Вернуть исходный</button>
   <span class="okmsg" id="copyok" style="visibility:hidden">ссылка скопирована</span>
 </div>
 
@@ -254,11 +257,6 @@ window.goatcounter.path = function(){
 
 </aside>
 <main class="results">
-
-<div class="cardsbar noprint" id="cardsbar">
-  <button id="cardsedit" type="button">Настроить порядок</button>
-  <button id="cardsreset" type="button" hidden>Вернуть исходный</button>
-</div>
 
 <div class="card" id="envcard">
   <h3>Что эта рама позволяет</h3>
@@ -2196,23 +2194,28 @@ const F_FORK=[['forkA2C','A2C штатной вилки',1],['forkA2Cnew','A2C �
 const F_FORKCHK=[['forkOffsetSpec','Офсет вилки по спеке',1],['forkMeasLen','Замер: низ чашки → ось',1]];
 const F_FRAME=[['reach','Reach',1],['stack','Stack',0.5],['hta','Угол рулевой',0.1],['sta','Угол подседельной',0.1],
   ['ht','Рулевой стакан',1],['st','Подседельная труба',1],['cs','Перья',1],['bbDrop','BB drop',0.5],['wb','Колёсная база',1],['travelRef','Ход по паспорту',5]];
-/* upsweep стоит в основном блоке, а не в тонкой геометрии: это обязательная
-   строка спеки любого руля, у разных моделей 0, 4, 5 или 6°, и разница между
-   0 и 6 стоит 13 мм RAD на руле 760 — больше допуска, с которым сравнивают
-   целевой RAD. Прятать такое в свёрнутый блок значит подсовывать пользователю
-   чужое значение по умолчанию. */
-const F_CK=[['stemLen','Длина выноса',5],['stemAngle','Угол выноса, °',1],['spacers','Проставки',5],
-  ['barWidth','Ширина руля',10],['barRise','Rise руля',5],['backsweep','Загиб назад, °',1],
-  ['upsweep','Подъём руля (upsweep), °',1]];
-const F_CK_ADV=[['headsetStack','Чашка рулевой над стаканом',1],['stemClampH','Высота обхвата выноса',1],
-  ['barRoll','Ролл руля, на стоящем байке, °',1],
-  ['gripInset','Отступ хвата от края',5],['riserBendHalf','Начало отгиба от центра',5],
-  ['pedalStack','Платформа педали над осью',1]];
-/* Контактные точки — железо, и в пресете они лежат в кокпите (PS_FITKEYS.ck).
-   Раньше поля стояли в карточке райдера: правка шатуна не попадала в пресет тела,
-   потому что сохранялась с кокпитом. Теперь карточка совпадает с пресетом. */
-const F_CK_HW=[['crank','Длина шатуна',5],['qFactor','Q-factor',2],
+/* Кокпит разложен на три карточки — руль, вынос с проставками, остальное железо —
+   ровно по границам трёх пресетов. Руль и вынос перебирают чаще всего и по
+   отдельности, поэтому они наверху и грузятся независимо.
+
+   upsweep стоит среди основных полей руля, а не в тонкой геометрии: это
+   обязательная строка спеки любого руля, у разных моделей 0, 4, 5 или 6°, и
+   разница между 0 и 6 стоит 13 мм RAD на руле 760 — больше допуска, с которым
+   сравнивают целевой RAD. Прятать такое значит подсовывать пользователю чужое
+   значение по умолчанию. */
+const F_BAR=[['barWidth','Ширина руля',10],['barRise','Rise руля',5],
+  ['backsweep','Загиб назад, °',1],['upsweep','Подъём руля (upsweep), °',1]];
+const F_BAR_ADV=[['barRoll','Ролл руля, на стоящем байке, °',1],
+  ['gripInset','Отступ хвата от края',5],['riserBendHalf','Начало отгиба от центра',5]];
+const F_STEM=[['stemLen','Длина выноса',5],['stemAngle','Угол выноса, °',1],['spacers','Проставки',5]];
+const F_STEM_ADV=[['stemClampH','Высота обхвата выноса',1]];
+/* Контактные точки — железо, и в пресете они лежат вместе с остальным железом
+   (PS_FITKEYS.hw). Раньше поля стояли в карточке райдера: правка шатуна не
+   попадала в пресет тела, потому что сохранялась с кокпитом. */
+const F_HW=[['crank','Длина шатуна',5],['qFactor','Q-factor',2],
   ['postOffset','Офсет подседельного штыря',5],['railPos','Седло на рельсах (− вперёд)',5]];
+const F_HW_CK=[['headsetStack','Чашка рулевой над стаканом',1],
+  ['pedalStack','Платформа педали над осью',1]];
 const F_BODY=[['height','Рост',10],['inseam','Inseam (шаговый, босиком)',5],['shoulderW','Ширина плеч',5],['armLen','Длина руки (плечо → запястье)',5],['weight','Вес, кг',1]];
 const F_BODY_MEAS=[['sitHeight','Рост сидя',5],['trunkLen','Торс: вертел → акромион',5],
   ['femurLen','Бедро: вертел → щель колена',5],['tibiaLen','Голень: щель колена → лодыжка',5],
@@ -2243,7 +2246,7 @@ function fields(list,grp){
 
 function buildInputs(){
   document.getElementById('inputs').innerHTML=`
-  <div class="card">
+  <div class="card" id="card-frame">
     <h3>Рама</h3>
     ${psRowHTML('geo',null,'Сохраняется под названием рамы. Список общий со страницей сравнения геометрий.',
                 {id:'bikename', ph:'название рамы', value:state.bike.name})}
@@ -2267,21 +2270,36 @@ function buildInputs(){
       <div class="hint">${WHEEL_HINT}</div></details>
   </div>
 
-  <div class="card">
-    <h3>Кокпит</h3>
-    ${psRowHTML('ck',null,'Руль, вынос, проставки и чашка — плюс шатун, Q-factor, офсет штыря и рельсы из блока ниже.',
-                {ph:'название кокпита'})}
-    <div class="grid">${fields(F_CK,'ck')}
+  <div class="card" id="card-bar">
+    <h3>Руль</h3>
+    ${psRowHTML('bar',null,'Ширина, rise, загиб и подъём — всё, что меняется вместе с рулём.',
+                {ph:'название руля'})}
+    <div class="grid">${fields(F_BAR,'ck')}</div>
+    <div class="hint">Подъём (upsweep) есть в спеке любого руля и бывает от 0 до 6°: разница между 0 и 6 — 13 мм RAD, больше допуска. На глаз его не взять.</div>
+    <details><summary>Тонкая геометрия руля</summary><div class="grid">${fields(F_BAR_ADV,'ck')}</div></details>
+  </div>
+
+  <div class="card" id="card-stem">
+    <h3>Вынос и проставки</h3>
+    ${psRowHTML('stem',null,'То, что перебирают чаще всего: длина, угол, переворот и высота проставок.',
+                {ph:'название выноса'})}
+    <div class="grid">${fields(F_STEM,'ck')}
       <label>Вынос перевёрнут</label><input class="chk" type="checkbox" data-g="ck" data-k="stemFlip" ${state.ck.stemFlip?'checked':''}>
     </div>
     <div class="hint">Угол выноса задан относительно перпендикуляра к штоку. Подъём от горизонта = (90 − угол рулевой) + угол выноса.</div>
-    <div class="subh">Контактные точки</div>
-    <div class="grid">${fields(F_CK_HW,'fit')}</div>
-    <details><summary>Тонкая геометрия руля и педалей</summary><div class="grid">${fields(F_CK_ADV,'ck')}</div>
-      <div class="hint">Платформа педали — от центра оси до поверхности под подошвой, 5–15 мм у топталок. Вместе с подошвой и голеностопом она поднимает седло 1:1.</div></details>
+    <details><summary>Тонкая геометрия выноса</summary><div class="grid">${fields(F_STEM_ADV,'ck')}</div></details>
   </div>
 
-  <div class="card">
+  <div class="card" id="card-hw">
+    <h3>Остальное железо</h3>
+    ${psRowHTML('hw',null,'Шатун, Q-factor, штырь, рельсы, чашка рулевой и педали — то, что на велосипеде стоит долго.',
+                {ph:'название комплектации'})}
+    <div class="grid">${fields(F_HW,'fit')}</div>
+    <div class="grid" style="margin-top:8px">${fields(F_HW_CK,'ck')}</div>
+    <div class="hint">Платформа педали — от центра оси до поверхности под подошвой, 5–15 мм у топталок. Вместе с подошвой и голеностопом она поднимает седло 1:1.</div>
+  </div>
+
+  <div class="card" id="card-body">
     <h3>Райдер</h3>
     ${psRowHTML('body',null,'Мерки тела и всё, что от него зависит. Железо — шатун, Q-factor, седло — живёт в пресете кокпита.',
                 {ph:'имя райдера'})}
@@ -2324,6 +2342,11 @@ function buildInputs(){
     });
   });
   psRefresh();
+  /* Колонка ввода пересобирается целиком при каждой загрузке пресета, поэтому
+     обёртки сворачивания и порядок карточек строятся заново здесь. Состояние не
+     теряется: оно лежит в localStorage, а не в DOM. */
+  collapseInit(COLS[0]);
+  syncMoveBtns();
 }
 function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; render(); }
 
@@ -2353,6 +2376,17 @@ function critSync(){
 const PS_KEY='bikelab.presets.v1';
 const PKEYS={
   geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'],
+  /* Кокпит разложен на три пресета по тому, как железо меняют в жизни: руль,
+     вынос с проставками и всё остальное. Перебирают обычно первые два, причём
+     по отдельности, а раньше они лежали в одном пресете и грузились только
+     вместе. Чашка рулевой — свойство рулевой, а не выноса, поэтому она в
+     «остальном»; высота обхвата — свойство конкретного выноса, поэтому с ним. */
+  bar :['barWidth','barRise','backsweep','upsweep','barRoll','gripInset','riserBendHalf'],
+  stem:['stemLen','stemAngle','stemFlip','spacers','stemClampH'],
+  hw  :['headsetStack','pedalStack','crank','qFactor','postOffset','railPos'],
+  /* Старый общий вид кокпита. В интерфейсе его больше нет, но он остаётся в
+     белых списках, чтобы импорт файла со старым пресетом не потерял его молча:
+     psSplitCk() разложит такой пресет на три сразу после загрузки. */
   ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
         'backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack','crank','qFactor','postOffset','railPos'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
@@ -2409,9 +2443,10 @@ const PS={
 
 const BUILTIN={
   geo: Object.fromEntries(Object.values(BIKES).map(b=>[b.name, psPick('geo',{...b,offset:null,wheelR:368})])),
-  ck : {'Базовый трейл': psPick('ck',{headsetStack:15,spacers:20,stemClampH:40,stemLen:50,stemAngle:6,stemFlip:0,
-        barRise:25,barWidth:760,backsweep:8,upsweep:5,barRoll:0,gripInset:70,riserBendHalf:100,
-        crank:170,qFactor:172,postOffset:0,railPos:0})},
+  bar : {'Базовый трейл': psPick('bar',{barRise:25,barWidth:760,backsweep:8,upsweep:5,
+        barRoll:0,gripInset:70,riserBendHalf:100})},
+  stem: {'Базовый трейл': psPick('stem',{spacers:20,stemLen:50,stemAngle:6,stemFlip:0,stemClampH:40})},
+  hw  : {'Базовый трейл': psPick('hw',{headsetStack:15,pedalStack:8,crank:170,qFactor:172,postOffset:0,railPos:0})},
   body: Object.fromEntries(Object.entries(RIDERS).map(([,r])=>['Райдер '+r.name,
         psPick('body',{...r,hipW:null,femurPct:50,ankleH:null,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,
         torso:58,kneeTarget:145,radMult:4.47,pedalUp:null,pedalBack:null})]))
@@ -2458,6 +2493,24 @@ function psToast(msg,bad){
   el.textContent=msg; el.style.color=bad?'#b3261e':'#0a7d33'; el.style.visibility='visible';
   clearTimeout(psToast._t); psToast._t=setTimeout(()=>el.style.visibility='hidden',2600);
 }
+/* Разложить старые пресеты кокпита на три. Запускается один раз при загрузке и
+   ещё раз после импорта файла: и в хранилище, и в присланном файле может лежать
+   пресет прежней формы, а терять его из-за смены раскладки незачем. Имя
+   сохраняется у всех трёх — пользователь узнает свой кокпит в каждом списке и
+   дальше может смешивать половинки от разных. */
+function psSplitCk(){
+  const o=PS.read(); if(!o.ck) return 0;
+  let n=0;
+  ['bar','stem','hw'].forEach(k=>o[k]=o[k]||{});
+  Object.entries(o.ck).forEach(([name,d])=>{
+    if(!d||typeof d!=='object'||!name.trim()) return;
+    ['bar','stem','hw'].forEach(k=>{ if(!o[k][name]) o[k][name]=psPick(k,d); });
+    n++;
+  });
+  delete o.ck; PS.write(o);
+  return n;
+}
+
 function psExport(){
   const blob=new Blob([JSON.stringify({app:'bikelab',v:1,...PS.read()},null,1)],{type:'application/json'});
   const a=document.createElement('a');
@@ -2470,7 +2523,7 @@ function psExport(){
 function psImport(file){
   const r=new FileReader();
   r.onload=()=>{ let n=false; try{ n=PS.merge(JSON.parse(r.result)); }catch(e){}
-    if(n){ psRefresh(); track('preset-import'); psToast(`загружено пресетов: ${n}`); }
+    if(n){ psSplitCk(); psRefresh(); track('preset-import'); psToast(`загружено пресетов: ${n}`); }
     else psToast('не похоже на файл пресетов',true); };
   r.onerror=()=>psToast('не смог прочитать файл',true);
   r.readAsText(file);
@@ -2508,12 +2561,13 @@ function fixReq(){
   }));
 }
 
-const PS_FITKEYS={ck:['crank','qFactor','postOffset','railPos'],
+const PS_FITKEYS={hw:['crank','qFactor','postOffset','railPos'],
                   body:['torso','kneeTarget','radMult','pedalUp','pedalBack','pedalShare','kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand','elbowFlare']};
 
 function psCollect(kind){
   if(kind==='geo')  return psPick('geo',{...state.bike, offset:null, wheelR:state.wheelR});
-  if(kind==='ck')   return psPick('ck',  {...state.ck,   ...pickFrom(state.fit,PS_FITKEYS.ck)});
+  if(kind==='bar'||kind==='stem') return psPick(kind, state.ck);
+  if(kind==='hw')   return psPick('hw', {...state.ck, ...pickFrom(state.fit,PS_FITKEYS.hw)});
   return              psPick('body',{...state.body, ...pickFrom(state.fit,PS_FITKEYS.body)});
 }
 const pickFrom=(o,ks)=>Object.fromEntries(ks.map(k=>[k,o[k]]));
@@ -2524,9 +2578,11 @@ function psApply(kind,slot,d,name){
     state.bike.name=name;
     if(d.wheelR) state.wheelR=d.wheelR;
     if(state.bike.wb==null) state.bike.wb=+passportWB({...state.bike,offset:d.offset}).toFixed(1);
-  } else if(kind==='ck'){
-    HK.ck.forEach(k=>state.ck[k]=d[k]);
-    PS_FITKEYS.ck.forEach(k=>state.fit[k]=d[k]);
+  } else if(kind==='bar'||kind==='stem'){
+    PKEYS[kind].forEach(k=>state.ck[k]=d[k]);
+  } else if(kind==='hw'){
+    ['headsetStack','pedalStack'].forEach(k=>state.ck[k]=d[k]);
+    PS_FITKEYS.hw.forEach(k=>state.fit[k]=d[k]);
   } else {
     HK.body.forEach(k=>state.body[k]=d[k]);
     PS_FITKEYS.body.forEach(k=>state.fit[k]=d[k]);
@@ -2795,7 +2851,8 @@ function phApplyTrunk(){
    против базовой записи журнала. Собираются из тех же списков, что и формы,
    поэтому не разъезжаются с интерфейсом. */
 const LBL={};
-[[F_FRAME,'bike'],[F_CK,'ck'],[F_CK_ADV,'ck'],[F_CK_HW,'fit'],[F_BODY,'body'],[F_BODY_MEAS,'body'],
+[[F_FRAME,'bike'],[F_BAR,'ck'],[F_BAR_ADV,'ck'],[F_STEM,'ck'],[F_STEM_ADV,'ck'],
+ [F_HW,'fit'],[F_HW_CK,'ck'],[F_BODY,'body'],[F_BODY_MEAS,'body'],
  [F_BODY_FOOT,'body'],[F_BODY_PELVIS,'body'],[F_BODY_HAND,'body'],[F_BODY_MISC,'body'],
  [F_FIT_HAND,'fit'],[F_FIT_MISC,'fit'],[F_STAND,'fit']]
  .forEach(([l,g])=>l.forEach(([k,lab])=>LBL[g+'.'+k]=lab));
@@ -3043,12 +3100,16 @@ const COLL={
      распознаётся и переносится на месте — терять уже сохранённое ради смены
      формы незачем, а второй ключ развёл бы две половины одного состояния. */
   read(){
-    if(!PS.ok) return {open:{},order:[]};
+    const empty={open:{},order:{}};
+    if(!PS.ok) return empty;
     let o; try{ o=JSON.parse(localStorage.getItem(COLL_KEY)); }catch(e){}
-    if(!o||typeof o!=='object') return {open:{},order:[]};
-    if(!o.open && !o.order) return {open:o, order:[]};      // старая плоская форма
-    return {open:o.open&&typeof o.open==='object'?o.open:{},
-            order:Array.isArray(o.order)?o.order:[]};
+    if(!o||typeof o!=='object') return empty;
+    if(!o.open && !o.order) return {open:o, order:{}};      // самая первая форма: плоская карта раскрытия
+    const open=o.open&&typeof o.open==='object'?o.open:{};
+    /* Вторая форма: order был плоским массивом, когда колонка была одна.
+       Такой массив — это порядок результатов. */
+    if(Array.isArray(o.order)) return {open, order:{results:o.order}};
+    return {open, order:(o.order&&typeof o.order==='object')?o.order:{}};
   },
   write(o){ if(!PS.ok) return false; try{ localStorage.setItem(COLL_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } },
   patch(fn){ const o=COLL.read(); fn(o); COLL.write(o); }
@@ -3058,51 +3119,63 @@ const COLL={
    он же и есть «вернуть как было». Карточка, которой в сохранённом порядке нет
    (появилась новой), встаёт в конец — молча пропасть она не может, а угадывать
    ей место среди переставленных пользователем незачем. */
-let CARDS_DEFAULT=[];
-const cardsBox=()=>document.querySelector('main.results');
-const cardsAll=()=>[...document.querySelectorAll('main.results > .card')];
+/* Колонок две, и обе живут по одним правилам. Левую (#inputs) buildInputs()
+   пересобирает целиком при каждой загрузке пресета, поэтому обёртки и порядок
+   для неё строятся заново после каждой пересборки; состояние при этом не
+   теряется — оно в localStorage, а не в DOM. */
+const COLS=[{key:'inputs', sel:'#inputs'},{key:'results', sel:'main.results'}];
+const CARDS_DEFAULT={};
+const colBox=col=>document.querySelector(col.sel);
+const colCards=col=>{ const b=colBox(col); return b?[...b.children].filter(c=>c.classList.contains('card')):[]; };
+const colOf=card=>COLS.find(c=>card.closest(c.sel));
 
-function applyOrder(order){
-  const box=cardsBox(); if(!box||!order.length) return;
-  const byId=new Map(cardsAll().map(c=>[c.id,c]));
+function applyOrder(col,order){
+  const box=colBox(col); if(!box||!order||!order.length) return;
+  const byId=new Map(colCards(col).map(c=>[c.id,c]));
   order.forEach(id=>{ const c=byId.get(id); if(c) box.appendChild(c); byId.delete(id); });
   byId.forEach(c=>box.appendChild(c));         // не упомянутые — в конец
 }
-function saveOrder(){ COLL.patch(o=>{ o.order=cardsAll().map(c=>c.id); }); }
+function saveOrder(col){ COLL.patch(o=>{ o.order=o.order||{}; o.order[col.key]=colCards(col).map(c=>c.id); }); }
 function moveCard(card,how){
-  const box=cardsBox();
-  if(how==='top') box.insertBefore(card, cardsAll()[0]);
-  else if(how<0){ const prev=card.previousElementSibling;
-                  if(prev&&prev.classList.contains('card')) box.insertBefore(card,prev); }
-  else { const next=card.nextElementSibling;
-         if(next&&next.classList.contains('card')) box.insertBefore(next,card); }
-  saveOrder(); syncMoveBtns();
+  const col=colOf(card); if(!col) return;
+  const box=colBox(col), all=colCards(col);
+  if(how==='top') box.insertBefore(card, all[0]);
+  else if(how<0){ const i=all.indexOf(card); if(i>0) box.insertBefore(card, all[i-1]); }
+  else { const i=all.indexOf(card); if(i<all.length-1) box.insertBefore(all[i+1], card); }
+  saveOrder(col); syncMoveBtns();
   card.querySelector(':scope > h3 .cardmove button')?.focus();
   card.scrollIntoView({block:'nearest'});
 }
 function syncMoveBtns(){
-  const all=cardsAll();
-  all.forEach((c,i)=>{
-    const b=c.querySelectorAll(':scope > h3 .cardmove button');
-    if(b.length<3) return;
-    b[0].disabled = i===0;                     // наверх
-    b[1].disabled = i===0;                     // выше
-    b[2].disabled = i===all.length-1;          // ниже
+  COLS.forEach(col=>{
+    const all=colCards(col);
+    all.forEach((c,i)=>{
+      const b=c.querySelectorAll(':scope > h3 .cardmove button');
+      if(b.length<3) return;
+      b[0].disabled = i===0;                   // наверх
+      b[1].disabled = i===0;                   // выше
+      b[2].disabled = i===all.length-1;        // ниже
+    });
   });
 }
+let cardsEditing=false;
 function cardsEdit(on){
-  cardsBox().classList.toggle('editing',on);
-  document.getElementById('cardsedit').textContent = on?'Готово':'Настроить порядок';
-  document.getElementById('cardsreset').hidden = !on;
+  cardsEditing=on;
+  COLS.forEach(col=>colBox(col)?.classList.toggle('editing',on));
+  const ed=document.getElementById('cardsedit'), rs=document.getElementById('cardsreset');
+  if(ed) ed.textContent = on?'Готово':'Настроить порядок блоков';
+  if(rs) rs.hidden = !on;
   if(on) syncMoveBtns();
 }
 
-function collapseInit(){
-  const OPEN='envcard';                       // единственная раскрытая по умолчанию
+/* Раскрытыми по умолчанию остаются вердикт справа и рама слева: с них
+   начинается работа. Остальное сворачивается — до первого клика пользователя. */
+const CARDS_OPEN=['envcard','card-frame'];
+function collapseInit(col){
   const saved=COLL.read();
-  CARDS_DEFAULT=cardsAll().map(c=>c.id);
-  applyOrder(saved.order);
-  cardsAll().forEach(card=>{
+  if(!CARDS_DEFAULT[col.key]) CARDS_DEFAULT[col.key]=colCards(col).map(c=>c.id);
+  applyOrder(col,saved.order[col.key]);
+  colCards(col).forEach(card=>{
     const h=card.querySelector(':scope > h3');
     if(!h){ console.warn('карточка без заголовка — сворачивать нечем', card); return; }
     const body=document.createElement('div');
@@ -3113,11 +3186,11 @@ function collapseInit(){
     h.setAttribute('role','button');
     h.setAttribute('tabindex','0');
     const id=card.id;
-    const open = (id && typeof saved.open[id]==='boolean') ? saved.open[id] : (id===OPEN);
+    const open = (id && typeof saved.open[id]==='boolean') ? saved.open[id] : CARDS_OPEN.includes(id);
     card.classList.toggle('closed',!open);
     h.setAttribute('aria-expanded',open?'true':'false');
     const toggle=()=>{
-      if(cardsBox().classList.contains('editing')) return;   // в режиме заголовок не сворачивает
+      if(cardsEditing) return;                 // в режиме перестановки заголовок не сворачивает
       const now=!card.classList.toggle('closed');
       h.setAttribute('aria-expanded',now?'true':'false');
       if(id) COLL.patch(o=>{ o.open[id]=now; });
@@ -3139,14 +3212,15 @@ function collapseInit(){
     });
     h.appendChild(mv);
   });
-
+  if(cardsEditing) colBox(col).classList.add('editing');
+}
+/* Кнопки режима — один раз на страницу, а не на каждую пересборку колонки. */
+function cardsBarInit(){
   const ed=document.getElementById('cardsedit'), rs=document.getElementById('cardsreset');
-  if(ed) ed.addEventListener('click',()=>{
-    const on=!cardsBox().classList.contains('editing');
-    cardsEdit(on); if(on) track('fit-cards-edit');
-  });
+  if(ed) ed.addEventListener('click',()=>{ cardsEdit(!cardsEditing); if(cardsEditing) track('fit-cards-edit'); });
   if(rs) rs.addEventListener('click',()=>{
-    applyOrder(CARDS_DEFAULT); saveOrder(); syncMoveBtns(); track('fit-cards-reset');
+    COLS.forEach(col=>{ applyOrder(col,CARDS_DEFAULT[col.key]); saveOrder(col); });
+    syncMoveBtns(); track('fit-cards-reset');
   });
 }
 /* Открытая в соседней вкладке страница — то же рабочее место. Пресеты уже
@@ -3154,20 +3228,24 @@ function collapseInit(){
 window.addEventListener('storage',e=>{
   if(e.key!==COLL_KEY) return;
   const saved=COLL.read();
-  applyOrder(saved.order);
-  cardsAll().forEach(card=>{
-    const h=card.querySelector(':scope > h3.cardtog');
-    if(!h||!card.id||typeof saved.open[card.id]!=='boolean') return;
-    card.classList.toggle('closed',!saved.open[card.id]);
-    h.setAttribute('aria-expanded',saved.open[card.id]?'true':'false');
+  COLS.forEach(col=>{
+    applyOrder(col,saved.order[col.key]);
+    colCards(col).forEach(card=>{
+      const h=card.querySelector(':scope > h3.cardtog');
+      if(!h||!card.id||typeof saved.open[card.id]!=='boolean') return;
+      card.classList.toggle('closed',!saved.open[card.id]);
+      h.setAttribute('aria-expanded',saved.open[card.id]?'true':'false');
+    });
   });
   syncMoveBtns();
 });
 
 hashToState();
+psSplitCk();          // старые пресеты кокпита -> руль / вынос / остальное
 buildInputs();
 stCtlInit(); sdCtlInit();
-collapseInit();
+cardsBarInit();
+collapseInit(COLS[1]);
 render();
 jrRender();
 window.addEventListener('hashchange',()=>{ if(location.hash!==stateToHash()&&hashToState()){ buildInputs(); render(); }});

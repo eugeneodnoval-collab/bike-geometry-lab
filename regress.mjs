@@ -41,7 +41,7 @@ function loadModel(page = PAGE, marker = 'function solveFit', expose = null) {
   // но render() и построители таблиц пишут в узлы — пусть пишут в объект
   const out = {};
   const stub = {
-    style: {}, textContent: '', value: '', checked: false, dataset: {},
+    style: {}, textContent: '', value: '', checked: false, dataset: {}, children: [],
     addEventListener() {}, querySelectorAll() { return []; }, appendChild() {},
     after() {}, closest() { return null; }, insertAdjacentHTML() {}, remove() {},
     focus() {}, click() {}, setAttribute() {}, getAttribute() { return null; },
@@ -122,7 +122,10 @@ function applyPreset(X, P, geoName, ckName, bodyName) {
   s.bike.name = geoName;
   if (g.wheelR) s.wheelR = g.wheelR;
   X.HK.ck.forEach(k => s.ck[k] = c[k]);
-  X.PS_FITKEYS.ck.forEach(k => s.fit[k] = c[k]);
+  /* Фикстура хранит кокпит одним объектом (экспорт старого формата), а страница
+     разложила пресеты на руль / вынос / остальное. На состояние это не влияет:
+     ключи state.ck и state.fit прежние, меняется только раскладка пресетов. */
+  X.PS_FITKEYS.hw.forEach(k => s.fit[k] = c[k]);
   X.HK.body.forEach(k => s.body[k] = b[k]);
   X.PS_FITKEYS.body.forEach(k => s.fit[k] = b[k]);
   X.fixReq();
