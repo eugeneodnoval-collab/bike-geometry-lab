@@ -42,7 +42,21 @@
     Размер колеса в решение не входит: обе оси по построению на высоте bbDrop.
     Радиус нужен только для трейла и для сдвига на землю на стороне страницы.
   */
+  /* Переднюю ось ставит одно из двух чисел: колёсная база или офсет вилки.
+     Раньше при пустых обоих молча подставлялся офсет 44 — и считалась чужая
+     рама: у Hagen HG с настоящими 50 это база на 6 мм короче и трейл на 6 мм
+     длиннее, и нигде ни слова. Теперь это ошибка, которую страница обязана
+     проверить заранее (hasFrontAxle) и показать человеку, а не пересчитать. */
+  function hasFrontAxle(b) { return !!b.wb || (b.offset != null && b.offset !== '' && isFinite(b.offset)); }
+  function needFrontAxle(b) {
+    if (hasFrontAxle(b)) return;
+    const e = new Error('нужна колёсная база или офсет вилки');
+    e.code = 'NO_FRONT_AXLE';
+    throw e;
+  }
+
   function solveFrame(b, wheelR, sagOverride) {
+    needFrontAxle(b);
     const hta = rad(b.hta), sta = rad(b.sta);
     const htTop = [b.reach, b.stack];
     const u = [Math.cos(hta), -Math.sin(hta)];   // вниз-вперёд вдоль оси рулевой
@@ -60,7 +74,7 @@
       dRef = fk[0] * u[0] + fk[1] * u[1];
       oRef = fk[0] * p[0] + fk[1] * p[1];
     } else {
-      oRef = (b.offset != null ? b.offset : 44);
+      oRef = +b.offset;
       dRef = (b.bbDrop - htBot[1] - oRef * p[1]) / u[1];
       front = [htBot[0] + u[0] * dRef + p[0] * oRef, htBot[1] + u[1] * dRef + p[1] * oRef];
     }
@@ -117,11 +131,12 @@
      что и ветка «базы нет» в solveFrame, иначе числа разъедутся. */
   function passportWB(b) {
     if (b.wb) return b.wb;
+    needFrontAxle(b);
     const hta = rad(b.hta);
     const u = [Math.cos(hta), -Math.sin(hta)], p = [Math.sin(hta), Math.cos(hta)];
     const htBot = [b.reach + u[0] * b.ht, b.stack + u[1] * b.ht];
     const rearX = -Math.sqrt(Math.max(b.cs * b.cs - b.bbDrop * b.bbDrop, 1));
-    const o = (b.offset != null ? b.offset : 44);
+    const o = +b.offset;
     const d = (b.bbDrop - htBot[1] - o * p[1]) / u[1];
     return (htBot[0] + u[0] * d + p[0] * o) - rearX;
   }
@@ -315,7 +330,7 @@
       .map(x => `<div class="fk-${x.kind}">${esc(x.text)}</div>`).join('');
   }
 
-  global.BikeModel = { rad, deg, solveFrame, passportWB,
+  global.BikeModel = { rad, deg, solveFrame, passportWB, hasFrontAxle,
                        forkInverse, forkReport, forkReportHTML, FORK_OFFSETS };
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);

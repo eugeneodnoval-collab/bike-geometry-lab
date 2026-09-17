@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fit Lab — райдер на геометрии</title>
-<link rel="stylesheet" href="site.css">
-<link rel="stylesheet" href="tools.css">
+<link rel="stylesheet" href="site.css?v=d77220fe">
+<link rel="stylesheet" href="tools.css?v=13c05704">
 <style>
 
 .card h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:600}
@@ -167,18 +167,10 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .envcur p{margin:0 0 5px;font-size:12.5px;line-height:1.5}
 .envcur p:last-child{margin-bottom:0}
 .envcur .flag{color:#8a5a00}
-/* ---- строка пресетов (одинаковая на обеих страницах) ---- */
-
-.psrow select{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
-  font-family:inherit;background:#fff;color:#191919;min-width:0;flex:1 1 120px}
-.psrow select:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
-
-.psrow button:disabled,.psrow select:disabled,.psbox .psname:disabled{opacity:.42;cursor:not-allowed}
-
 @media print{
   @page{size:A4 portrait;margin:10mm}
   body{padding:0;background:#fff;font-size:11px}
-  .toolbar,.presets,#inputs,details,.psbox,.pshint,.psbar,.noprint{display:none!important}
+  .toolbar,.presets,#inputs,details,.noprint{display:none!important}
   .printonly{display:block}
   .layout{display:block}
   .panel{position:static;max-height:none;overflow:visible}
@@ -188,6 +180,11 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
   table{font-size:9.5px}tr{page-break-inside:avoid}
   #side,#top{page-break-inside:avoid}
 }
+
+/* Рама без базы и без офсета не считается: карточки результатов прячутся,
+   вместо них — объяснение. */
+main.results.blocked > .card{display:none}
+.blockednote{background:#fff5f4;border:1px solid #f0c8c3;border-radius:10px;padding:14px 16px;font-size:13.5px;margin:0 0 14px}
 
 /* Отличия этой страницы от общей основы (site.css). */
 .sub{max-width:900px;line-height:1.5}
@@ -224,7 +221,7 @@ window.goatcounter.path = function(){
 </head>
 <body>
 
-<script src="nav.js"></script>
+<script src="nav.js?v=8c0f459d"></script>
 
 <h1>Fit Lab — райдер на геометрии</h1>
 <div class="sub">Считает, где именно окажутся седло и ручки руля, и в какую позу это поставит человека с заданными пропорциями. Рама решается под ход вилки и sag, кокпит — цепочкой от рулевого стакана до центра хвата, тело — обратной кинематикой от контактных точек. Свободная степень одна: наклон корпуса. Её задаёшь ты, всё остальное считается.</div>
@@ -245,10 +242,10 @@ window.goatcounter.path = function(){
 <div class="presets">
   <div class="psbar">
     <b>Пресеты:</b>
-    <button onclick="psExport()">Скачать в файл</button>
+    <button onclick="BikePresets.exportFile()">Скачать в файл</button>
     <button onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
     <input type="file" id="psfile" accept=".json,application/json" style="display:none"
-           onchange="if(this.files[0])psImport(this.files[0]);this.value=''">
+           onchange="if(this.files[0])BikePresets.importFile(this.files[0]);this.value=''">
     <span class="okmsg" id="psok" style="visibility:hidden"></span>
   </div>
 </div>
@@ -257,6 +254,7 @@ window.goatcounter.path = function(){
 
 </aside>
 <main class="results">
+<div class="needmsg blockednote" id="blockednote" hidden></div>
 
 <div class="card" id="envcard">
   <h3>Что эта рама позволяет</h3>
@@ -389,7 +387,9 @@ window.goatcounter.path = function(){
 </main>
 </div>
 
-<script src="model.js"></script>
+<script src="model.js?v=fe050aac"></script>
+<script src="frame.js?v=ee21854d"></script>
+<script src="presets.js?v=81fd17a7"></script>
 <script>
 /* Событие в GoatCounter. Скрипт грузится async и может не загрузиться вовсе
    (блокировщик), поэтому вызов всегда защищён и молча ничего не делает.
@@ -418,7 +418,7 @@ const RIDERS={
 };
 
 const state={
-  bike:{...BIKES.B1, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null, forkOffsetSpec:null, forkMeasLen:null},
+  bike:{...BIKES.B1, offset:null, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null, forkOffsetSpec:null, forkMeasLen:null},
   wheelR:368,
   ck:{ headsetStack:15, spacers:20, stemClampH:40, stemLen:50, stemAngle:6, stemFlip:0,
        barRise:25, barWidth:760, backsweep:8, upsweep:5, barRoll:0, gripInset:70, riserBendHalf:100,
@@ -2131,6 +2131,16 @@ function bodyChecks(S){
 
 /* ===================== 7. рендер и ввод ===================== */
 function render(){
+  /* Без базы и без офсета переднюю ось не поставить — рама не считается. Карточки
+     результатов прячутся целиком: их содержимое осталось бы от прошлой рамы и
+     выглядело бы как расчёт. Поля подсвечиваются, строка пресета и ссылка живут. */
+  const miss=!BikeModel.hasFrontAxle(state.bike);
+  document.querySelectorAll('#card-frame input[data-k="wb"],#card-frame input[data-k="offset"]').forEach(el=>el.classList.toggle('need',miss));
+  const na=document.getElementById('needaxle'); if(na) na.hidden=!miss;
+  const td=document.getElementById('v_tdelta'); if(td) td.textContent=BikeFrame.travelNote(state.bike);
+  const res=document.querySelector('main.results'); if(res) res.classList.toggle('blocked',miss);
+  const bn=document.getElementById('blockednote'); if(bn) bn.hidden=!miss;
+  if(miss){ syncHash(); return; }
   const M=solveFit(), ST=solveStand(M);
   document.getElementById('side').innerHTML=drawSide(M);
   document.getElementById('stand').innerHTML=drawStand(M,ST);
@@ -2187,13 +2197,9 @@ const WHEEL_HINT=(()=>{
    + 'На посадку радиус не влияет вообще — только на высоту каретки, трейл и рисунок. Все углы тела, RAD и высота седла считаются относительно каретки.';
 })();
 
-const F_FORK=[['forkA2C','A2C штатной вилки',1],['forkA2Cnew','A2C новой вилки',1],['forkOffsetNew','Офсет новой вилки',1]];
-/* Обратная проверка: не входит в расчёт, только сверяет замеры рамы с железом.
-   Офсет вилки известен из спеки, а угол рулевой телефоном мерить тяжело —
-   поэтому выгоднее вывести угол из офсета, чем наоборот. */
-const F_FORKCHK=[['forkOffsetSpec','Офсет вилки по спеке',1],['forkMeasLen','Замер: низ чашки → ось',1]];
-const F_FRAME=[['reach','Reach',1],['stack','Stack',0.5],['hta','Угол рулевой',0.1],['sta','Угол подседельной',0.1],
-  ['ht','Рулевой стакан',1],['st','Подседельная труба',1],['cs','Перья',1],['bbDrop','BB drop',0.5],['wb','Колёсная база',1],['travelRef','Ход по паспорту',5]];
+/* Поля рамы, подписи, шаги и подсказки описаны один раз в frame.js — общие со
+   страницей сравнения. Здесь только имена, под которыми их знает эта страница. */
+const F_FRAME=BikeFrame.GRID, F_FORK=BikeFrame.FORK_SWAP, F_FORKCHK=BikeFrame.FORK_CHECK;
 /* Кокпит разложен на три карточки — руль, вынос с проставками, остальное железо —
    ровно по границам трёх пресетов. Руль и вынос перебирают чаще всего и по
    отдельности, поэтому они наверху и грузятся независимо.
@@ -2238,9 +2244,9 @@ const F_STAND=[['kneeStand','Колено стоя (среднее), °',5],['el
   ['bikePitch','Наклон велосипеда, °',5]];
 
 function fields(list,grp){
-  return list.map(([k,l,st])=>{
+  return list.map(([k,l,st,ph])=>{
     const v=state[grp][k];
-    return `<label>${l}</label><input type="number" step="${st}" data-g="${grp}" data-k="${k}" value="${v==null?'':v}" placeholder="авто">`;
+    return `<label>${l}</label><input type="number" step="${st}" data-g="${grp}" data-k="${k}" value="${v==null?'':v}" placeholder="${ph||'авто'}">`;
   }).join('');
 }
 
@@ -2248,31 +2254,28 @@ function buildInputs(){
   document.getElementById('inputs').innerHTML=`
   <div class="card" id="card-frame">
     <h3>Рама</h3>
-    ${psRowHTML('geo',null,'Сохраняется под названием рамы. Список общий со страницей сравнения геометрий.',
+    ${BikePresets.rowHTML('geo',null,'Сохраняется под названием рамы. Список общий со страницей сравнения геометрий.',
                 {id:'bikename', ph:'название рамы', value:state.bike.name})}
     <div class="grid">${fields(F_FRAME,'bike')}</div>
-    <div class="slider">
-      <div class="row"><span style="min-width:82px">Ход вилки</span><input type="range" min="60" max="180" step="5" data-g="bike" data-k="travel" value="${state.bike.travel}"><span class="tval" id="v_travel">${state.bike.travel} мм</span></div>
-      <div class="row"><span style="min-width:82px">SAG вилки</span><input type="range" min="0" max="40" step="1" data-g="bike" data-k="sag" value="${state.bike.sag}"><span class="tval" id="v_sag">${state.bike.sag}%</span></div>
+    <div class="needmsg" id="needaxle" hidden>${BikeFrame.HINTS.needFrontAxle}</div>
+    <div class="slider">${['travel','sag'].map(k=>{ const d=BikeFrame.SLIDERS[k];
+      return `<div class="row"><span style="min-width:82px">${d.label}</span><input type="range" min="${d.min}" max="${d.max}" step="${d.step}" data-g="bike" data-k="${k}" value="${state.bike[k]}"><span class="tval" id="v_${k}">${state.bike[k]}${d.unit}</span></div>`; }).join('')}
+      <div class="tdelta" id="v_tdelta"></div>
     </div>
     <details><summary>Проверка вилки</summary>
       <div class="grid" style="margin-top:8px">${fields(F_FORKCHK,'bike')}</div>
       <div id="forkchk"></div>
-      <div class="hint">Оба поля необязательны и в расчёт не входят — это сверка твоих замеров рамы с железом, которое стоит на велосипеде.
-      <b>Офсет по спеке</b> берётся из описания вилки. Модель выводит офсет из геометрии, и если они расходятся, виноват чаще всего угол рулевой: 0.1° угла стоит больше миллиметра офсета, а телефонный уровень врёт как раз на полградуса. Поэтому полезнее вывести угол из офсета, чем мерить его.
-      <b>Замер до оси</b> — рулеткой от низа чашки рулевой до оси переднего колеса. Он, наоборот, к углу почти нечувствителен и ловит ошибки в reach, стеке, базе и BB drop. Две проверки читают разные ошибки, поэтому вместе они сильнее любой из них.</div></details>
+      <div class="hint">${BikeFrame.HINTS.forkCheck}</div></details>
     <details><summary>Замена вилки</summary>
       <div class="grid" style="margin-top:8px">${fields(F_FORK,'bike')}</div>
-      <div class="hint">Пусто — модель считает, что при смене хода A2C растёт 1:1, а офсет не меняется. Это верно для «накрутил ход на той же вилке» и неверно при смене модели: у двух вилок с одним ходом A2C расходится на 10–18 мм.
-      Заполни оба A2C — и в расчёт пойдёт их разность. Именно разность: A2C меряется от кольца короны, а модель от низа стакана, и неизвестная высота нижней чашки в разности сокращается. Офсет подставляется напрямую.
-      Ход при этом продолжает работать — но только на sag.</div></details>
+      <div class="hint">${BikeFrame.HINTS.forkSwap}</div></details>
     <details><summary>Колесо</summary><div class="grid" style="margin-top:8px"><label>Радиус колеса, мм</label><input type="number" step="1" data-g="root" data-k="wheelR" value="${state.wheelR}"></div>
       <div class="hint">${WHEEL_HINT}</div></details>
   </div>
 
   <div class="card" id="card-bar">
     <h3>Руль</h3>
-    ${psRowHTML('bar',null,'Ширина, rise, загиб и подъём — всё, что меняется вместе с рулём.',
+    ${BikePresets.rowHTML('bar',null,'Ширина, rise, загиб и подъём — всё, что меняется вместе с рулём.',
                 {ph:'название руля'})}
     <div class="grid">${fields(F_BAR,'ck')}</div>
     <div class="hint">Подъём (upsweep) есть в спеке любого руля и бывает от 0 до 6°: разница между 0 и 6 — 13 мм RAD, больше допуска. На глаз его не взять.</div>
@@ -2281,7 +2284,7 @@ function buildInputs(){
 
   <div class="card" id="card-stem">
     <h3>Вынос и проставки</h3>
-    ${psRowHTML('stem',null,'То, что перебирают чаще всего: длина, угол, переворот и высота проставок.',
+    ${BikePresets.rowHTML('stem',null,'То, что перебирают чаще всего: длина, угол, переворот и высота проставок.',
                 {ph:'название выноса'})}
     <div class="grid">${fields(F_STEM,'ck')}
       <label>Вынос перевёрнут</label><input class="chk" type="checkbox" data-g="ck" data-k="stemFlip" ${state.ck.stemFlip?'checked':''}>
@@ -2292,7 +2295,7 @@ function buildInputs(){
 
   <div class="card" id="card-hw">
     <h3>Остальное железо</h3>
-    ${psRowHTML('hw',null,'Шатун, Q-factor, штырь, рельсы, чашка рулевой и педали — то, что на велосипеде стоит долго.',
+    ${BikePresets.rowHTML('hw',null,'Шатун, Q-factor, штырь, рельсы, чашка рулевой и педали — то, что на велосипеде стоит долго.',
                 {ph:'название комплектации'})}
     <div class="grid">${fields(F_HW,'fit')}</div>
     <div class="grid" style="margin-top:8px">${fields(F_HW_CK,'ck')}</div>
@@ -2301,7 +2304,7 @@ function buildInputs(){
 
   <div class="card" id="card-body">
     <h3>Райдер</h3>
-    ${psRowHTML('body',null,'Мерки тела и всё, что от него зависит. Железо — шатун, Q-factor, седло — живёт в пресете кокпита.',
+    ${BikePresets.rowHTML('body',null,'Мерки тела и всё, что от него зависит. Железо — шатун, Q-factor, седло — живёт в пресете кокпита.',
                 {ph:'имя райдера'})}
     <div class="grid">${fields(F_BODY,'body')}</div>
     <div class="hint">Пять чисел, снимаемых рулеткой. Всё остальное достраивается из антропометрических долей — и заменяется прямыми замерами ниже.</div>
@@ -2341,7 +2344,7 @@ function buildInputs(){
       render();
     });
   });
-  psRefresh();
+  BikePresets.refresh();
   /* Колонка ввода пересобирается целиком при каждой загрузке пресета, поэтому
      обёртки сворачивания и порядок карточек строятся заново здесь. Состояние не
      теряется: оно лежит в localStorage, а не в DOM. */
@@ -2369,185 +2372,29 @@ function critSync(){
 }
 
 /* ==================== пресеты ====================
-   Тот же формат и тот же ключ, что на странице сравнения: пресеты рам,
-   сохранённые там, видны здесь и наоборот. Имя пресета — ключ в объекте,
-   поэтому сохранение под существующим именем обновляет запись.
-   На file:// хранилище может быть запрещено — тогда строки гаснут. */
-const PS_KEY='bikelab.presets.v1';
-const PKEYS={
-  geo :['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'],
-  /* Кокпит разложен на три пресета по тому, как железо меняют в жизни: руль,
-     вынос с проставками и всё остальное. Перебирают обычно первые два, причём
-     по отдельности, а раньше они лежали в одном пресете и грузились только
-     вместе. Чашка рулевой — свойство рулевой, а не выноса, поэтому она в
-     «остальном»; высота обхвата — свойство конкретного выноса, поэтому с ним. */
-  bar :['barWidth','barRise','backsweep','upsweep','barRoll','gripInset','riserBendHalf'],
-  stem:['stemLen','stemAngle','stemFlip','spacers','stemClampH'],
-  hw  :['headsetStack','pedalStack','crank','qFactor','postOffset','railPos'],
-  /* Старый общий вид кокпита. В интерфейсе его больше нет, но он остаётся в
-     белых списках, чтобы импорт файла со старым пресетом не потерял его молча:
-     psSplitCk() разложит такой пресет на три сразу после загрузки. */
-  ck  :['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth',
-        'backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack','crank','qFactor','postOffset','railPos'],
-  body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove',
-        'hipFwd','torso','kneeTarget','radMult','pedalUp','pedalBack',
-        'sitHeight','trunkLen','femurLen','tibiaLen','upperArm','foreArm','footLen','heelToMet','sitBoneW',
-        'weight','pedalShare','shExt','kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand',
-        'spineFlex','lumbarPivot','elbowFlare','palmDiag','pedalPos','soleTilt']
-};
-function psPick(kind,src){
-  const o={};
-  (PKEYS[kind]||[]).forEach(k=>{
-    const v=src[k];
-    if(v===undefined||v===null||v===''){ o[k]=null; return; }
-    const n=typeof v==='number'?v:parseFloat(v);
-    o[k]=isFinite(n)?n:null;
-  });
-  return o;
-}
-/* Санация при ИМПОРТЕ: сохраняем любые числовые ключи, а белый список (psPick/HK)
-   применяется при ЗАГРУЗКЕ пресета в состояние. Иначе импорт файла из более новой
-   версии страницы навсегда вырезал бы незнакомые ключи из хранилища — а так они
-   переживают импорт и «оживают» после обновления страницы. Мусор в состояние всё
-   равно не попадает: путь в state лежит только через белые списки. */
-function psAny(src){
-  const o={}; let n=0;
-  for(const k of Object.keys(src)){
-    if(++n>300) break;
-    if(!/^[a-zA-Z][a-zA-Z0-9_]{0,30}$/.test(k)) continue;
-    const v=src[k];
-    if(v===undefined||v===null||v===''){ o[k]=null; continue; }
-    const num=typeof v==='number'?v:parseFloat(v);
-    if(isFinite(num)) o[k]=num;
-  }
-  return o;
-}
-const PS={
-  ok:(()=>{ try{ localStorage.setItem('__ps','1'); localStorage.removeItem('__ps'); return true; }catch(e){ return false; } })(),
-  read(){ if(!PS.ok) return {}; try{ return JSON.parse(localStorage.getItem(PS_KEY))||{}; }catch(e){ return {}; } },
-  write(o){ if(!PS.ok) return false; try{ localStorage.setItem(PS_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } },
-  list(kind){ return Object.keys(PS.read()[kind]||{}).sort((a,b)=>a.localeCompare(b,'ru')); },
-  save(kind,name,data){ const o=PS.read(); (o[kind]=o[kind]||{})[name]=data; return PS.write(o); },
-  del(kind,name){ const o=PS.read(); if(o[kind]) delete o[kind][name]; return PS.write(o); },
-  merge(inc){
-    if(!inc||typeof inc!=='object') return false;
-    const o=PS.read(); let n=0;
-    Object.keys(PKEYS).forEach(kind=>{
-      const src=inc[kind]; if(!src||typeof src!=='object') return;
-      o[kind]=o[kind]||{};
-      Object.entries(src).forEach(([name,v])=>{ if(v&&typeof v==='object'&&name.trim()){ o[kind][name]=psAny(v); n++; } });
-    });
-    return n>0 && PS.write(o) ? n : false;
-  }
-};
-
+   Хранилище, импорт, экспорт и строка пресета — общие, в presets.js. Здесь
+   только своё: встроенные пресеты, раскладка пресета по группам состояния
+   (часть «железа» и «тела» живёт в state.fit) и откат обязательных полей. */
 const BUILTIN={
-  geo: Object.fromEntries(Object.values(BIKES).map(b=>[b.name, psPick('geo',{...b,offset:null,wheelR:368})])),
-  bar : {'Базовый трейл': psPick('bar',{barRise:25,barWidth:760,backsweep:8,upsweep:5,
+  geo: Object.fromEntries(Object.values(BIKES).map(b=>[b.name, BikePresets.pick('geo',{...b,offset:null,wheelR:368})])),
+  bar : {'Базовый трейл': BikePresets.pick('bar',{barRise:25,barWidth:760,backsweep:8,upsweep:5,
         barRoll:0,gripInset:70,riserBendHalf:100})},
-  stem: {'Базовый трейл': psPick('stem',{spacers:20,stemLen:50,stemAngle:6,stemFlip:0,stemClampH:40})},
-  hw  : {'Базовый трейл': psPick('hw',{headsetStack:15,pedalStack:8,crank:170,qFactor:172,postOffset:0,railPos:0})},
+  stem: {'Базовый трейл': BikePresets.pick('stem',{spacers:20,stemLen:50,stemAngle:6,stemFlip:0,stemClampH:40})},
+  hw  : {'Базовый трейл': BikePresets.pick('hw',{headsetStack:15,pedalStack:8,crank:170,qFactor:172,postOffset:0,railPos:0})},
   body: Object.fromEntries(Object.entries(RIDERS).map(([,r])=>['Райдер '+r.name,
-        psPick('body',{...r,hipW:null,femurPct:50,ankleH:null,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,
+        BikePresets.pick('body',{...r,hipW:null,femurPct:50,ankleH:null,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,
         torso:58,kneeTarget:145,radMult:4.47,pedalUp:null,pedalBack:null})]))
 };
 
-const psSel={};     // что выбрано в выпадашке: 'b:имя' | 'u:имя' | ''
-const psName={};    // набранное имя, чтобы пережить перестройку карточек
-const psKey=(kind,slot)=>kind+(slot==null?'':slot);
-
-function psOptions(kind,cur){
-  const opt=(v,l)=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(l)}</option>`;
-  const bi=Object.keys(BUILTIN[kind]||{}), my=PS.list(kind);
-  let h=opt('','— выбрать пресет —');
-  if(bi.length) h+=`<optgroup label="Встроенные">${bi.map(n=>opt('b:'+n,n)).join('')}</optgroup>`;
-  if(my.length) h+=`<optgroup label="Мои">${my.map(n=>opt('u:'+n,n)).join('')}</optgroup>`;
-  return h;
-}
-/* Поле имени стоит НАД строкой заголовком — одинаково во всех трёх карточках.
-   Тогда в самой строке остаются только выпадашка и две кнопки, и она влезает
-   в одну линию даже в узкой панели. */
-function psRowHTML(kind,slot,hint,nm){
-  const name = nm ? `<input class="bikename psname"${nm.id?` id="${nm.id}"`:''}`
-      + ` value="${esc(nm.value||'')}" placeholder="${esc(nm.ph)}" aria-label="${esc(nm.ph)}">` : '';
-  return `<div class="psbox">${name}<div class="psrow" data-kind="${kind}"${slot==null?'':` data-slot="${slot}"`}>
-      <select class="pssel" aria-label="Пресет"></select>
-      <button class="pssave" type="button">Сохранить</button>
-      <button class="psdel" type="button" title="Удалить пресет" disabled>✕</button>
-    </div>${hint?`<div class="pshint">${hint}</div>`:''}</div>`;
-}
-function psRefresh(){
-  document.querySelectorAll('.psrow').forEach(row=>{
-    const kind=row.dataset.kind, k=psKey(kind,row.dataset.slot), cur=psSel[k]||'';
-    const sel=row.querySelector('.pssel'), del=row.querySelector('.psdel'), save=row.querySelector('.pssave');
-    const nm=row.closest('.psbox').querySelector('.psname');
-    sel.innerHTML=psOptions(kind,cur);
-    // имя рамы живёт в состоянии и уже отрисовано buildInputs; у кокпита и райдера восстанавливаем набранное
-    if(nm && kind!=='geo') nm.value = psName[k]!=null ? psName[k] : (cur?cur.slice(2):'');
-    del.disabled=!(cur.slice(0,2)==='u:');
-    if(!PS.ok){ sel.disabled=true; save.disabled=true; del.disabled=true; if(nm) nm.disabled=true; }
-  });
-}
-function psToast(msg,bad){
-  const el=document.getElementById('psok'); if(!el) return;
-  el.textContent=msg; el.style.color=bad?'#b3261e':'#0a7d33'; el.style.visibility='visible';
-  clearTimeout(psToast._t); psToast._t=setTimeout(()=>el.style.visibility='hidden',2600);
-}
-/* Разложить старые пресеты кокпита на три. Запускается один раз при загрузке и
-   ещё раз после импорта файла: и в хранилище, и в присланном файле может лежать
-   пресет прежней формы, а терять его из-за смены раскладки незачем. Имя
-   сохраняется у всех трёх — пользователь узнает свой кокпит в каждом списке и
-   дальше может смешивать половинки от разных. */
-function psSplitCk(){
-  const o=PS.read(); if(!o.ck) return 0;
-  let n=0;
-  ['bar','stem','hw'].forEach(k=>o[k]=o[k]||{});
-  Object.entries(o.ck).forEach(([name,d])=>{
-    if(!d||typeof d!=='object'||!name.trim()) return;
-    ['bar','stem','hw'].forEach(k=>{ if(!o[k][name]) o[k][name]=psPick(k,d); });
-    n++;
-  });
-  delete o.ck; PS.write(o);
-  return n;
-}
-
-function psExport(){
-  const blob=new Blob([JSON.stringify({app:'bikelab',v:1,...PS.read()},null,1)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='bike-presets-'+new Date().toISOString().slice(0,10)+'.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  track('preset-export'); psToast('файл скачан');
-}
-function psImport(file){
-  const r=new FileReader();
-  r.onload=()=>{ let n=false; try{ n=PS.merge(JSON.parse(r.result)); }catch(e){}
-    if(n){ psSplitCk(); psRefresh(); track('preset-import'); psToast(`загружено пресетов: ${n}`); }
-    else psToast('не похоже на файл пресетов',true); };
-  r.onerror=()=>psToast('не смог прочитать файл',true);
-  r.readAsText(file);
-}
-
-/* Паспортная колёсная база из офсета — тот же вывод, что в solveFrame.
-   Нужен, когда пресет пришёл со страницы сравнения с пустой базой:
-   здешний солвер строит вилку из базы и без неё выдал бы NaN. */
-function passportWB(b){
-  if(b.wb) return b.wb;
-  const hta=rad(b.hta), u=[Math.cos(hta),-Math.sin(hta)], p=[Math.sin(hta),Math.cos(hta)];
-  const htBot=[b.reach+u[0]*b.ht, b.stack+u[1]*b.ht];
-  const rearX=-Math.sqrt(Math.max(b.cs*b.cs-b.bbDrop*b.bbDrop,1));
-  const o=(b.offset!=null?b.offset:44);
-  const d=(b.bbDrop-htBot[1]-o*p[1])/u[1];
-  return (htBot[0]+u[0]*d+p[0]*o)-rearX;
-}
-
 /* Обязательные поля: пресет или ссылка из старой версии могли их не содержать —
-   psApply/hashToState записали бы null, и солвер упал бы. После любого применения
+   apply пресета или hashToState записали бы null, и солвер упал бы. После любого применения
    внешних данных null в этих полях откатывается к дефолту. Осознанно-пустые
    (точные мерки, стойка) сюда не входят — для них null легален и означает «авто». */
 const REQ={
-  bike:{reach:465,stack:629,hta:65.8,sta:75.5,ht:115,st:460,cs:435,bbDrop:50,wb:1213,travelRef:130,travel:130,sag:25},
+  /* Колёсной базы здесь нет намеренно. Она или офсет — одно из двух, и пустые
+     оба не откатываются к чужой базе 1213: рама тогда не считается, поля
+     подсвечиваются (render). Подстановка молча считала бы другую раму. */
+  bike:{reach:465,stack:629,hta:65.8,sta:75.5,ht:115,st:460,cs:435,bbDrop:50,travelRef:130,travel:130,sag:25},
   ck:{headsetStack:15,spacers:20,stemClampH:40,stemLen:50,stemAngle:6,stemFlip:0,
       barRise:25,barWidth:760,backsweep:8,upsweep:5,barRoll:0,gripInset:70,riserBendHalf:100,pedalStack:8},
   body:{height:1800,inseam:840,shoulderW:420,armLen:598,soleThk:18,wristGrip:60,hipAbove:35,hipFwd:25,femurPct:50},
@@ -2564,80 +2411,49 @@ function fixReq(){
 const PS_FITKEYS={hw:['crank','qFactor','postOffset','railPos'],
                   body:['torso','kneeTarget','radMult','pedalUp','pedalBack','pedalShare','kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand','elbowFlare']};
 
-function psCollect(kind){
-  if(kind==='geo')  return psPick('geo',{...state.bike, offset:null, wheelR:state.wheelR});
-  if(kind==='bar'||kind==='stem') return psPick(kind, state.ck);
-  if(kind==='hw')   return psPick('hw', {...state.ck, ...pickFrom(state.fit,PS_FITKEYS.hw)});
-  return              psPick('body',{...state.body, ...pickFrom(state.fit,PS_FITKEYS.body)});
-}
 const pickFrom=(o,ks)=>Object.fromEntries(ks.map(k=>[k,o[k]]));
 
-function psApply(kind,slot,d,name){
-  if(kind==='geo'){
-    HK.bike.forEach(k=>state.bike[k]=d[k]);
-    state.bike.name=name;
-    if(d.wheelR) state.wheelR=d.wheelR;
-    if(state.bike.wb==null) state.bike.wb=+passportWB({...state.bike,offset:d.offset}).toFixed(1);
-  } else if(kind==='bar'||kind==='stem'){
-    PKEYS[kind].forEach(k=>state.ck[k]=d[k]);
-  } else if(kind==='hw'){
-    ['headsetStack','pedalStack'].forEach(k=>state.ck[k]=d[k]);
-    PS_FITKEYS.hw.forEach(k=>state.fit[k]=d[k]);
-  } else {
-    HK.body.forEach(k=>state.body[k]=d[k]);
-    PS_FITKEYS.body.forEach(k=>state.fit[k]=d[k]);
-  }
-  fixReq();
-  buildInputs(); render();
-}
-function psNameFor(row){
-  if(row.dataset.kind==='geo') return (state.bike.name||'').trim();
-  const nm=row.closest('.psbox').querySelector('.psname');
-  return nm?nm.value.trim():'';
-}
-// набранное имя запоминаем сразу: buildInputs пересоберёт карточку и сотрёт поле
-document.addEventListener('input',e=>{
-  const nm=e.target.closest&&e.target.closest('.psname'); if(!nm) return;
-  const row=nm.closest('.psbox').querySelector('.psrow');
-  psName[psKey(row.dataset.kind,row.dataset.slot)]=nm.value;
-});
-
-document.addEventListener('change',e=>{
-  const sel=e.target.closest&&e.target.closest('.pssel'); if(!sel) return;
-  const row=sel.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot, v=sel.value;
-  psSel[psKey(kind,slot)]=v;
-  if(!v){ psRefresh(); return; }
-  const name=v.slice(2);
-  const data=(v.slice(0,2)==='b:'?BUILTIN[kind]:(PS.read()[kind]||{}))[name];
-  if(!data){ psToast('пресет не найден',true); return; }
-  psName[psKey(kind,slot)]=name;
-  psApply(kind,slot,psPick(kind,data),name);
-  psRefresh(); track('preset-load-'+kind); psToast('загружен: '+name);
-});
-document.addEventListener('click',e=>{
-  const t=e.target; if(!t.closest) return;
-  const save=t.closest('.pssave'), del=t.closest('.psdel');
-  if(save){
-    const row=save.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
-    const name=psNameFor(row);
-    if(!name){ psToast('сначала впиши имя',true); return; }
-    if(!PS.save(kind,name,psCollect(kind))){ psToast('не удалось сохранить',true); return; }
-    psSel[psKey(kind,slot)]='u:'+name; psName[psKey(kind,slot)]=name;
-    psRefresh(); track('preset-save-'+kind); psToast('сохранено: '+name);
-  } else if(del){
-    const row=del.closest('.psrow'), kind=row.dataset.kind, slot=row.dataset.slot;
-    const cur=psSel[psKey(kind,slot)]||'';
-    if(cur.slice(0,2)!=='u:') return;
-    const name=cur.slice(2);
-    if(!confirm(`Удалить пресет «${name}»?`)) return;
-    PS.del(kind,name); psSel[psKey(kind,slot)]='';
-    psRefresh(); track('preset-delete-'+kind); psToast('удалён: '+name);
+BikePresets.init({
+  builtin: BUILTIN,
+  collect(kind){                                  // текущее состояние -> пресет
+    const pick=BikePresets.pick;
+    if(kind==='geo')  return pick('geo',{...state.bike, wheelR:state.wheelR});
+    if(kind==='bar'||kind==='stem') return pick(kind, state.ck);
+    if(kind==='hw')   return pick('hw', {...state.ck, ...pickFrom(state.fit,PS_FITKEYS.hw)});
+    return              pick('body',{...state.body, ...pickFrom(state.fit,PS_FITKEYS.body)});
+  },
+  apply(kind,slot,d,name){                        // пресет -> состояние
+    if(kind==='geo'){
+      HK.bike.forEach(k=>state.bike[k]=d[k]);
+      state.bike.name=name;
+      if(d.wheelR) state.wheelR=d.wheelR;
+      /* Рама, заданная офсетом, так и остаётся заданной офсетом: база за неё не
+         выводится и при сохранении не подменяет его. Раньше выводилась — здешний
+         солвер умел только базу, — и пересохранённая рама молча меняла способ
+         задания. */
+    } else if(kind==='bar'||kind==='stem'){
+      BikePresets.KEYS[kind].forEach(k=>state.ck[k]=d[k]);
+    } else if(kind==='hw'){
+      ['headsetStack','pedalStack'].forEach(k=>state.ck[k]=d[k]);
+      PS_FITKEYS.hw.forEach(k=>state.fit[k]=d[k]);
+    } else {
+      HK.body.forEach(k=>state.body[k]=d[k]);
+      PS_FITKEYS.body.forEach(k=>state.fit[k]=d[k]);
+    }
+    fixReq();
+    buildInputs(); render();
+  },
+  nameFor(row){
+    if(row.dataset.kind==='geo') return (state.bike.name||'').trim();
+    const nm=row.closest('.psbox').querySelector('.psname');
+    return nm?nm.value.trim():'';
   }
 });
-window.addEventListener('storage',e=>{ if(e.key===PS_KEY) psRefresh(); });
 
 /* ===================== 8. ссылка и печать ===================== */
-const HK={bike:['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'],
+/* Порядок полей рамы — формат ссылки, общий со страницей сравнения: она собирает
+   ссылку «Открыть в Fit Lab» по тому же списку (frame.js). */
+const HK={bike:BikeFrame.LINK_KEYS,
   ck:['headsetStack','spacers','stemClampH','stemLen','stemAngle','stemFlip','barRise','barWidth','backsweep','upsweep','barRoll','gripInset','riserBendHalf','pedalStack'],
   body:['height','inseam','shoulderW','armLen','hipW','femurPct','ankleH','soleThk','wristGrip','hipAbove','hipFwd',
         'sitHeight','trunkLen','femurLen','tibiaLen','upperArm','foreArm','footLen','heelToMet','sitBoneW','weight','shExt',
@@ -2856,7 +2672,7 @@ const LBL={};
  [F_BODY_FOOT,'body'],[F_BODY_PELVIS,'body'],[F_BODY_HAND,'body'],[F_BODY_MISC,'body'],
  [F_FIT_HAND,'fit'],[F_FIT_MISC,'fit'],[F_STAND,'fit']]
  .forEach(([l,g])=>l.forEach(([k,lab])=>LBL[g+'.'+k]=lab));
-LBL['fit.torso']='Наклон корпуса'; LBL['fit.kneeTarget']='Целевой угол колена в НМТ'; LBL['bike.travel']='Ход вилки'; LBL['bike.sag']='SAG вилки';
+LBL['fit.torso']='Наклон корпуса'; LBL['fit.kneeTarget']='Целевой угол колена в НМТ'; LBL['bike.travel']=BikeFrame.label('travel'); LBL['bike.sag']=BikeFrame.label('sag');
 /* ===================== 11. журнал итераций ===================== */
 /* Снимок = хэш состояния (тот же формат, что в ссылке) + свободный текст ощущений.
    Хранение — localStorage, экспорт/импорт JSON (localStorage не общий между
@@ -2864,15 +2680,15 @@ LBL['fit.torso']='Наклон корпуса'; LBL['fit.kneeTarget']='Целе�
    тогда карточка «Что выставить» показывает отличия текущего железа от базы. */
 const JR_KEY='bikelab.journal.v1', JR_BASE='bikelab.journal.base';
 const JR={
-  read(){ if(!PS.ok) return []; try{ const a=JSON.parse(localStorage.getItem(JR_KEY)); return Array.isArray(a)?a:[]; }catch(e){ return []; } },
-  write(a){ if(!PS.ok) return false; try{ localStorage.setItem(JR_KEY,JSON.stringify(a)); return true; }catch(e){ return false; } },
-  base(){ if(!PS.ok) return null; try{ return +localStorage.getItem(JR_BASE)||null; }catch(e){ return null; } },
+  read(){ if(!BikePresets.ok) return []; try{ const a=JSON.parse(localStorage.getItem(JR_KEY)); return Array.isArray(a)?a:[]; }catch(e){ return []; } },
+  write(a){ if(!BikePresets.ok) return false; try{ localStorage.setItem(JR_KEY,JSON.stringify(a)); return true; }catch(e){ return false; } },
+  base(){ if(!BikePresets.ok) return null; try{ return +localStorage.getItem(JR_BASE)||null; }catch(e){ return null; } },
   setBase(t){ try{ t==null?localStorage.removeItem(JR_BASE):localStorage.setItem(JR_BASE,String(t)); }catch(e){} }
 };
 function jrBaseline(){ const t=JR.base(); return t?(JR.read().find(e=>e.t===t)||null):null; }
 function jrToast(m,bad){ const o=document.getElementById('jrok'); if(!o)return; o.textContent=m; o.style.color=bad?'#b3261e':'#0a7d33'; o.style.visibility='visible'; clearTimeout(jrToast._t); jrToast._t=setTimeout(()=>o.style.visibility='hidden',2600); }
 function jrAdd(){
-  if(!PS.ok){ jrToast('хранилище недоступно в этом браузере',true); return; }
+  if(!BikePresets.ok){ jrToast('хранилище недоступно в этом браузере',true); return; }
   const M=solveFit();
   const e={t:Date.now(), name:state.bike.name||'', note:document.getElementById('jrnote').value.trim(), h:stateToHash(),
     sum:`седло→ручка ${M.s2gX.toFixed(0)} · перепад ${M.s2gZ>0?'+':''}${M.s2gZ.toFixed(0)} · RAD ${M.rad.toFixed(0)} · седло ${M.satH.toFixed(0)} · вынос ${state.ck.stemLen}+${state.ck.spacers}пр · руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°/${state.ck.upsweep}°${M.load?' · ладони '+M.load.hPct.toFixed(0)+'%':''}`};
@@ -2883,7 +2699,7 @@ function jrAdd(){
 }
 function jrRender(){
   const box=document.getElementById('jrlist'); if(!box) return;
-  if(!PS.ok){ box.innerHTML='<div class="hint">Хранилище недоступно (часто на file://) — журнал между сессиями не сохранится.</div>'; return; }
+  if(!BikePresets.ok){ box.innerHTML='<div class="hint">Хранилище недоступно (часто на file://) — журнал между сессиями не сохранится.</div>'; return; }
   const a=JR.read(), bt=JR.base();
   box.innerHTML=a.length?a.map(e=>`
     <div style="border-top:1px dashed #ddd;padding:9px 0 7px">
@@ -3101,7 +2917,7 @@ const COLL={
      формы незачем, а второй ключ развёл бы две половины одного состояния. */
   read(){
     const empty={open:{},order:{}};
-    if(!PS.ok) return empty;
+    if(!BikePresets.ok) return empty;
     let o; try{ o=JSON.parse(localStorage.getItem(COLL_KEY)); }catch(e){}
     if(!o||typeof o!=='object') return empty;
     if(!o.open && !o.order) return {open:o, order:{}};      // самая первая форма: плоская карта раскрытия
@@ -3111,7 +2927,7 @@ const COLL={
     if(Array.isArray(o.order)) return {open, order:{results:o.order}};
     return {open, order:(o.order&&typeof o.order==='object')?o.order:{}};
   },
-  write(o){ if(!PS.ok) return false; try{ localStorage.setItem(COLL_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } },
+  write(o){ if(!BikePresets.ok) return false; try{ localStorage.setItem(COLL_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } },
   patch(fn){ const o=COLL.read(); fn(o); COLL.write(o); }
 };
 
@@ -3224,7 +3040,7 @@ function cardsBarInit(){
   });
 }
 /* Открытая в соседней вкладке страница — то же рабочее место. Пресеты уже
-   синхронизируются так же (см. обработчик ниже по PS_KEY). */
+   синхронизируются так же (обработчик storage в presets.js). */
 window.addEventListener('storage',e=>{
   if(e.key!==COLL_KEY) return;
   const saved=COLL.read();
@@ -3241,7 +3057,8 @@ window.addEventListener('storage',e=>{
 });
 
 hashToState();
-psSplitCk();          // старые пресеты кокпита -> руль / вынос / остальное
+{ const bn=document.getElementById('blockednote');
+  if(bn) bn.innerHTML=BikeFrame.HINTS.needFrontAxle+' Впиши одно из них в карточке «Рама» слева.'; }
 buildInputs();
 stCtlInit(); sdCtlInit();
 cardsBarInit();
