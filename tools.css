@@ -30,15 +30,11 @@
 .psrow .pspin[aria-pressed="true"]{color:#191919;background:#f1f1f1}
 .psrow .pspin[aria-pressed="true"] svg{fill:currentColor}
 .pshint{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.45}
-.psbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px}
-.psbar b{color:var(--mut);font-weight:500;margin-right:2px}
 .psrow select{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:12.5px;
   font-family:inherit;background:#fff;color:#191919;min-width:0;flex:1 1 120px}
 .psrow select:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
 .psrow button:disabled,.psrow select:disabled,.psbox .psname:disabled{opacity:.42;cursor:not-allowed}
-@media print{.psbox,.pshint,.psbar{display:none!important}}
-.presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px}
-.presets b{color:var(--mut);font-weight:500;margin-right:2px}
+@media print{.psbox,.pshint{display:none!important}}
 
 /* ---------- кнопки и тулбар ---------- */
 button{font-family:inherit;font-size:12.5px;padding:4px 10px;border:1px solid #d0d0d0;background:#fff;border-radius:6px;cursor:pointer}
@@ -47,6 +43,33 @@ button:hover{background:#f2f2f2}
 .toolbar button{padding:6px 13px;font-size:13px}
 .toolbar .primary{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
 .toolbar .primary:hover{background:#333}
+
+/* Выпадающий список в тулбаре: <details> с кнопкой-заголовком и списком под ней.
+   <details>, а не своя кнопка со скрытым блоком, — открывается без скрипта и
+   сам сообщает читалке экрана, раскрыт ли. Список плавает поверх страницы,
+   поэтому строка тулбара не растёт, пока он открыт. */
+.menu{position:relative;margin:0;font-size:13px}
+.menu > summary{list-style:none;display:flex;align-items:center;gap:8px;padding:6px 12px;
+  border:1px solid #d0d0d0;border-radius:6px;background:#fff;color:#191919;font-size:13px}
+.menu > summary::-webkit-details-marker{display:none}
+.menu > summary::after{content:'';width:6px;height:6px;border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;transform:rotate(45deg);margin:0 1px 3px}
+.menu > summary:hover,.menu[open] > summary{background:#f2f2f2}
+.menulist{position:absolute;top:calc(100% + 4px);left:0;z-index:20;min-width:100%;display:flex;flex-direction:column;
+  background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.1);padding:4px}
+.menulist button{border:none;text-align:left;white-space:nowrap;padding:7px 11px;font-size:13px;border-radius:5px}
+/* Меню с формой вместо списка команд — «Колесо» на сравнении: поле и таблица
+   подсказок. Ширина своя, а не по кнопке: таблица шире заголовка. */
+.menupanel{position:absolute;top:calc(100% + 4px);left:0;z-index:20;width:min(380px,calc(100vw - 32px));
+  background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.1);
+  padding:12px 14px;font-size:12.5px;line-height:1.5;color:#191919}
+.msum{color:var(--mut);font-variant-numeric:tabular-nums}
+
+/* Подтверждения «ссылка скопирована» и «импортировано» лежат друг на друге в
+   остатке строки тулбара. В потоке невидимые подписи переносились на телефоне
+   второй строкой и оставляли под кнопками пустую полосу. */
+.tbmsg{flex:1 1 0;min-width:0;align-self:stretch;position:relative}
+.tbmsg > span{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);line-height:1.3}
 
 /* Поле, без которого расчёт не идёт: рамка и фон, а под сеткой — объяснение.
    Подсветка, а не блокировка ввода: человек дописывает число, и всё оживает. */
@@ -77,6 +100,28 @@ button:hover{background:#f2f2f2}
 /* ---------- сворачиваемые блоки ---------- */
 summary{cursor:pointer;color:var(--mut);font-size:12.5px;user-select:none}
 details .grid{margin-top:8px}
+
+/* Сворачиваемая карточка: заголовок h3.cardtog — кнопка, содержимое в .cardbody.
+   Общее у Fit Lab (все карточки) и сравнения (карточки рам). Печать раскрывает
+   всё принудительно: свёрнутый блок не должен пропасть из распечатки, а именно
+   распечатку берут с собой к велосипеду.
+   Правила перенесены из fit-lab.html без изменений. Каскад от переезда не
+   сдвинулся: у всех селекторов здесь специфичность выше, чем у локального
+   .card h3 страниц, поэтому порядок подключения им безразличен. */
+.card > h3.cardtog{cursor:pointer;display:flex;align-items:center;gap:8px;margin:0;
+                   user-select:none;-webkit-user-select:none}
+.card > h3.cardtog:hover{color:#191919}
+/* Раскрытая карточка — галочка вниз, свёрнутая — вправо. Уголок нарисован
+   двумя бордюрами, поэтому «вниз» это поворот на 45°, а «вправо» на −45°;
+   нижний отступ компенсирует смещение оптического центра при повороте. */
+.card > h3.cardtog::before{content:'';width:8px;height:8px;flex:0 0 auto;border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;transform:rotate(45deg);margin:0 3px 4px 1px;transition:transform .12s}
+.card.closed > h3.cardtog::before{transform:rotate(-45deg);margin:0 2px 2px 2px}
+.card.closed > h3.cardtog{margin:0}
+.card > .cardbody{margin-top:10px}
+.card.closed > .cardbody{display:none}
+.card.closed{padding-top:13px;padding-bottom:13px}
+@media print{ .card > .cardbody{display:block!important} .card > h3.cardtog::before{display:none} }
 
 /* ---------- схемы ---------- */
 svg{width:100%;height:auto;display:block}

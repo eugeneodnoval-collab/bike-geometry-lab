@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Geometry Lab — сравнение геометрий</title>
+<title>Geometry lab — сравни две рамы MTB хардтейлов</title>
 <link rel="stylesheet" href="site.css?v=d77220fe">
-<link rel="stylesheet" href="tools.css?v=13c05704">
+<link rel="stylesheet" href="tools.css?v=cfccfee0">
 <style>
 
 /* ---- раскладка ----
@@ -15,7 +15,9 @@
              clamp(330,25%,500) даёт ровно 25% в диапазоне ~1360–2040 px,
              ниже упирается в 330 (минимум для полей ввода), выше — в 500. */
 
-@media(min-width:760px){.cols{grid-template-columns:1fr 1fr}}
+/* align-items:start — свёрнутая карточка рамы не должна растягиваться по высоте
+   развёрнутой соседки, когда они стоят рядом */
+@media(min-width:760px){.cols{grid-template-columns:1fr 1fr;align-items:start}}
 @media(min-width:1160px){
   .layout{grid-template-columns:clamp(330px,25%,500px) 1fr}
   .cols{grid-template-columns:1fr}
@@ -23,9 +25,24 @@
 }
 #chart svg{margin:0 auto}
 
-.bikehead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.dotc{width:12px;height:12px;border-radius:50%}
-.bikename{font-weight:650;font-size:15px;border:none;background:transparent;width:100%;padding:2px 0;color:inherit;font-family:inherit}
+/* Заголовок карточки рамы — «Рама 1», цветом рамы на схеме. Свёрнутая карточка
+   дописывает к нему название: одной строки хватает, чтобы понять, какая рама
+   где, а в развёрнутой название стоит в своём поле ниже и дважды не нужно. */
+.bikecard{min-width:0}   /* иначе колонка сетки растёт по неразрывному названию и карточка вылезает за экран */
+.bikecard > h3{font-size:15px;font-weight:650;color:inherit;min-width:0}
+.bikecard > h3.cardtog:hover{color:inherit;opacity:.8}
+/* хвост с названием внутри того же span, что и «Рама 1»: у заголовка flex с gap,
+   и отдельный элемент получил бы пробел перед двоеточием */
+.bikettl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.bikesum{font-weight:500}
+.bikecard:not(.closed) .bikesum{display:none}
+
+/* Название — обычное поле с подписью и рамкой. Раньше это был текст без рамки
+   прямо в шапке карточки, и в нём не угадывалось, что его можно править. */
+.namefield{display:flex;align-items:center;gap:10px;font-size:13px;color:#333;margin-bottom:10px}
+.namefield input{flex:1;min-width:0;padding:5px 8px;border:1px solid #d5d5d5;border-radius:5px;
+  font-size:14px;font-weight:600;font-family:inherit;color:#191919}
+.namefield input:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
 
 .grid input[type=number]{width:88px;padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:13px;text-align:right;font-family:inherit}
 .grid input:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
@@ -55,7 +72,7 @@ table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:
 @media print{
   @page{ size:A4 landscape; margin:10mm }
   body{padding:0;background:#fff;font-size:11px}
-  .toolbar,.presets,#inputs,details,.warn{display:none !important}
+  .toolbar,#inputs,details,.warn{display:none !important}
   .printonly{display:block}
   .layout{display:block}
   .panel{position:static;max-height:none;overflow:visible}
@@ -70,6 +87,32 @@ table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:
   .note{font-size:8.5px}
   .prturl{font-size:8px;color:#999;word-break:break-all;margin-top:6px}
 }
+/* ---- «Что это за рамы» ----
+   Две колонки цветом рам, на узком экране одна под другой. Строка параметра —
+   подпись слева, число и слово справа, пояснение мелко под ними. Пояснение,
+   одинаковое у обеих рам, уходит в блок «У обеих» и дважды не повторяется. */
+.profh{margin:0 0 12px;font-size:15px;font-weight:650}
+.prof{display:grid;gap:18px 26px}
+@media(min-width:620px){.prof{grid-template-columns:1fr 1fr}}
+.pcol{min-width:0}
+.pttl{font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pstyle{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;margin:6px 0 3px;color:#191919}
+.pstyle.pdisp{color:#8a5a00}
+.pedge{display:block;font-size:12px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--mut);margin-top:1px}
+.ppur{font-size:13px;line-height:1.5;color:#333}
+.pbase{font-size:11.5px;color:var(--mut);margin:4px 0 8px}
+.prow{display:grid;grid-template-columns:112px 1fr;gap:0 10px;font-size:12.5px;padding:6px 0;border-top:1px solid #f0f0f0;margin:0}
+.prow dt{color:var(--mut)}
+.prow dd{margin:0;min-width:0;font-variant-numeric:tabular-nums}
+.pw{font-weight:600}
+.px{color:var(--mut);font-size:11.5px;line-height:1.45;margin-top:1px}
+.pnote{font-size:12px;line-height:1.45;color:#8a5a00;margin-top:8px}
+.pboth{margin-top:16px;padding-top:10px;border-top:1px dashed #ddd;font-size:12.5px;line-height:1.5}
+.pboth b{font-weight:650}
+.pboth div{margin-top:3px}
+.pfoot{font-size:11.5px;color:var(--mut);line-height:1.55;margin-top:14px}
+@media print{#profcard{page-break-inside:avoid}}
+
 .warn{font-size:12.5px;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:8px 10px;margin-top:10px;display:none}
 
 </style>
@@ -105,15 +148,41 @@ window.goatcounter.path = function(){
 </head>
 <body>
 
-<script src="nav.js?v=8c0f459d"></script>
+<script src="nav.js?v=fe891a9a"></script>
 
-<h1>Geometry Lab — наложение геометрий хардтейлов</h1>
-<div class="sub">Колёса на общей земле, задние оси совмещены. Видно, как расходятся перья, куда уезжает каретка и где стоят пятна контакта передних колёс. Меняй любое число — схема пересчитывается на лету.</div>
+<h1>Geometry lab — сравни две рамы MTB хардтейлов</h1>
+<div class="sub">Посмотри различия на схеме, проверь геометрию на соответствие вилке, узнай назначение рамы</div>
 
 <div class="toolbar">
-  <button class="primary" onclick="doPrint()">Сохранить в PDF</button>
-  <button onclick="copyLink()">Скопировать ссылку с параметрами</button>
-  <span class="ok" id="copyok" style="visibility:hidden">ссылка скопирована</span>
+  <!-- Колесо — в тулбаре, а не над карточками рам: радиус один на обе рамы, и
+       без лишнего блока сверху панель ввода начинается вровень со схемой. -->
+  <details class="menu">
+    <summary>Колесо <span class="msum" id="wrsum"></span></summary>
+    <div class="menupanel">
+      <div class="grid" style="max-width:300px"><label>Радиус колеса, мм</label><input type="number" step="1" id="wr"></div>
+      <div class="note" id="wrhint"></div>
+    </div>
+  </details>
+  <details class="menu">
+    <summary>Поделиться</summary>
+    <div class="menulist">
+      <button type="button" onclick="doPrint()">Сохранить в PDF</button>
+      <button type="button" onclick="copyLink()">Скопировать ссылку</button>
+    </div>
+  </details>
+  <details class="menu">
+    <summary>Пресеты</summary>
+    <div class="menulist">
+      <button type="button" onclick="BikePresets.exportFile()">Скачать в файл</button>
+      <button type="button" onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
+    </div>
+  </details>
+  <input type="file" id="psfile" accept=".json,application/json" style="display:none"
+         onchange="if(this.files[0])BikePresets.importFile(this.files[0]);this.value=''">
+  <span class="tbmsg">
+    <span class="ok" id="copyok" style="visibility:hidden">ссылка скопирована</span>
+    <span class="ok" id="psok" style="visibility:hidden"></span>
+  </span>
 </div>
 
 <div class="printonly" id="printhead"></div>
@@ -121,23 +190,17 @@ window.goatcounter.path = function(){
 <div class="layout">
 <aside class="panel">
 
-<div class="presets">
-  <div class="psbar">
-    <b>Пресеты:</b>
-    <button onclick="BikePresets.exportFile()">Скачать в файл</button>
-    <button onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
-    <input type="file" id="psfile" accept=".json,application/json" style="display:none"
-           onchange="if(this.files[0])BikePresets.importFile(this.files[0]);this.value=''">
-    <span class="ok" id="psok" style="visibility:hidden"></span>
-  </div>
-</div>
-
 <div class="cols" id="inputs"></div>
 
 </aside>
 <main class="results">
 
 <div class="card"><div id="chart"></div></div>
+
+<div class="card" id="profcard">
+  <h3 class="profh">Что это за рамы</h3>
+  <div id="profile"></div>
+</div>
 
 <div class="card">
   <div id="table"></div>
@@ -149,6 +212,9 @@ window.goatcounter.path = function(){
 </div>
 
 <script src="model.js?v=fe050aac"></script>
+<script src="cockpit.js?v=e26f6d23"></script>
+<script src="rider.js?v=15e4c776"></script>
+<script src="profile.js?v=03ad84b4"></script>
 <script src="frame.js?v=ee21854d"></script>
 <script src="presets.js?v=81fd17a7"></script>
 <script>
@@ -244,7 +310,7 @@ function render(){
   }).filter(Boolean);
   if(!shifted.length){
     document.getElementById('chart').innerHTML = `<div class="needmsg">${BikeFrame.HINTS.needFrontAxle}</div>`;
-    buildTable(S); syncHash();
+    buildTable(S); buildProfile(); syncHash();
     return;
   }
 
@@ -343,6 +409,7 @@ function render(){
     + ` style="width:100%;height:auto;max-width:calc(80vh * ${ratio})">${head}${g}</svg>`;
 
   buildTable(S);
+  buildProfile();
   syncHash();
 }
 
@@ -412,13 +479,103 @@ function buildTable(S){
   else w.style.display='none';
 
   document.getElementById('note').innerHTML =
-   `Радиус колеса ${state.wheelR} мм — задаётся в общих настройках, 26 / 27.5 / 29 считаются одинаково корректно. Вилка выводится из введённой геометрии: её длина вдоль оси рулевой и офсет считаются из паспортных reach / stack / HTA / BB drop / базы,
+   `Радиус колеса ${state.wheelR} мм — задаётся в меню «Колесо» над страницей, 26 / 27.5 / 29 считаются одинаково корректно. Вилка выводится из введённой геометрии: её длина вдоль оси рулевой и офсет считаются из паспортных reach / stack / HTA / BB drop / базы,
     поэтому при базовом ходе цифры точно совпадают с паспортом. Изменение хода удлиняет вилку вдоль оси рулевой, рама поворачивается вокруг задней оси до касания земли передним колесом.
     <b>SAG</b> — просадка вилки под весом райдера в % от хода. Паспортная геометрия измерена с разжатой вилкой, поэтому при 0% таблица совпадает с паспортом,
     а при 25% ты видишь рабочую геометрию хардтейла под райдером: сзади жёстко, спереди вилка села, рама доворачивается носом вниз вокруг задней оси.
     Для хардтейла это полная модель — других степеней свободы нет. Эффективная верхняя труба — горизонталь на высоте стека до линии подседельной трубы (производители меряют её по-разному).
-    Длина по колёсам = колёсная база + два радиуса колеса; при покрышке шире/уже поменяй радиус в общих настройках. Реальная погрузочная длина будет на 20–40 мм больше за счёт покрышки и грязевика.
+    Длина по колёсам = колёсная база + два радиуса колеса; при покрышке шире/уже поменяй радиус в меню «Колесо». Реальная погрузочная длина будет на 20–40 мм больше за счёт покрышки и грязевика.
     <br><b>Важно про радиус:</b> он один на обе рамы и на оба колеса. Сравнивать 29 с 27.5 можно — reach, stack, углы и база верны для обеих, — но высота каретки, трейл и габарит будут посчитаны по одному радиусу. Маллет (разные колёса спереди и сзади) модель не выражает вовсе: обе оси принудительно стоят на высоте BB drop. Подробности — <a href="help.html#limits" style="color:inherit">в разделе об ограничениях</a>.`;
+}
+
+/* ================= что это за рамы ================= */
+/* Слова и пороги — в profile.js, общие и прогоняемые регрессом (блок prof|);
+   здесь только вёрстка. Профиль описывает паспорт с текущей вилкой без sag:
+   каталожные диапазоны сняты так же, а слайдер sag двигает только схему и
+   таблицу. Перебор каталога кокпита для «подходит от» — полторы тысячи
+   вызовов солвера, поэтому ответ запоминается, пока рама и колесо те же:
+   render() зовётся на каждое нажатие клавиши в любом поле. */
+const PROF_MEMO = [{key:null,val:null},{key:null,val:null}];
+function profileOf(i){
+  const {sag, name, ...geo} = state.bikes[i];   // ни sag, ни название на профиль не влияют
+  const key = JSON.stringify([geo, state.wheelR]), m = PROF_MEMO[i];
+  if(m.key !== key){ m.key = key; m.val = BikeProfile.describe(geo, state.wheelR); }
+  return m.val;
+}
+
+/* Строки одной рамы: подпись, число, слово, пояснение. key связывает строки
+   двух рам: одинаковое пояснение показывается один раз, в блоке «У обеих». */
+function profRows(d){
+  const r = Math.round, rows = [], x = d.num, S = BikeProfile.STYLES;
+  if(d.size){
+    /* Рост по reach показывается как есть; что типичный для стиля дроппер
+       поднимает его нижнюю границу — в подписи. Сама граница и три штыря —
+       строкой «Подседельная». */
+    const z = d.size, seat = d.seat, T = seat && seat.drops[0];
+    const lift = !seat || !seat.raises ? ''
+               : `типичный для стиля дроппер поднимает нижнюю границу до ${r(T.min)} см`
+                 + (seat.raises===2 ? ' — выше всего диапазона по reach: рама коротка по длине и высока по подседельной' : '');
+    rows.push({key:'size', label:'Размер по reach', val:z.name, word:`рост ~${r(z.lo)}–${r(z.hi)} см`,
+      text:[z.scale==='fs' ? 'по шкале двухподвесов' : '', lift].filter(Boolean).join('; ')});
+    if(seat) rows.push({key:'seat', label:'Подседельная', val:`${r(seat.st)} мм`,
+      word:`с жёстким штырём подходит от ${r(seat.rigid.min)} см, inseam от ${r(seat.rigid.inseam)} см`,
+      text:seat.drops.map(x=>`с дроппером ${x.drop} мм — от ${r(x.min)} см, inseam от ${r(x.inseam)} см`).join('<br>')});
+    for(const [s,k] of [['m','муж'],['f','жен']]){
+      const R = d.rad[s];
+      rows.push({key:'rad'+s, label:`По RAD, ${k} ${BikeProfile.RADMULT[s].toFixed(2)}`,
+        val:`~${r(R.lo)}–${r(R.hi)} см`, word:`подходит от ${r(R.min)} см`, text:''});
+    }
+  } else rows.push({key:'size', label:'Размер', val:'по таблице производителя', word:'',
+    text:'reach у таких рам мал, длину добирают выносом — рост по reach не читается'});
+  rows.push({key:'travel', label:'Ход вилки', val:`${x.travel} мм`,
+    word: d.travel ? S[d.travel.style].name : 'не учитывается',
+    text: d.travel ? d.travel.text : 'у гравийных и городских рам вилка обычно жёсткая'});
+  rows.push({key:'hta', label:'Угол рулевой', val:`${x.hta.toFixed(1)}°`, word:S[d.hta.style].name, text:d.hta.text});
+  rows.push({key:'posture', label:'Посадка', val:`stack/reach ${x.srN.toFixed(2)}`, word:d.posture.word, text:d.posture.text});
+  rows.push({key:'cs', label:'Перья', val:`${x.cs.toFixed(0)} мм`, word:d.cs.word, text:d.cs.text});
+  rows.push({key:'wb', label:'База', val:`${x.wb.toFixed(0)} мм`, word:d.wb.word,
+    text: d.wb.text + (d.wb.vsTyp<0 ? '; живее типичной для этого стиля' : d.wb.vsTyp>0 ? '; устойчивее типичной для этого стиля' : '')});
+  return rows;
+}
+
+function buildProfile(){
+  const host = document.getElementById('profile');
+  if(!host) return;
+  const D = state.bikes.map((b,i)=>BikeModel.hasFrontAxle(b) ? profileOf(i) : null);
+  const R = D.map(d=>d ? profRows(d) : null);
+  // пояснение, одинаковое у обеих рам, уходит вниз одной строкой
+  const shared = new Set(), both = [];
+  if(R[0] && R[1]) for(const a of R[0]){
+    const b = R[1].find(x=>x.key===a.key);
+    if(b && a.text && a.text===b.text && a.word===b.word){ shared.add(a.key); both.push(`<b>${a.label}</b> — ${a.word ? a.word+': ' : ''}${a.text}`); }
+  }
+  const sharedNotes = D[0] && D[1] ? D[0].notes.filter(n=>D[1].notes.some(m=>m.key===n.key)).map(n=>n.key) : [];
+  sharedNotes.forEach(k=>both.push(D[0].notes.find(n=>n.key===k).text));
+
+  const col = (d,i)=>{
+    const b = state.bikes[i], color = i ? 'var(--c2)' : 'var(--c1)';
+    const head = `<div class="pttl" style="color:${color}">Рама ${i+1}${(b.name||'').trim() ? ': '+esc(b.name.trim()) : ''}</div>`;
+    if(!d) return `<div class="pcol">${head}<div class="ppur" style="margin-top:6px">—<br><span class="px">${BikeFrame.HINTS.needFrontAxle}</span></div></div>`;
+    const st = d.style;
+    const edge = st.edgeName ? `<span class="pedge">на границе с «${st.edgeName}»</span>` : '';
+    const rows = R[i].map(x=>`<dl class="prow"><dt>${x.label}</dt><dd><span>${x.val}</span>${x.word ? ` · <span class="pw">${x.word}</span>` : ''}`
+      + (x.text && !shared.has(x.key) ? `<div class="px">${x.text}</div>` : '') + '</dd></dl>').join('');
+    const notes = d.notes.filter(n=>!sharedNotes.includes(n.key)).map(n=>`<div class="pnote">${n.text}</div>`).join('');
+    return `<div class="pcol">${head}
+      <div class="pstyle${st.kind==='dispute' ? ' pdisp' : ''}">${st.name}${edge}</div>
+      <div class="ppur">${st.purpose}</div>
+      <div class="pbase">паспорт${d.travel ? ` с вилкой ${d.num.travel} мм` : ''}, без sag</div>
+      ${rows}${notes}</div>`;
+  };
+  host.innerHTML = `<div class="prof">${D.map(col).join('')}</div>`
+    + (both.length ? `<div class="pboth"><div style="color:var(--mut)">У обеих рам</div>${both.map(t=>`<div>${t}</div>`).join('')}</div>` : '')
+    + `<div class="pfoot">Рост — три ориентира. Размер по reach — по таблицам производителей 2025–2026, у хардтейлов и двухподвесов шкалы разные.
+       Подседельная — с какого роста седло опускается так, что колено внизу хода педали не разогнуто сверх здорового (152°, как в Fit Lab): с жёстким штырём, с дроппером типичного для стиля хода и на 25 мм короче.
+       RAD — альтернативная усреднённая методика Маккормака: RAD = рост × множитель; диапазон — с типичным для стиля кокпитом,
+       «подходит от» — с самым низким и близким кокпитом из каталога Fit Lab, ниже этого роста рама велика при любом кокпите.
+       Посадка здесь — рамы, без кокпита: вынос, руль и проставки двигают руль сильнее, чем различаются большинство рам.
+       Точный ответ по твоим меркам — в Fit Lab, кнопка «Открыть в Fit Lab» в карточке рамы.
+       Откуда диапазоны и чего описание не знает — <a href="help.html#profile" style="color:inherit">в справке</a>.</div>`;
 }
 
 /* ================= интерфейс ================= */
@@ -426,7 +583,7 @@ function buildTable(S){
    общие с Fit Lab. Карточка рамы здесь стоит так же, как там: сетка паспорта,
    слайдеры, «Проверка вилки», «Замена вилки». Своё у этой страницы — цвет рамы,
    два слота и кнопка переноса в Fit Lab. Радиус колеса один на обе рамы и живёт
-   в общих настройках, а не в карточке. */
+   в меню «Колесо» тулбара, а не в карточке. */
 // поле ввода рамы: четвёртый элемент кортежа — подсказка в пустом поле
 const numInput = (i,b,[k,l,st,ph],def) =>
   `<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]??''}" placeholder="${ph||def}">`;
@@ -439,15 +596,32 @@ const slider = (i,b,k,id) => { const d=BikeFrame.SLIDERS[k];
 
 function esc(s){return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
 
+/* Свёрнута ли карточка рамы — помнится между заходами. Ключ свой, а не общий
+   с Fit Lab (bikelab.cards.v1): у того своя история форм с переносом старых,
+   и чужие id в нём ничего не дали бы, кроме связности двух страниц. Нет
+   хранилища — карточки просто раскрыты при каждом заходе. */
+const BIKEOPEN_KEY='bikelab.geo.open.v1';
+const bikeOpen=(()=>{
+  try{ const o=JSON.parse(localStorage.getItem(BIKEOPEN_KEY));
+       if(Array.isArray(o)) return [o[0]!==false, o[1]!==false]; }catch(e){}
+  return [true,true];
+})();
+function bikeOpenSave(){ try{ localStorage.setItem(BIKEOPEN_KEY, JSON.stringify(bikeOpen)); }catch(e){} }
+// хвост заголовка свёрнутой карточки: «Рама 1: Outleap Warhog L 2025»
+const bikeSum = b => (b.name||'').trim() ? ': '+esc(b.name.trim()) : '';
+
 function buildInputs(){
   const host = document.getElementById('inputs');
   host.innerHTML = state.bikes.map((b,i)=>`
-   <div class="card" style="color:${i?'var(--c2)':'var(--c1)'}">
-     <div class="bikehead">
-       <div class="dotc" style="background:currentColor"></div>
-       <input class="bikename" data-i="${i}" data-k="name" value="${esc(b.name)}">
-     </div>
-     ${BikePresets.rowHTML('geo',i,'Сохраняется под именем рамы, вписанным выше. Имя уже есть — запись обновится.')}
+   <div class="card bikecard${bikeOpen[i]?'':' closed'}" style="color:${i?'var(--c2)':'var(--c1)'}">
+     <h3 class="cardtog" role="button" tabindex="0" data-i="${i}" aria-expanded="${bikeOpen[i]}">
+       <span class="bikettl">Рама ${i+1}<span class="bikesum" id="bs${i}">${bikeSum(b)}</span></span>
+     </h3>
+     <div class="cardbody">
+     <label class="namefield">Название
+       <input data-i="${i}" data-k="name" value="${esc(b.name)}" placeholder="например, модель и размер">
+     </label>
+     ${BikePresets.rowHTML('geo',i,'Сохраняется под названием, вписанным выше. Такое уже есть — запись обновится.')}
      <div class="grid" style="color:#191919">
        ${BikeFrame.GRID.map(f=>numInput(i,b,f,'')).join('')}
      </div>
@@ -476,12 +650,23 @@ function buildInputs(){
        <button class="tofit" onclick="openInFit(${i})">Открыть в Fit Lab ↗</button>
        <span class="hoff">геометрия уедет как есть — вводить заново не надо</span>
      </div>
+     </div>
    </div>`).join('');
+
+  host.querySelectorAll('.bikecard > h3').forEach(h=>{
+    const toggle=()=>{
+      const i=+h.dataset.i, now=!h.parentNode.classList.toggle('closed');
+      h.setAttribute('aria-expanded', now);
+      bikeOpen[i]=now; bikeOpenSave();
+    };
+    h.addEventListener('click',toggle);
+    h.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+  });
 
   host.querySelectorAll('input').forEach(el=>{
     el.addEventListener('input', e=>{
       const i=+el.dataset.i, k=el.dataset.k;
-      if(k==='name') state.bikes[i].name = el.value;
+      if(k==='name'){ state.bikes[i].name = el.value; document.getElementById('bs'+i).textContent = bikeSum(state.bikes[i]); }
       else if(el.value==='') state.bikes[i][k] = null;
       else state.bikes[i][k] = parseFloat(el.value);
       if(k==='travel') document.getElementById('tv'+i).textContent = el.value+BikeFrame.SLIDERS.travel.unit;
@@ -533,7 +718,7 @@ function markFrontAxle(){
 /* ==================== пресеты ====================
    Хранилище, импорт, экспорт и строка пресета — общие, в presets.js. Здесь
    только своё: пресет рамы собирается из карточки своего слота и в неё же
-   раскладывается, а имя пресета — это имя рамы в шапке карточки. */
+   раскладывается, а имя пресета — это название рамы в карточке. */
 // встроенные: по умолчанию закреплены вверху списка, удалить можно (presets.js)
 const BUILTIN={
   geo: Object.fromEntries(Object.values(PRESETS).map(b=>[b.name, BikePresets.pick('geo',{...b,wheelR:368})]))
@@ -671,22 +856,22 @@ const WHEEL_HINT = (()=>{
    + 'Точнее — обмерь покрышку ниткой по кругу и подели на 6.28. Значение одно на обе рамы и на оба колеса.';
 })();
 
-// глобальные настройки колеса
-(function(){
-  const d = document.createElement('details');
-  d.innerHTML = `<summary style="margin:-6px 0 12px">Общие настройки (колесо)</summary>
-    <div class="card" style="margin-top:8px"><div class="grid" style="max-width:340px">
-      <label>Радиус колеса, мм</label><input type="number" step="1" id="wr" value="${state.wheelR}">
-    </div>
-    <div class="note">${WHEEL_HINT}</div></div>`;
-  document.querySelector('.presets').after(d);
-  d.querySelector('#wr').addEventListener('input',e=>{ state.wheelR = parseFloat(e.target.value)||368; render(); });
-})();
+/* Колесо — меню тулбара. Радиус виден на самой кнопке: он один на обе рамы и
+   двигает высоту каретки, трейл и габарит, поэтому должен читаться без
+   раскрытия меню. Поведение меню (закрыться мимо, по Escape) — в nav.js. */
+document.getElementById('wrhint').innerHTML = WHEEL_HINT;
+function wheelSync(){
+  const w = document.getElementById('wr');
+  if(w && document.activeElement !== w) w.value = state.wheelR;
+  document.getElementById('wrsum').textContent = 'R ' + state.wheelR;
+}
+document.getElementById('wr').addEventListener('input', e=>{
+  state.wheelR = parseFloat(e.target.value)||368; wheelSync(); render();
+});
 
 // восстановление из ссылки при загрузке
 hashToState();
-const wrEl = document.getElementById('wr');
-if(wrEl) wrEl.value = state.wheelR;
+wheelSync();
 
 buildInputs();
 render();
@@ -694,7 +879,7 @@ render();
 // переход по другой ссылке в том же окне
 window.addEventListener('hashchange', ()=>{
   if(location.hash !== stateToHash() && hashToState()){
-    const w = document.getElementById('wr'); if(w) w.value = state.wheelR;
+    wheelSync();
     buildInputs(); render();
   }
 });

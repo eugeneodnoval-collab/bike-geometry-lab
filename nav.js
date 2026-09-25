@@ -15,6 +15,9 @@
   для статей это осознанная уступка ради одного места правки.
 
   Стили берутся из .nav на самой странице — здесь только разметка.
+
+  Второй, отдельный блок в конце — поведение выпадающих меню тулбара: оно общее
+  у страниц с расчётами, а nav.js и так стоит на каждой странице первым.
 */
 (function () {
   'use strict';
@@ -60,4 +63,26 @@
   var s = document.currentScript;
   if (s) s.insertAdjacentHTML('afterend', html);
   else document.write(html);   // страховка на случай очень старого браузера
+})();
+
+/* Выпадающие меню тулбара — это <details class="menu">: открываются и
+   закрываются сами, без скрипта. Здесь только то, чего <details> не умеет:
+   закрыться по клику мимо, после выбора пункта списка, когда открыли соседнее,
+   и по Escape. Клик внутри панели с полем ввода («Колесо») меню не закрывает —
+   иначе в поле не попасть. Обработчики на document, поэтому им всё равно,
+   когда страница построит свой тулбар. На страницах без меню они ничего не
+   находят и ничего не делают. */
+(function () {
+  'use strict';
+  document.addEventListener('click', function (e) {
+    document.querySelectorAll('details.menu[open]').forEach(function (m) {
+      if (!m.contains(e.target) || e.target.closest('.menulist button')) m.open = false;
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('details.menu[open]').forEach(function (m) {
+      m.open = false; m.querySelector('summary').focus();
+    });
+  });
 })();

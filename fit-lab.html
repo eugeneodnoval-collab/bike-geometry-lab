@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fit Lab — райдер на геометрии</title>
 <link rel="stylesheet" href="site.css?v=d77220fe">
-<link rel="stylesheet" href="tools.css?v=13c05704">
+<link rel="stylesheet" href="tools.css?v=cfccfee0">
 <style>
 
 .card h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:600}
@@ -68,26 +68,10 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .subh{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;font-weight:600;margin:14px 0 7px;padding-top:11px;border-top:1px dashed #ddd}
 .lg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:9px}
 
-/* ---- сворачивание карточек результатов ----
-   Заголовок карточки становится кнопкой, всё остальное её содержимое уезжает в
-   .cardbody. Разметку карточек это не трогает: обёртку строит collapseInit() при
-   загрузке, поэтому новая карточка получает сворачивание сама, без правок здесь.
-   Печать раскрывает всё принудительно: свёрнутый блок не должен пропасть из
-   распечатки, а именно распечатку берут с собой к велосипеду. */
-.card > h3.cardtog{cursor:pointer;display:flex;align-items:center;gap:8px;margin:0;
-                   user-select:none;-webkit-user-select:none}
-.card > h3.cardtog:hover{color:#191919}
-/* Раскрытая карточка — галочка вниз, свёрнутая — вправо. Уголок нарисован
-   двумя бордюрами, поэтому «вниз» это поворот на 45°, а «вправо» на −45°;
-   нижний отступ компенсирует смещение оптического центра при повороте. */
-.card > h3.cardtog::before{content:'';width:8px;height:8px;flex:0 0 auto;border-right:2px solid currentColor;
-  border-bottom:2px solid currentColor;transform:rotate(45deg);margin:0 3px 4px 1px;transition:transform .12s}
-.card.closed > h3.cardtog::before{transform:rotate(-45deg);margin:0 2px 2px 2px}
-.card.closed > h3.cardtog{margin:0}
-.card > .cardbody{margin-top:10px}
-.card.closed > .cardbody{display:none}
-.card.closed{padding-top:13px;padding-bottom:13px}
-@media print{ .card > .cardbody{display:block!important} .card > h3.cardtog::before{display:none} }
+/* ---- сворачивание карточек ----
+   Вид заголовка-переключателя общий со сравнением геометрий — в tools.css.
+   Обёртку .cardbody строит collapseInit() при загрузке, поэтому новая карточка
+   получает сворачивание сама, без правок здесь. */
 
 /* ---- режим перестановки ----
    Отдельного экрана нет: в режиме у карточек прячется содержимое, и правая
@@ -170,7 +154,7 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 @media print{
   @page{size:A4 portrait;margin:10mm}
   body{padding:0;background:#fff;font-size:11px}
-  .toolbar,.presets,#inputs,details,.noprint{display:none!important}
+  .toolbar,#inputs,details,.noprint{display:none!important}
   .printonly{display:block}
   .layout{display:block}
   .panel{position:static;max-height:none;overflow:visible}
@@ -221,34 +205,42 @@ window.goatcounter.path = function(){
 </head>
 <body>
 
-<script src="nav.js?v=8c0f459d"></script>
+<script src="nav.js?v=fe891a9a"></script>
 
 <h1>Fit Lab — райдер на геометрии</h1>
 <div class="sub">Считает, где именно окажутся седло и ручки руля, и в какую позу это поставит человека с заданными пропорциями. Рама решается под ход вилки и sag, кокпит — цепочкой от рулевого стакана до центра хвата, тело — обратной кинематикой от контактных точек. Свободная степень одна: наклон корпуса. Её задаёшь ты, всё остальное считается.</div>
 
+<!-- Тулбар как на сравнении геометрий: «Поделиться» и «Пресеты» — выпадающие
+     меню (стили в tools.css, поведение в nav.js), порядок блоков — кнопка. -->
 <div class="toolbar">
-  <button class="primary" onclick="doPrint()">Сохранить в PDF</button>
-  <button onclick="copyLink()">Скопировать ссылку с параметрами</button>
+  <details class="menu">
+    <summary>Поделиться</summary>
+    <div class="menulist">
+      <button type="button" onclick="doPrint()">Сохранить в PDF</button>
+      <button type="button" onclick="copyLink()">Скопировать ссылку</button>
+    </div>
+  </details>
+  <details class="menu">
+    <summary>Пресеты</summary>
+    <div class="menulist">
+      <button type="button" onclick="BikePresets.exportFile()">Скачать в файл</button>
+      <button type="button" onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
+    </div>
+  </details>
+  <input type="file" id="psfile" accept=".json,application/json" style="display:none"
+         onchange="if(this.files[0])BikePresets.importFile(this.files[0]);this.value=''">
   <button id="cardsedit" type="button">Настроить порядок блоков</button>
   <button id="cardsreset" type="button" hidden>Вернуть исходный</button>
-  <span class="okmsg" id="copyok" style="visibility:hidden">ссылка скопирована</span>
+  <span class="tbmsg">
+    <span class="okmsg" id="copyok" style="visibility:hidden">ссылка скопирована</span>
+    <span class="okmsg" id="psok" style="visibility:hidden"></span>
+  </span>
 </div>
 
 <div class="printonly" id="printhead"></div>
 
 <div class="layout">
 <aside class="panel">
-
-<div class="presets">
-  <div class="psbar">
-    <b>Пресеты:</b>
-    <button onclick="BikePresets.exportFile()">Скачать в файл</button>
-    <button onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
-    <input type="file" id="psfile" accept=".json,application/json" style="display:none"
-           onchange="if(this.files[0])BikePresets.importFile(this.files[0]);this.value=''">
-    <span class="okmsg" id="psok" style="visibility:hidden"></span>
-  </div>
-</div>
 
 <div class="cols" id="inputs"></div>
 
@@ -388,6 +380,8 @@ window.goatcounter.path = function(){
 </div>
 
 <script src="model.js?v=fe050aac"></script>
+<script src="cockpit.js?v=e26f6d23"></script>
+<script src="rider.js?v=15e4c776"></script>
 <script src="frame.js?v=ee21854d"></script>
 <script src="presets.js?v=81fd17a7"></script>
 <script>
@@ -480,46 +474,12 @@ function forkCheck(b){
 }
 
 /* ===================== 2. кокпит ===================== */
-/* Цепочка: верх стакана -> чашка рулевой -> проставки -> центр обхвата выноса
-   -> вынос -> центр руля -> отгиб -> центр хвата.
-   Ключевое: угол выноса задан от ПЕРПЕНДИКУЛЯРА к штоку.
-   Подъём от горизонта = (90 - HTA) + угол выноса. */
-/* Второй аргумент — набор параметров кокпита. Без него берётся введённый
-   пользователем: так работали все вызовы до появления перебора конфигураций
-   (§5b), и поведение для них не изменилось ни на разряд. Явный аргумент нужен
-   только конверту, который прогоняет через ту же цепочку сотни вариантов
-   железа, не трогая состояние страницы. */
-function solveCockpit(F, ck){
-  const c=ck||state.ck, hta=rad(F.hta), ht=F.P.htTop;
-  const up=[-Math.cos(hta),0,Math.sin(hta)];
-  const h=c.headsetStack+c.spacers+c.stemClampH/2;
-  const steer=[ht[0]+up[0]*h, 0, ht[1]+up[2]*h];
-  const sa=c.stemFlip? -c.stemAngle : c.stemAngle;
-  const elev=(90-F.hta)+sa;
-  const bar=[steer[0]+Math.cos(rad(elev))*c.stemLen, 0, steer[2]+Math.sin(rad(elev))*c.stemLen];
-  const L=c.barWidth/2-c.gripInset;            // центр хвата от центра руля, поперёк
-  const s=Math.max(L-c.riserBendHalf,0);
-  const bs=rad(c.backsweep), us=rad(c.upsweep);
-  // смещение ручки от центра руля до поворота руля в обхвате
-  let d=[ -s*Math.sin(bs)*Math.cos(us), c.riserBendHalf+s*Math.cos(bs)*Math.cos(us), c.barRise+s*Math.sin(us) ];
-  /* Поворот вокруг поперечной оси, два слагаемых:
-     barRoll — как ты провернул руль в обхвате, выставляя его на СТОЯЩЕМ велосипеде;
-     pitchSag — доворот рамы под просадкой вилки. Руль закреплён на раме жёстко,
-     поэтому клюёт вперёд вместе с ней; без этого члена он вёл бы себя так, будто
-     подвешен в кардане и сам подкручивается обратно по мере просадки. */
-  const r=rad(c.barRoll + (F.pitchSag||0));
-  d=[ d[0]*Math.cos(r)+d[2]*Math.sin(r), d[1], -d[0]*Math.sin(r)+d[2]*Math.cos(r) ];
-  const grip=[bar[0]+d[0], d[1], bar[2]+d[2]];
-  // край руля и точка отгиба — для вида сверху
-  const e=c.barWidth/2-c.riserBendHalf;
-  let de=[ -e*Math.sin(bs)*Math.cos(us), c.riserBendHalf+e*Math.cos(bs)*Math.cos(us), c.barRise+e*Math.sin(us) ];
-  de=[ de[0]*Math.cos(r)+de[2]*Math.sin(r), de[1], -de[0]*Math.sin(r)+de[2]*Math.cos(r) ];
-  let db=[0, c.riserBendHalf, c.barRise];
-  db=[ db[0]*Math.cos(r)+db[2]*Math.sin(r), db[1], -db[0]*Math.sin(r)+db[2]*Math.cos(r) ];
-  return { steer, bar, grip, elev,
-           barEnd:[bar[0]+de[0], de[1], bar[2]+de[2]],
-           barBend:[bar[0]+db[0], db[1], bar[2]+db[2]] };
-}
+/* Цепочка стакан → вынос → руль → хват — в cockpit.js, общая со сравнением
+   геометрий. Второй аргумент — набор параметров кокпита. Без него берётся
+   введённый пользователем: так работали все вызовы до появления перебора
+   конфигураций (§5b). Явный аргумент нужен только конверту, который прогоняет
+   через ту же цепочку сотни вариантов железа, не трогая состояние страницы. */
+function solveCockpit(F, ck){ return BikeCockpit.solve(F, ck||state.ck); }
 
 /* ===================== 3. сегменты тела ===================== */
 function segments(){
@@ -527,22 +487,16 @@ function segments(){
      с его пресетом. Раньше её читали отсюда как b.pedalStack, то есть из мерок
      тела, где её никогда не было: поле молча откатывалось к 8 мм и введённое
      значение не влияло ни на что. Та же ловушка, что была с шатуном и Q-factor. */
-  const b=state.body, H=b.height, I=b.inseam;
+  const b=state.body, H=b.height;
   const pedStack = state.ck.pedalStack!=null ? state.ck.pedalStack : 8;
-  // inseam меряется босиком, поэтому длину ноги считаем от БОСОЙ высоты голеностопа.
-  // Подошва обуви только поднимает стопу над осью педали и потому поднимает седло 1:1.
-  const ankleBare=(b.ankleH!=null?b.ankleH:0.039*H);
-  const ankleH=ankleBare+b.soleThk+pedStack;                   // голеностоп над ОСЬЮ педали
-  const hipJointH=I+0.055*H;                                   // головка бедра над полом
-  const legTotal=Math.max(hipJointH-ankleBare,200);
-  /* Каждый сегмент: прямой замер, если введён, иначе антропометрическая доля.
+  /* Нога и стопа — в rider.js: той же цепочкой профиль рамы на сравнении
+     оценивает, с какого роста седло опускается до здоровой высоты.
+     Каждый сегмент: прямой замер, если введён, иначе антропометрическая доля.
      Доли Winter — средние по популяции, индивидуальный разброс торса при одном
      росте достигает ±30–40 мм, поэтому прямые замеры всегда в приоритете.
      src запоминает источник каждого сегмента — показывается под мерками. */
-  const femur = b.femurLen!=null ? b.femurLen
-              : b.tibiaLen!=null ? Math.max(legTotal-b.tibiaLen,150)
-              : legTotal*(b.femurPct/100);
-  const tibia = b.tibiaLen!=null ? b.tibiaLen : Math.max(legTotal-femur,150);
+  const L=BikeRider.leg(b,pedStack);
+  const {ankleBare, ankleH, hipJointH, legTotal, femur, tibia}=L;
   /* Торс: прямой замер вертел→акромион; иначе из роста сидя (минус голова+шея,
      0.207·H — согласовано с долями Winter); иначе чистая доля от роста. */
   const trunk = b.trunkLen!=null ? b.trunkLen
@@ -571,12 +525,8 @@ function segments(){
      По умолчанию под 1-й плюсневой; кто катает серединой стопы, ставит меньше.
      На высоту седла влияет слабо (сдвиг почти горизонтальный), но задаёт рисунок
      и продольное положение колена. */
-  const footLen  = b.footLen  !=null ? b.footLen  : 0.152*H;
-  const heelToMet= b.heelToMet!=null ? b.heelToMet: 0.685*footLen;
+  const {footLen, heelToMet, pedalPos, ankleFromHeel, pedalBackAuto}=L;
   const pedalStack= pedStack;
-  const pedalPos = b.pedalPos !=null ? b.pedalPos : heelToMet;
-  const ankleFromHeel=0.33*footLen;                 // проекция голеностопа от пятки
-  const pedalBackAuto=clamp(pedalPos-ankleFromHeel,-60,260);
   /* Поперечное положение тазобедренного сустава: суставы стоят шире седалищных
      бугров примерно на 40 мм с каждой стороны — от бугров надёжнее, чем от
      внешней ширины таза. */
@@ -650,7 +600,7 @@ function elbow3D(SH3,G3,uL,wL,shExtMax,flareDeg){
 /* ===================== 4. посадка ===================== */
 function solveFit(){
   const F=solveFrame(), CO=solveCockpit(F), S=segments(), f=state.fit, b=state.body;
-  const BB=F.P.BB, sta=rad(F.sta);
+  const BB=F.P.BB;
   /* Наклон подошвы (soleTilt, + = носок вниз). Голеностопа как сустава в модели нет,
      поэтому подошва держит один угол на всём обороте — это допущение, но угол хотя бы
      стал явным. Раньше он был жёстко нулевым и прятался внутри раздутого ankleH.
@@ -662,27 +612,14 @@ function solveFit(){
   const tilt = rad(clamp(b.soleTilt!=null?b.soleTilt:0,-30,30));
   const pedalUp   = pu0*Math.cos(tilt) + pb0*Math.sin(tilt);   // лодыжка над осью педали
   const pedalBack = pb0*Math.cos(tilt) - pu0*Math.sin(tilt);   // и позади неё
-  const foot=(crankDeg,side)=>{
-    const t=rad(crankDeg);
-    const ped=[BB[0]+f.crank*Math.sin(t), side*f.qFactor/2, BB[1]+f.crank*Math.cos(t)];
-    return {ped, ank:[ped[0]-pedalBack, ped[1], ped[2]+pedalUp]};
-  };
+  const foot=(crankDeg,side)=>BikeRider.foot(BB,f.crank,f.qFactor,pedalUp,pedalBack,crankDeg,side);
 
-  /* высота седла: подбираем так, чтобы в НМТ колено дало целевой угол.
+  /* высота седла: подбираем так, чтобы в НМТ колено дало целевой угол (rider.js).
      Так длина шатуна работает физически, а не через поправку. */
-  const need=Math.sqrt(S.femur**2+S.tibia**2-2*S.femur*S.tibia*Math.cos(rad(f.kneeTarget)));
   const bdc=foot(180,1);
   const setback=f.postOffset+f.railPos;    // сетбек седла от оси подседельной трубы
-  const hipOf=q=>[q[0]+b.hipFwd, 0, q[1]+b.hipAbove];
-  const seatAt=m=>[BB[0]-m*Math.cos(sta)-setback, BB[1]+m*Math.sin(sta)];
-  let lo=300, hi=1100;
-  for(let i=0;i<70;i++){
-    const m=(lo+hi)/2, hp=hipOf(seatAt(m));
-    (Math.hypot(hp[0]-bdc.ank[0], hp[2]-bdc.ank[2])<need) ? lo=m : hi=m;
-  }
-  const satH=(lo+hi)/2;                     // координата вдоль оси подседельной трубы
-  const sat=seatAt(satH);
-  const HIP=hipOf(sat);
+  const {satH, sat, hip:HIP}=BikeRider.saddle(BB, F.sta, bdc.ank,
+    {femur:S.femur, tibia:S.tibia, knee:f.kneeTarget, setback, hipFwd:b.hipFwd, hipAbove:b.hipAbove});
   // Сетбек прикладывается горизонтально, уже после хода вдоль трубы, поэтому
   // прямая каретка -> седло длиннее satH. Рулеткой меряют именно её.
   const satStraight=Math.hypot(sat[0]-BB[0], sat[1]-BB[1]);
@@ -981,32 +918,10 @@ function solveStand(M){
    solveCockpit. Тело подключается на последнем шаге и лишь к финалистам —
    полный IK на всей сетке не нужен и стоил бы на три порядка дороже. */
 
-/* Каталог реальных деталей, а не декартово произведение диапазонов: последнее
-   даёт несуществующее железо (вынос 35 мм с подъёмом 30°) и топит вывод в мусоре.
-   Каждую строку можно показать пальцем в магазине — это наблюдаемый ассортимент,
-   а не подобранный коэффициент. Границы каталога намеренно совпадают с теми, что
-   в литературе считаются пределом настройки: вынос 35–60, проставки до 40,
-   rise до 38, backsweep 8–16. Поэтому выход за каталог — это и есть признанный
-   красный флаг «размер рамы выбран неверно», встроенный в саму постановку.
-   Отрицательный угол — вынос, перевёрнутый вниз. */
-const CK_CATALOG={
-  stems:[{len:35,ang:0},{len:40,ang:0},{len:45,ang:0},{len:50,ang:0},{len:60,ang:0},
-         {len:45,ang:-6},{len:50,ang:-7},{len:60,ang:-7},
-         {len:40,ang:6},{len:50,ang:6},{len:60,ang:6},{len:50,ang:7},{len:60,ang:7},
-         {len:50,ang:17},{len:50,ang:30},{len:60,ang:30}],
-  /* upsweep у серийных рулей 4–6° и на длину почти не влияет — держим 5 общим,
-     чтобы перебор не разбухал вдвое ради десятых долей миллиметра. */
-  bars:[{rise:0,bs:8},{rise:10,bs:8},{rise:15,bs:8},{rise:20,bs:9},{rise:25,bs:9},
-        {rise:30,bs:9},{rise:35,bs:9},{rise:38,bs:8},{rise:15,bs:12},{rise:25,bs:12},
-        {rise:20,bs:16}],
-  spacers:[0,5,10,15,20,25,30,35,40],
-  us:5
-};
-/* Что каталог НЕ перебирает и берёт из введённого кокпита: ширину руля, отступ
-   хвата, ширину отгиба, чашку рулевой и высоту обхвата выноса. Ширина здесь не
-   «не влияет», а именно берётся своя: вместе с загибом она реально двигает хват
-   назад, и подставлять вместо неё каталожную значило бы менять пользователю руль
-   в вопросе, который он не задавал. */
+/* Каталог реальных деталей и его перебор — в cockpit.js: ими же сравнение
+   геометрий оценивает рост под раму. Почему каталог, а не диапазоны, и что он
+   не перебирает — там же. */
+const CK_CATALOG=BikeCockpit.CATALOG;
 
 /* Секторы названы по СВОЙСТВУ ПОСАДКИ, дисциплина — в скобках. Так честнее:
    опубликованы у Маккормака только три узких ориентира (XC 55–56, трейл 58–60,
@@ -1027,17 +942,10 @@ const sectorOf=a=>RAAD_SECTORS.find(s=>a>=s.lo&&a<s.hi)||RAAD_SECTORS[0];
    вышедшие за каталог. Не запрет, а тот самый красный флаг из литературы. */
 const CK_LIMITS={stemLen:[35,60],spacers:[0,40],barRise:[0,40],backsweep:[7,16]};
 
-/* Ролл руля в переборе НЕ участвует и держится в нейтрали. Он стоит до 12 мм
-   RAD — больше допуска, — но это не покупка, а поворот руля в обхвате, и
-   выставляют его по запястьям, а не по RAD. Позволить перебору тратить ролл на
-   попадание в цель значило бы ровно то, что инструмент должен ловить:
-   компенсацию неверного размера рамы кокпитом. Поэтому конверт считается на
-   нейтрали, а собственный ролл райдера показывается отдельной строкой — видно,
-   сколько миллиметров он уже съел (current.rollEffect). */
-function cfgToCk(c){
-  return {spacers:c.sp, stemLen:c.st.len, stemAngle:c.st.ang, stemFlip:0,
-          barRise:c.bar.rise, backsweep:c.bar.bs, upsweep:CK_CATALOG.us, barRoll:0};
-}
+/* Ролл руля в переборе не участвует и держится в нейтрали (почему — в
+   cockpit.js); собственный ролл райдера показывается отдельной строкой —
+   видно, сколько миллиметров он уже съел (current.rollEffect). */
+const cfgToCk=BikeCockpit.cfgToCk;
 /* Подъём руля стоит в подписи рядом с загибом, хотя он у всего каталога один.
    Без него рекомендация читалась бы как «любой руль с таким rise и загибом», а
    она верна только для руля с подъёмом 5°: разница между 0° и 6° — 13 мм RAD,
@@ -1185,23 +1093,9 @@ function cockpitEnvelope(opt){
   ENV_MEMO={key,val:out};
   return out;
 }
-/* Перебор каталога на готовой раме. Отдельной функцией, потому что им
-   пользуются двое: конверт (§4c) и обмерный слой вида сбоку, который рисует
-   облако достижимых точек хвата. Тела здесь нет вовсе — чистая тригонометрия,
-   1584 вызова solveCockpit на один solveFrame. */
-function sweepCatalog(F, base){
-  const BB=F.P.BB, out=[];
-  for(const sp of CK_CATALOG.spacers)
-    for(const st of CK_CATALOG.stems)
-      for(const bar of CK_CATALOG.bars){
-        const c={sp,st,bar};
-        const CO=solveCockpit(F,{...base, ...cfgToCk(c)});
-        c.er=CO.grip[0]-BB[0]; c.es=CO.grip[2]-BB[1];
-        c.rad=Math.hypot(c.er,c.es); c.raad=deg(Math.atan2(c.es,c.er));
-        out.push(c);
-      }
-  return out;
-}
+/* Перебор каталога на готовой раме — в cockpit.js. Им пользуются конверт (§4c),
+   обмерный слой вида сбоку и оценка роста на сравнении геометрий. */
+const sweepCatalog=BikeCockpit.sweep;
 
 function envelopeAt(o){
   const F=solveFrame(), BB=F.P.BB, base=state.ck;
@@ -1769,6 +1663,15 @@ function buildTable(M,ST){
   h+=r('Подъём выноса от горизонта', M.CO.elev.toFixed(1)+'°', `(90 − ${F.hta.toFixed(1)}°) + ${state.ck.stemFlip?-state.ck.stemAngle:state.ck.stemAngle}° — вынос «0°» уже смотрит вверх`);
   h+=r('Ручка от каретки (x / y / z)', `${G[0].toFixed(0)} / ±${G[1].toFixed(0)} / ${G[2].toFixed(0)}`,'начало координат — каретка, земля z=0');
   h+=r('Высота седла вдоль подседельной', M.satH.toFixed(0)+' мм','ход по оси трубы от каретки; подобрана под целевой угол колена в НМТ');
+  /* Ход — вниз с шагом 5 мм, как их продают; то же округление в предупреждении. */
+  if(state.bike.st>0){
+    const ext=M.satH-state.bike.st, dmax=BikeRider.maxDropper(ext), rigidMin=BikeRider.minAbove(0);
+    h+=r('Седло над подседельной трубой', ext.toFixed(0)+' мм',
+         ext<rigidMin ? `так низко не опустить: жёсткий штырь с седлом занимают не меньше ${rigidMin} мм`
+         : dmax<25 ? 'хватит только на жёсткий штырь'
+         : `влезет дроппер ходом до ${Math.floor(dmax/5)*5} мм — с самым низким штырём (стек ${BikeRider.POST.dropper} мм), у других меньше`,
+         ext<rigidMin ? 'bad' : dmax<100 ? 'amb' : '');
+  }
   h+=r('Прямая каретка → седло', M.satStraight.toFixed(0)+' мм',
        M.setback ? `то, что меряется рулеткой; сетбек ${sg(M.setback)} смещает на ${sg(M.satStraight-M.satH)} от хода по трубе`
                  : 'то, что меряется рулеткой; без сетбека совпадает с ходом по трубе');
@@ -1786,7 +1689,7 @@ function buildTable(M,ST){
        zone(Math.abs(M.radDelta),[0,10],[0,25]));
   h+=r('Угол RAD (RAAD)', M.raad.toFixed(1)+'°','круче — больше запаса хода рук на спуске, положе — выгоднее в подъём');
   h+=grp('Углы тела');
-  h+=r('Колено в НМТ', M.kneeBDC.toFixed(0)+'°','140–150 — задано целью, проверь что достижимо', zone(M.kneeBDC,[138,152],[130,160]));
+  h+=r('Колено в НМТ', M.kneeBDC.toFixed(0)+'°','140–150 — задано целью, проверь что достижимо', zone(M.kneeBDC,BikeRider.KNEE_BDC.good,BikeRider.KNEE_BDC.ok));
   h+=r('Колено в ВМТ', M.kneeTDC.toFixed(0)+'°','65–80', zone(M.kneeTDC,[65,80],[58,90]));
   h+=r('Бедро в ВМТ', M.hipTDC.toFixed(0)+'°','&lt;45° — зажим в паху, спина уходит в компенсацию', zone(M.hipTDC,[55,110],[45,120]));
   h+=r('Наклон корпуса', M.torso.toFixed(0)+'°','задан тобой: 40–45 XC, 50–60 трейл, 65+ комфорт; это угол хорды таз → плечо');
@@ -2058,9 +1961,14 @@ function buildWarns(M,ST){
   else if(M.armUse>96) w.push(['','Руки почти в замок',`использовано ${M.armUse.toFixed(0)}% длины руки. На кочках локоть не отработает — вынос короче, руль выше или корпус ниже.`]);
   if(M.hipTDC<45) w.push(['bad','Зажим тазобедренного сустава',`${M.hipTDC.toFixed(0)}° в верхней мёртвой точке. Короче шатун, седло назад или корпус выше.`]);
   else if(M.hipTDC<55) w.push(['','Бедро закрыто',`${M.hipTDC.toFixed(0)}° в ВМТ. Терпимо, но на длинных подъёмах будет мешать. Шатун на 5–10 мм короче заметно откроет угол.`]);
-  const ext=M.satH-b.st;
+  /* Влезает ли штырь под подобранное седло. Размеры штырей и седла — общие
+     с профилем рамы на сравнении (BikeRider.POST), самые низкие из ходовых:
+     если не влезает с ними, не влезет ни с каким. Раньше порог был 40 мм
+     над трубой — так низко не опускается даже жёсткий штырь с седлом. */
+  const ext=M.satH-b.st, R=BikeRider, rigidMin=R.minAbove(0), dmax=R.maxDropper(ext);
   if(ext>290) w.push(['','Штырь сильно выдвинут',`над подседельной трубой нужно ${ext.toFixed(0)} мм. Проверь минимальную вставку штыря — с длинноходным дроппером это часто упирается в изгиб подседельной трубы.`]);
-  if(ext<40) w.push(['','Рама великовата по росту',`седло почти не выступает над трубой (${ext.toFixed(0)} мм). Обычно это признак, что нужен размер меньше.`]);
+  if(ext<rigidMin) w.push(['bad','Седло так низко не опустить',`под целевой угол колена седло должно выступать над подседельной на ${ext.toFixed(0)} мм, а даже жёсткий штырь с седлом занимают не меньше ${rigidMin}. Седло встанет выше, колено в НМТ разогнётся сильнее цели — рама велика по росту, нужен размер меньше.`]);
+  else if(dmax<100) w.push(['','Дроппер не влезет',`над подседельной ${ext.toFixed(0)} мм — ${dmax>=50?`хватит на дроппер ходом до ${Math.floor(dmax/5)*5} мм`:'хватит только на жёсткий штырь'}, а обычный дроппер для троп начинается со 100 мм хода (с самым низким штырём нужно ${R.minAbove(100)} мм над трубой). Если без дроппера на спусках никак — нужен размер меньше.`]);
   if(M.elbow<110) w.push(['','Локоть очень согнут',`${M.elbow.toFixed(0)}°. Для такого наклона корпуса кокпит короткий — либо наклоняйся сильнее, либо вынос длиннее.`]);
   const abdMax=Math.max(Math.abs(M.abduction), Math.abs(ST.abduction));
   if(abdMax>50) w.push(['bad','Плечо сильно отведено',`${abdMax.toFixed(0)}° от плоскости тела (сидя ${M.abduction.toFixed(0)}°, стоя ${ST.abduction.toFixed(0)}°). Выше 50° под нагрузкой — зона импинджмента: сухожилие надостной мышцы зажимается под акромионом. Сведи локти или сузь руль.`]);
