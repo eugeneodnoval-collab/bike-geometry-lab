@@ -31,8 +31,10 @@
      отдельности. Чашка рулевой — свойство рулевой, а не выноса, поэтому она в
      «остальном»; высота обхвата — свойство конкретного выноса, поэтому с ним. */
   const KEYS = {
-    geo : ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','wheelR',
-           'forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'],
+    geo : ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','dHta','rigid','wheelR',
+           'forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen',
+           // паспорт модели: в расчёт не входит, подписи для каталога (frame.js — META)
+           'brand','model','year','size','use'],
     bar : ['barWidth','barRise','backsweep','upsweep','barRoll','gripInset','riserBendHalf'],
     stem: ['stemLen','stemAngle','stemFlip','spacers','stemClampH'],
     hw  : ['headsetStack','pedalStack','crank','qFactor','postOffset','railPos'],
@@ -48,16 +50,27 @@
            'spineFlex','lumbarPivot','elbowFlare','palmDiag','pedalPos','soleTilt']
   };
 
+  /* Ключи, значение которых — строка: бренд, модель, размер «M/L», назначение.
+     Остальные значения пресета — числа, и строка в них при импорте либо
+     приводится к числу, либо выбрасывается как мусор. Список свой, а не из
+     frame.js: пресеты подключаются и там, где паспорта рамы нет, — а регресс
+     сверяет, что списки совпадают. */
+  const TEXT = ['brand', 'model', 'size', 'use'];
+  // управляющие символы вон, пробелы по краям тоже; длина — с запасом на «Grand Canyon CF SLX 9 AXS»
+  const text = v => { const t = String(v).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80); return t || null; };
+
   const esc = s => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
   const has = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
   const byName = (a, b) => a.localeCompare(b, 'ru', { numeric: true });
 
-  /* Пресет -> состояние: только ключи белого списка, каждый — число или null. */
+  /* Пресет -> состояние: только ключи белого списка, каждый — число или null,
+     текстовые — строка или null. */
   function pick(kind, src) {
     const o = {};
     (KEYS[kind] || []).forEach(k => {
       const v = src[k];
       if (v === undefined || v === null || v === '') { o[k] = null; return; }
+      if (TEXT.includes(k)) { o[k] = typeof v === 'string' || typeof v === 'number' ? text(v) : null; return; }
       const n = typeof v === 'number' ? v : parseFloat(v);
       o[k] = isFinite(n) ? n : null;
     });
@@ -76,6 +89,7 @@
       if (!/^[a-zA-Z][a-zA-Z0-9_]{0,30}$/.test(k)) continue;
       const v = src[k];
       if (v === undefined || v === null || v === '') { o[k] = null; continue; }
+      if (TEXT.includes(k)) { if (typeof v === 'string' || typeof v === 'number') o[k] = text(v); continue; }
       const num = typeof v === 'number' ? v : parseFloat(v);
       if (isFinite(num)) o[k] = num;
     }
@@ -119,6 +133,13 @@
         const src = pins[kind]; if (!src || typeof src !== 'object') return;
         Object.entries(src).forEach(([name, v]) => { if (typeof v === 'boolean' && name.trim()) flag(o, 'pinned', kind, name, v); });
       });
+      /* Связи с каталогом (catalog.js) переезжают тоже: без них рама, добавленная
+         из каталога, на другом устройстве не узнала бы правок в каталоге. */
+      const cat = inc.catalog && inc.catalog.geo;
+      if (cat && typeof cat === 'object') Object.entries(cat).forEach(([name, v]) => {
+        if (name.trim() && v && typeof v.id === 'string' && v.id.length < 120 && v.snap && typeof v.snap === 'object')
+          flag(o, 'catalog', 'geo', name, { id: v.id, snap: pick('geo', v.snap) });
+      });
       return n > 0 && store.write(o) ? n : false;
     }
   };
@@ -158,6 +179,8 @@
        pinned  {вид: {имя: true|false}}  явная отметка пользователя;
                                          без неё встроенный закреплён, свой — нет
        removed {вид: {имя: true}}        встроенный, который пользователь удалил
+       catalog {geo: {имя: {id, snap}}}  рама добавлена из каталога: id записи и её
+                                         поля на момент добавления (catalog.js)
 
      Свой пресет с именем встроенного закрывает его: сохранил под этим именем —
      в списке одна запись, твоя. Удаление убирает имя целиком, и свою запись, и
@@ -197,7 +220,47 @@
     if (o[kind]) delete o[kind][name];
     if (has(builtinOf(kind), name)) flag(o, 'removed', kind, name, true);
     flag(o, 'pinned', kind, name, undefined);   // вернётся — с умолчанием, а не со старой отметкой
+    flag(o, 'catalog', kind, name, undefined);  // связь с каталогом (catalog.js): пресета нет — и рама снова «не добавлена»
     return store.write(o);
+  }
+
+  /* Встроенный ли пресет под этим именем: данные страницы, а не хранилища.
+     Свой пресет с именем встроенного его закрывает — тогда это уже не он. */
+  function isBuiltin(kind, name) {
+    return has(builtinOf(kind), name) && !has(store.read()[kind], name);
+  }
+
+  /* Переименовать. Пресет живёт под своим именем как ключ, поэтому переезжают и
+     все записи, привязанные к ключу: закрепление, связь с каталогом, выбор в
+     выпадашках. Занятое имя не перезаписываем — это удалило бы чужой пресет
+     молча; «Сохранить» под существующим именем обновляет, переименование — нет.
+     Встроенный переименовывается копией: данные страницы мы не правим, поэтому
+     под новым именем появляется свой пресет, а старое имя помечается удалённым,
+     как при удалении, — вернуть его можно пунктом «↺ Вернуть».
+     Вернёт {ok:true} или {ok:false, why: 'empty' | 'taken' | 'missing' | 'bad'}. */
+  function rename(kind, from, to) {
+    to = String(to == null ? '' : to).trim();
+    if (!to) return { ok: false, why: 'empty' };
+    if (to === '__proto__') return { ok: false, why: 'bad' };   // ключ-прототип: присваивание подменило бы объект, а не добавило запись
+    if (to === from) return { ok: true, same: true };
+    const data = find(kind, from);
+    if (!data) return { ok: false, why: 'missing' };
+    if (find(kind, to)) return { ok: false, why: 'taken' };
+    const wasPinned = listing(kind).pinned.includes(from);
+    const o = store.read(), link = ((o.catalog || {})[kind] || {})[from];
+    (o[kind] = o[kind] || {})[to] = data;
+    delete o[kind][from];
+    if (has(builtinOf(kind), from)) flag(o, 'removed', kind, from, true);
+    flag(o, 'removed', kind, to, undefined);     // имя могло числиться удалённым встроенным — теперь за ним свой пресет
+    flag(o, 'pinned', kind, from, undefined);
+    flag(o, 'pinned', kind, to, wasPinned);      // явно: умолчание у нового имени может быть другим
+    if (link) { flag(o, 'catalog', kind, from, undefined); flag(o, 'catalog', kind, to, link); }
+    if (!store.write(o)) return { ok: false, why: 'write' };
+    // выбранное в выпадашках и набранное имя идут за пресетом
+    Object.keys(sel).forEach(k => { if (k.startsWith(kind) && sel[k] === 'p:' + from) sel[k] = 'p:' + to; });
+    Object.keys(typed).forEach(k => { if (k.startsWith(kind) && typed[k] === from) typed[k] = to; });
+    if (page && page.renamed) page.renamed(kind, from, to);
+    return { ok: true };
   }
 
   /* Вернуть удалённые встроенные этого вида. Вернёт, сколько вернулось. */
@@ -268,6 +331,27 @@
     return name;
   }
 
+  /* Показать раму на странице, не записывая её в хранилище: кнопки каталога
+     «→ Рама 1», «Открыть в Fit Lab». Тот же путь, что у load(), но данные
+     приходят не из пресета, а от вызывающего — пресет от этого не появляется.
+     Выбор в выпадашке слота сбрасывается: иначе в нём осталось бы имя прежней
+     рамы, а «Сохранить» и «✕» относились бы к ней, а не к показанной. */
+  function show(kind, slot, data, name) {
+    if (!page) return false;
+    sel[slotKey(kind, slot)] = '';
+    typed[slotKey(kind, slot)] = name;
+    page.apply(kind, slot, pick(kind, data), name);
+    refresh();
+    return name;
+  }
+
+  /* Куда страница умеет показывать раму из каталога: [[подпись кнопки, слот], …].
+     Страница сравнения — два слота, Fit Lab — один. Сама кнопка живёт в каталоге,
+     а слотов и подписей он не знает: список приходит из init(). */
+  const showSlots = () => (page && page.showSlots) || [];
+  /* Что сейчас в слоте страницы — тем же путём, каким оно сохранилось бы в пресет. */
+  const current = (kind, slot) => page ? page.collect(kind, slot) : null;
+
   /* Сохранить текущее состояние страницы под именем. Тоже отдельной функцией:
      путь «состояние -> пресет» проходит через collect страницы, и регресс должен
      гонять именно его, а не собирать пресет сам. Вернёт true, если записалось. */
@@ -312,6 +396,11 @@
       collect(kind, slot)  текущее состояние -> пресет
       apply(kind, slot, data, name)  пресет (уже через pick) -> состояние; перерисовка на странице
       nameFor(row)         под каким именем сохранять
+      showSlots            [[подпись, слот], …] — куда каталог рам может показать раму
+                           без сохранения; нет — кнопок в каталоге нет
+      renamed(kind, from, to)  необязательный: пресет переименован в окне управления;
+                           рама в слоте, названная по нему, должна сменить имя, иначе
+                           «Сохранить» вернёт старое. Для видов без имени в состоянии не нужен
 
     Обработчики делегированы на document: страница пересобирает карточки, и
     привязка к самим строкам терялась бы при каждой пересборке.
@@ -379,7 +468,7 @@
     window.addEventListener('storage', e => { if (e.key === KEY) refresh(); });
   }
 
-  global.BikePresets = { KEY, KEYS, ok, pick, any, store, splitCk,
-                         init, load, save, find, listing, pin, remove, restore, rowHTML, refresh, toast, exportFile, importFile };
+  global.BikePresets = { KEY, KEYS, TEXT, ok, pick, any, store, splitCk,
+                         init, load, show, showSlots, current, save, find, listing, pin, remove, rename, isBuiltin, restore, rowHTML, refresh, toast, exportFile, importFile };
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);

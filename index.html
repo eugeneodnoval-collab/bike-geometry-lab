@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Geometry lab — сравни две рамы MTB хардтейлов</title>
 <link rel="stylesheet" href="site.css?v=d77220fe">
-<link rel="stylesheet" href="tools.css?v=cfccfee0">
+<link rel="stylesheet" href="tools.css?v=68841690">
 <style>
 
 /* ---- раскладка ----
@@ -50,6 +50,9 @@
 .travel{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd}
 .travel .row{display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:6px}
 .travel input[type=range]{flex:1;accent-color:currentColor}
+.travel input[type=range]:disabled{opacity:.35}
+.rigidrow{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#191919;margin-bottom:8px;cursor:pointer}
+.rigidrow input{accent-color:currentColor;margin:0}
 .tval{font-variant-numeric:tabular-nums;font-weight:650;min-width:74px;text-align:right}
 
 .handoff{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
@@ -59,10 +62,11 @@
 @media print{.handoff{display:none!important}}
 
 details{margin-top:8px;font-size:13px}
+.wheelhint{margin:6px 0 0;color:#191919}
 
 table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:tabular-nums}
 
-.spec{color:#9a9a9a;font-size:11.5px}
+.spec{color:var(--mut);font-size:11.5px}
 .pos{color:#0a7d33}.neg{color:#b3261e}
 .dcol{font-weight:600}
 .note{font-size:12px;color:var(--mut);line-height:1.6;margin-top:10px}
@@ -113,6 +117,17 @@ table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:
 .pfoot{font-size:11.5px;color:var(--mut);line-height:1.55;margin-top:14px}
 @media print{#profcard{page-break-inside:avoid}}
 
+/* Переключатель совмещения над схемой: две кнопки встык, нажатая — тёмная, как
+   «Только велосипед» в Fit Lab. В печать не идёт: на самой схеме подписано,
+   что совмещено. */
+.alignbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--mut);margin:0 0 8px}
+.seg{display:inline-flex}
+.seg button{border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:6px 0 0 6px;margin-left:0}
+.seg button:last-child{border-radius:0 6px 6px 0}
+.seg button[aria-pressed="true"]{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
+@media print{.alignbar{display:none}}
+
 .warn{font-size:12.5px;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:8px 10px;margin-top:10px;display:none}
 
 </style>
@@ -154,15 +169,6 @@ window.goatcounter.path = function(){
 <div class="sub">Посмотри различия на схеме, проверь геометрию на соответствие вилке, узнай назначение рамы</div>
 
 <div class="toolbar">
-  <!-- Колесо — в тулбаре, а не над карточками рам: радиус один на обе рамы, и
-       без лишнего блока сверху панель ввода начинается вровень со схемой. -->
-  <details class="menu">
-    <summary>Колесо <span class="msum" id="wrsum"></span></summary>
-    <div class="menupanel">
-      <div class="grid" style="max-width:300px"><label>Радиус колеса, мм</label><input type="number" step="1" id="wr"></div>
-      <div class="note" id="wrhint"></div>
-    </div>
-  </details>
   <details class="menu">
     <summary>Поделиться</summary>
     <div class="menulist">
@@ -175,8 +181,12 @@ window.goatcounter.path = function(){
     <div class="menulist">
       <button type="button" onclick="BikePresets.exportFile()">Скачать в файл</button>
       <button type="button" onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
+      <button type="button" onclick="BikePresetManager.open()">Управление пресетами</button>
     </div>
   </details>
+  <!-- Каталог рам — отдельной кнопкой сразу за «Пресетами», а не пунктом внутри:
+       из меню его никто не находил, пока не заходил туда за другим. -->
+  <button type="button" id="catbtn" onclick="BikeCatalog.open()">Каталог рам</button>
   <input type="file" id="psfile" accept=".json,application/json" style="display:none"
          onchange="if(this.files[0])BikePresets.importFile(this.files[0]);this.value=''">
   <span class="tbmsg">
@@ -195,7 +205,15 @@ window.goatcounter.path = function(){
 </aside>
 <main class="results">
 
-<div class="card"><div id="chart"></div></div>
+<div class="card">
+  <div class="alignbar">Совместить рамы:
+    <span class="seg" id="align">
+      <button type="button" data-align="rear">по задней оси</button>
+      <button type="button" data-align="bb">по центру каретки</button>
+    </span>
+  </div>
+  <div id="chart"></div>
+</div>
 
 <div class="card" id="profcard">
   <h3 class="profh">Что это за рамы</h3>
@@ -211,12 +229,15 @@ window.goatcounter.path = function(){
 </main>
 </div>
 
-<script src="model.js?v=fe050aac"></script>
+<script src="model.js?v=64a6bb64"></script>
 <script src="cockpit.js?v=e26f6d23"></script>
 <script src="rider.js?v=15e4c776"></script>
-<script src="profile.js?v=03ad84b4"></script>
-<script src="frame.js?v=ee21854d"></script>
-<script src="presets.js?v=81fd17a7"></script>
+<script src="profile.js?v=60e51e48"></script>
+<script src="frame.js?v=b2155151"></script>
+<script src="presets.js?v=e16ba6c0"></script>
+<script src="catalog-data.js?v=f9464424"></script>
+<script src="catalog.js?v=e9456586"></script>
+<script src="presets-manager.js?v=228fab00"></script>
 <script>
 /* Событие в GoatCounter. Скрипт грузится async и может не загрузиться вовсе
    (блокировщик), поэтому вызов всегда защищён и молча ничего не делает.
@@ -232,13 +253,18 @@ function track(name){
 const rad = d => d*Math.PI/180, deg = r => r*180/Math.PI;
 
 const PRESETS = {
-  B1:{name:"Outleap Warhog L 2025", reach:465, stack:629, hta:65.8, sta:75.5, ht:115, st:460, cs:435, bbDrop:50,  wb:1213, offset:null, travelRef:130, travel:130, sag:25, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null},
-  B2:{name:"Hagen 4 XL 2025",       reach:440, stack:645.5, hta:68.5, sta:74.3, ht:110, st:508, cs:440, bbDrop:63.5, wb:1159, offset:null, travelRef:120, travel:120, sag:25, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null}
+  B1:{name:"Outleap Warhog L 2025", reach:465, stack:629, hta:65.8, sta:75.5, ht:115, st:460, cs:435, bbDrop:50,  wb:1213, offset:null, travelRef:130, travel:130, sag:25, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null, wheelR:368},
+  B2:{name:"Hagen 4 XL 2025",       reach:440, stack:645.5, hta:68.5, sta:74.3, ht:110, st:508, cs:440, bbDrop:63.5, wb:1159, offset:null, travelRef:120, travel:120, sag:25, forkA2C:null, forkA2Cnew:null, forkOffsetNew:null, wheelR:368}
 };
+
+/* Радиус колеса — у каждой рамы свой (b.wheelR, frame.js — WHEEL): гравийник на
+   2.0 и трейл на 2.4 стоят на разных колёсах, и высота каретки каждого имеет
+   смысл только со своим. */
+const WHEEL = BikeFrame.WHEEL, WR = b => b.wheelR || WHEEL.def;
 
 const state = {
   bikes:[ {...PRESETS.B1}, {...PRESETS.B2} ],
-  wheelR: 368,          // радиус колеса 29" x 2.4
+  align: 'rear',        // точка совмещения рам на схеме: 'rear' — задняя ось, 'bb' — каретка
 };
 
 /*
@@ -255,18 +281,18 @@ const state = {
 function solve(b){
   /* Тонкая обёртка над общей моделью из model.js. Специфичное для этой страницы:
      виртуальная верхняя труба, ETT, front center и высота каретки от земли. */
-  const r = BikeModel.solveFrame(b, state.wheelR);
+  const R = WR(b), r = BikeModel.solveFrame(b, R);
   const P = r.P;
   const virt = [P.BB[0] - r.stack/Math.tan(rad(r.sta)), P.BB[1] + r.stack];
   return {b, P, virt, theta:r.theta,
     hta:r.hta, sta:r.sta, reach:r.reach, stack:r.stack, bbDrop:r.bbDrop, wb:r.wb,
-    bbH: state.wheelR - r.bbDrop, trail:r.trail,
+    wheelR:R, bbH: R - r.bbDrop, trail:r.trail,
     ett: P.htTop[0]-virt[0],
     fc: Math.hypot(P.front[0]-P.BB[0], P.front[1]-P.BB[1]),
     cs: Math.hypot(P.rear[0]-P.BB[0], P.rear[1]-P.BB[1]),
     a2cRef:r.a2cRef, a2cNew:r.a2cNew,
     offset:r.oNew, offsetRef:r.oRef, forkAxRef:r.dRef, dA2C:r.dA2C, sagMM:r.sagMM,
-    ground: P.rear[1] - state.wheelR
+    ground: P.rear[1] - R
   };
 }
 
@@ -277,7 +303,7 @@ function Dt(p,c,r){return `<circle cx="${p[0].toFixed(1)}" cy="${(-p[1]).toFixed
 function Tx(p,s,c,sz,an,extra){return `<text x="${p[0].toFixed(1)}" y="${(-p[1]).toFixed(1)}" fill="${c}" font-size="${sz}" text-anchor="${an||'middle'}" font-family="system-ui"${extra||''}>${s}</text>`}
 
 function drawFrame(S, color, thin){
-  const P = S.P, R = state.wheelR, W = thin?9:12;
+  const P = S.P, R = S.wheelR, W = thin?9:12;
   let s = '';
   s += C(P.rear, R, color, 4, "16 13");
   s += C(P.front, R, color, 4, "16 13");
@@ -300,14 +326,29 @@ function render(){
   const colors = ["var(--c1)","var(--c2)"];
   const hex = ["#e8543f","#2b6cb0"];
 
-  // приводим к общей системе: земля = 0, ЗАДНЯЯ ОСЬ на x = 0
-  // ci — слот рамы: по нему цвет, даже если соседняя рама не считается
+  /* Приводим к общей системе: точка совмещения на x = 0.
+     По задней оси: земля общая (y = 0), оси на одной вертикали; у рам на разных
+     колёсах оси по высоте расходятся на разницу радиусов — так они и стоят рядом.
+     По каретке: каретки совпадают точкой, а не только по горизонтали, — ради
+     этого режим и смотрят: reach и stack отложены от одной точки, и верх
+     рулевой разъезжается ровно на их разницу. Общая земля с совмещением по
+     одной горизонтали подмешала бы в картинку разницу высоты каретки. Цена —
+     у рам своя земля: земля первой считаемой рамы на y = 0, у второй — на
+     разницу высот кареток (gy). ci — слот рамы: по нему цвет, даже если
+     соседняя рама не считается. */
+  const byBB = state.align === 'bb';
+  const ref = S.find(Boolean);
   const shifted = S.map((s,ci)=>{
     if(!s) return null;
-    const dx = -s.P.rear[0], dy = -s.ground;
+    const dx = byBB ? -s.P.BB[0] : -s.P.rear[0];
+    const dy = byBB ? ref.bbH - s.P.BB[1] : -s.ground;
     const mv = q => [q[0]+dx, q[1]+dy];
-    return {...s, ci, P:Object.fromEntries(Object.entries(s.P).map(([k,v])=>[k,mv(v)])), virt:mv(s.virt)};
+    return {...s, ci, gy: s.ground + dy,
+      P:Object.fromEntries(Object.entries(s.P).map(([k,v])=>[k,mv(v)])), virt:mv(s.virt)};
   }).filter(Boolean);
+  // подвижная точка — та, что не совмещена: её расхождение и подписываем
+  const mvKey = byBB ? 'rear' : 'BB', mvName = byBB ? 'задняя ось' : 'каретка';
+  syncAlign();
   if(!shifted.length){
     document.getElementById('chart').innerHTML = `<div class="needmsg">${BikeFrame.HINTS.needFrontAxle}</div>`;
     buildTable(S); buildProfile(); syncHash();
@@ -317,37 +358,45 @@ function render(){
   // границы
   let minX=1e9,maxX=-1e9,maxY=-1e9;
   shifted.forEach(s=>{
-    minX=Math.min(minX,s.P.rear[0]-state.wheelR);
-    maxX=Math.max(maxX,s.P.front[0]+state.wheelR);
+    minX=Math.min(minX,s.P.rear[0]-s.wheelR);
+    maxX=Math.max(maxX,s.P.front[0]+s.wheelR);
     maxY=Math.max(maxY,s.P.htTop[1]+120, s.virt[1]+120);
   });
-  const padL=300, padR=100, padT=170, padB=300;
+  // padL — под выноски высоты каретки: две вертикали через 150 и подписи «BB 000.0» слева от них
+  const padL=420, padR=100, padT=170, padB=300;
   const vbX=minX-padL, vbW=(maxX-minX)+padL+padR;
   const vbY=-(maxY+padT), vbH=(maxY)+padT+padB;
-  const R = state.wheelR;
 
   let g = '';
   // земля
   g += `<line x1="${vbX}" y1="0" x2="${vbX+vbW}" y2="0" stroke="#333" stroke-width="5"/>`;
   g += `<text x="${vbX+14}" y="46" font-size="30" font-family="system-ui" fill="#888">земля</text>`;
-  // вертикаль через совмещённую заднюю ось
+  // своя земля у рамы, чья каретка ниже или выше, — только при совмещении по каретке
+  shifted.forEach(s=>{
+    if(Math.abs(s.gy) < 0.5) return;
+    g += `<line x1="${vbX}" y1="${(-s.gy).toFixed(1)}" x2="${vbX+vbW}" y2="${(-s.gy).toFixed(1)}" stroke="${hex[s.ci]}" stroke-width="3" stroke-dasharray="16 10"/>`;
+    g += Tx([vbX+vbW-14, s.gy + (s.gy>0 ? 12 : -38)], `земля ${s.gy>0?'выше':'ниже'} на ${Math.abs(s.gy).toFixed(0)} мм`, hex[s.ci], 28, "end");
+  });
+  // вертикаль через точку совмещения; подпись под землёй — схема уходит в PDF без переключателя
   g += `<line x1="0" y1="70" x2="0" y2="${vbY+padT-40}" stroke="#9b9b9b" stroke-width="3.5" stroke-dasharray="16 13"/>`;
+  g += Tx([-14, -46], byBB ? 'совмещены каретки' : 'совмещены задние оси', "#888", 28, "end");
 
   shifted.forEach(s=> g += drawFrame(s, hex[s.ci], s.ci>0));
 
-  // вертикали кареток + подписи смещения каретки от задней оси
+  // вертикали подвижной точки (каретки или задней оси) — от них линейка расхождения
   shifted.forEach((s,i)=>{
-    const bx = s.P.BB[0];
-    g += `<line x1="${bx.toFixed(1)}" y1="20" x2="${bx.toFixed(1)}" y2="${-(s.P.BB[1]+70)}" stroke="${hex[s.ci]}" stroke-width="2.5" stroke-dasharray="9 9" opacity=".75"/>`;
+    const bx = s.P[mvKey][0];
+    g += `<line x1="${bx.toFixed(1)}" y1="20" x2="${bx.toFixed(1)}" y2="${-(s.P[mvKey][1]+70)}" stroke="${hex[s.ci]}" stroke-width="2.5" stroke-dasharray="9 9" opacity=".75"/>`;
   });
 
-  // выноски высоты каретки (слева от заднего колеса)
-  let xo = -R-90;
+  // выноски высоты каретки (слева от самого заднего колеса), от своей земли
+  let xo = Math.min(...shifted.map(s=>s.P.rear[0]-s.wheelR)) - 90;
   shifted.forEach((s,i)=>{
-    g += `<line x1="${xo}" y1="0" x2="${xo}" y2="${-s.bbH}" stroke="${hex[s.ci]}" stroke-width="4"/>`;
-    g += `<line x1="${xo}" y1="${-s.bbH}" x2="${(s.P.BB[0]).toFixed(1)}" y2="${-s.bbH}" stroke="${hex[s.ci]}" stroke-width="2.5" stroke-dasharray="11 9" opacity=".8"/>`;
-    g += Tx([xo-16, s.bbH+14], `BB ${s.bbH.toFixed(1)}`, hex[s.ci], 30, "end");
-    xo -= 110;
+    const top = s.gy + s.bbH;
+    g += `<line x1="${xo}" y1="${-s.gy}" x2="${xo}" y2="${-top}" stroke="${hex[s.ci]}" stroke-width="4"/>`;
+    g += `<line x1="${xo}" y1="${-top}" x2="${(s.P.BB[0]).toFixed(1)}" y2="${-top}" stroke="${hex[s.ci]}" stroke-width="2.5" stroke-dasharray="11 9" opacity=".8"/>`;
+    g += Tx([xo-16, top+14], `BB ${s.bbH.toFixed(1)}`, hex[s.ci], 30, "end");
+    xo -= 150;          // шире подписи: при совмещении по каретке обе стоят на одной высоте
   });
 
   /* ---- габаритные линейки под землёй ---- */
@@ -360,10 +409,10 @@ function render(){
   }
   shifted.forEach((s,i)=>{
     const y = -(90 + i*95);          // ниже линии земли
-    const x1 = s.P.rear[0]-R, x2 = s.P.front[0]+R;
+    const x1 = s.P.rear[0]-s.wheelR, x2 = s.P.front[0]+s.wheelR;
     g += ruler(y, x1, x2, hex[s.ci], `габарит ${(x2-x1).toFixed(0)} мм`);
     // точка контакта переднего колеса
-    g += `<line x1="${s.P.front[0].toFixed(1)}" y1="14" x2="${s.P.front[0].toFixed(1)}" y2="${-y-40}" stroke="${hex[s.ci]}" stroke-width="2.5" stroke-dasharray="9 9" opacity=".7"/>`;
+    g += `<line x1="${s.P.front[0].toFixed(1)}" y1="${(14-s.gy).toFixed(1)}" x2="${s.P.front[0].toFixed(1)}" y2="${-y-40}" stroke="${hex[s.ci]}" stroke-width="2.5" stroke-dasharray="9 9" opacity=".7"/>`;
   });
   // разница пятен контакта переднего колеса
   if(shifted.length===2){
@@ -374,16 +423,16 @@ function render(){
       const b = Math.max(shifted[0].P.front[0], shifted[1].P.front[0]);
       g += ruler(y, a, b, "#555", `перед. пятно контакта: разница ${Math.abs(dxf).toFixed(0)} мм`);
     }
-    // разница положения кареток — над землёй, подпись справа от правой вертикали
-    const dxb = shifted[1].P.BB[0]-shifted[0].P.BB[0];
+    // разница положения подвижной точки — над землёй, подпись справа от правой вертикали
+    const dxb = shifted[1].P[mvKey][0]-shifted[0].P[mvKey][0];
     if(Math.abs(dxb)>0.5){
-      const a = Math.min(shifted[0].P.BB[0], shifted[1].P.BB[0]);
-      const b = Math.max(shifted[0].P.BB[0], shifted[1].P.BB[0]);
+      const a = Math.min(shifted[0].P[mvKey][0], shifted[1].P[mvKey][0]);
+      const b = Math.max(shifted[0].P[mvKey][0], shifted[1].P[mvKey][0]);
       const y = 78, t = 13;
       g += `<line x1="${a.toFixed(1)}" y1="${-y}" x2="${b.toFixed(1)}" y2="${-y}" stroke="#666" stroke-width="3.5"/>`;
       g += `<line x1="${a.toFixed(1)}" y1="${-y+t}" x2="${a.toFixed(1)}" y2="${-y-t}" stroke="#666" stroke-width="3.5"/>`;
       g += `<line x1="${b.toFixed(1)}" y1="${-y+t}" x2="${b.toFixed(1)}" y2="${-y-t}" stroke="#666" stroke-width="3.5"/>`;
-      g += Tx([b+26, y-11], `каретка: ${Math.abs(dxb).toFixed(0)} мм`, "#666", 30, "start");
+      g += Tx([b+26, y-11], `${mvName}: ${Math.abs(dxb).toFixed(0)} мм`, "#666", 30, "start");
     }
   }
 
@@ -392,7 +441,7 @@ function render(){
   shifted.forEach((s,i)=>{
     const b = s.b;
     head += `<text x="${vbX+20}" y="${vbY+56+i*52}" font-size="38" font-family="system-ui" fill="${hex[s.ci]}">`
-          + `${esc(b.name)} — ход ${b.travel} мм, sag ${b.sag ?? 0}% · reach ${s.reach.toFixed(0)} · stack ${s.stack.toFixed(0)} · HTA ${s.hta.toFixed(1)}° · WB ${s.wb.toFixed(0)}</text>`;
+          + `${esc(b.name)} — ${BikeFrame.forkWord(b)} · reach ${s.reach.toFixed(0)} · stack ${s.stack.toFixed(0)} · HTA ${s.hta.toFixed(1)}° · WB ${s.wb.toFixed(0)}</text>`;
   });
   // рама, которая не считается, остаётся в заголовке — иначе её исчезновение со схемы выглядело бы багом
   S.forEach((s,ci)=>{
@@ -431,15 +480,16 @@ const ROWS = [
   ["Front center",   s=>s.fc, null, 0],
   ["Вес на переднем, %", s=>100*(1-s.cs/s.wb), null, 1],
   ["BB drop",        s=>s.bbDrop, s=>s.b.bbDrop, 1],
+  ["Радиус колеса",  s=>s.wheelR, null, 0],
   ["Высота каретки", s=>s.bbH, null, 1],
   ["Механический трейл", s=>s.trail, null, 0],
   ["__g","Габариты (для транспорта)"],
-  ["Длина по колёсам (край→край)", s=>s.wb + 2*state.wheelR, null, 0],
-  ["Длина в метрах", s=>(s.wb + 2*state.wheelR)/1000, null, 3],
+  ["Длина по колёсам (край→край)", s=>s.wb + 2*s.wheelR, null, 0],
+  ["Длина в метрах", s=>(s.wb + 2*s.wheelR)/1000, null, 3],
   ["Высота руля от земли", s=>s.stack + s.bbH, null, 0],
   ["__g","Вилка"],
-  ["Ход, мм",      s=>s.b.travel, s=>s.b.travelRef, 0],
-  ["SAG, %",       s=>s.b.sag ?? 0, null, 0],
+  ["Ход, мм",      s=>s.b.rigid ? 'жёсткая' : s.b.travel, s=>s.b.rigid ? null : s.b.travelRef, 0],
+  ["SAG, %",       s=>s.b.rigid ? '—' : s.b.sag ?? 0, null, 0],
   ["Просадка, мм", s=>s.sagMM, null, 0],
   ["A2C, мм",      s=>s.a2cNew, s=>s.a2cRef, 0],
   ["Офсет, мм",    s=>s.offset, s=>s.offsetRef, 0],
@@ -457,13 +507,15 @@ function buildTable(S){
     if(row[0]==="__g"){ t += `<tr class="grp"><td colspan="4">${row[1]}</td></tr>`; continue; }
     const [n, f, fSpec, dec] = row;
     const v = S.map(s => s ? f(s) : null);
+    // строка вместо числа — у жёсткой вилки нет хода и sag; разницы тогда нет
     const cells = S.map((s,i)=>{
       if(!s) return '<td>—</td>';
+      if(typeof v[i]==='string') return `<td>${v[i]}</td>`;
       const spec = fSpec ? fSpec(s) : null;
       const changed = spec!=null && Math.abs(spec - v[i]) > 0.05;
       return `<td>${v[i].toFixed(dec)}${changed?`<div class="spec">паспорт ${(+spec).toFixed(dec)}</div>`:''}</td>`;
     }).join('');
-    if(v[0]==null || v[1]==null){ t += `<tr><td>${n}</td>${cells}<td class="dcol">—</td></tr>`; continue; }
+    if(v[0]==null || v[1]==null || typeof v[0]==='string' || typeof v[1]==='string'){ t += `<tr><td>${n}</td>${cells}<td class="dcol">—</td></tr>`; continue; }
     const d = v[1]-v[0];
     const cls = Math.abs(d)<0.05 ? '' : (d>0?'pos':'neg');
     t += `<tr><td>${n}</td>${cells}<td class="dcol ${cls}">${d>0?'+':''}${d.toFixed(dec)}</td></tr>`;
@@ -473,19 +525,19 @@ function buildTable(S){
 
   // предупреждение о сильном отходе от паспорта
   const w = document.getElementById('warn');
-  const msgs = S.filter(s=>s && Math.abs(s.b.travel-s.b.travelRef)>30)
+  const msgs = S.filter(s=>s && !s.b.rigid && Math.abs(s.b.travel-s.b.travelRef)>30)
                 .map(s=>`«${esc(s.b.name)}»: ход отличается от паспортного на ${(s.b.travel-s.b.travelRef>0?'+':'')}${(s.b.travel-s.b.travelRef).toFixed(0)} мм`);
   if(msgs.length){ w.style.display='block'; w.innerHTML = msgs.join('<br>') + '<br>Геометрия пересчитана корректно, но такая вилка может не влезть в раму и аннулировать гарантию.'; }
   else w.style.display='none';
 
   document.getElementById('note').innerHTML =
-   `Радиус колеса ${state.wheelR} мм — задаётся в меню «Колесо» над страницей, 26 / 27.5 / 29 считаются одинаково корректно. Вилка выводится из введённой геометрии: её длина вдоль оси рулевой и офсет считаются из паспортных reach / stack / HTA / BB drop / базы,
+   `Радиус колеса у каждой рамы свой — поле в карточке рамы, 26 / 27.5 / 29 считаются одинаково корректно. Вилка выводится из введённой геометрии: её длина вдоль оси рулевой и офсет считаются из паспортных reach / stack / HTA / BB drop / базы,
     поэтому при базовом ходе цифры точно совпадают с паспортом. Изменение хода удлиняет вилку вдоль оси рулевой, рама поворачивается вокруг задней оси до касания земли передним колесом.
     <b>SAG</b> — просадка вилки под весом райдера в % от хода. Паспортная геометрия измерена с разжатой вилкой, поэтому при 0% таблица совпадает с паспортом,
     а при 25% ты видишь рабочую геометрию хардтейла под райдером: сзади жёстко, спереди вилка села, рама доворачивается носом вниз вокруг задней оси.
     Для хардтейла это полная модель — других степеней свободы нет. Эффективная верхняя труба — горизонталь на высоте стека до линии подседельной трубы (производители меряют её по-разному).
-    Длина по колёсам = колёсная база + два радиуса колеса; при покрышке шире/уже поменяй радиус в меню «Колесо». Реальная погрузочная длина будет на 20–40 мм больше за счёт покрышки и грязевика.
-    <br><b>Важно про радиус:</b> он один на обе рамы и на оба колеса. Сравнивать 29 с 27.5 можно — reach, stack, углы и база верны для обеих, — но высота каретки, трейл и габарит будут посчитаны по одному радиусу. Маллет (разные колёса спереди и сзади) модель не выражает вовсе: обе оси принудительно стоят на высоте BB drop. Подробности — <a href="help.html#limits" style="color:inherit">в разделе об ограничениях</a>.`;
+    Длина по колёсам = колёсная база + два радиуса колеса; при покрышке шире/уже поменяй радиус в карточке рамы. Реальная погрузочная длина будет на 20–40 мм больше за счёт покрышки и грязевика.
+    <br><b>Про радиус:</b> он свой у каждой рамы, но один на оба её колеса. Маллет (разные колёса спереди и сзади) модель не выражает вовсе: обе оси принудительно стоят на высоте BB drop. Подробности — <a href="help.html#limits" style="color:inherit">в разделе об ограничениях</a>.`;
 }
 
 /* ================= что это за рамы ================= */
@@ -493,13 +545,13 @@ function buildTable(S){
    здесь только вёрстка. Профиль описывает паспорт с текущей вилкой без sag:
    каталожные диапазоны сняты так же, а слайдер sag двигает только схему и
    таблицу. Перебор каталога кокпита для «подходит от» — полторы тысячи
-   вызовов солвера, поэтому ответ запоминается, пока рама и колесо те же:
+   вызовов солвера, поэтому ответ запоминается, пока рама (с её колесом) та же:
    render() зовётся на каждое нажатие клавиши в любом поле. */
 const PROF_MEMO = [{key:null,val:null},{key:null,val:null}];
 function profileOf(i){
   const {sag, name, ...geo} = state.bikes[i];   // ни sag, ни название на профиль не влияют
-  const key = JSON.stringify([geo, state.wheelR]), m = PROF_MEMO[i];
-  if(m.key !== key){ m.key = key; m.val = BikeProfile.describe(geo, state.wheelR); }
+  const key = JSON.stringify(geo), m = PROF_MEMO[i];
+  if(m.key !== key){ m.key = key; m.val = BikeProfile.describe(geo, WR(geo)); }
   return m.val;
 }
 
@@ -509,28 +561,33 @@ function profRows(d){
   const r = Math.round, rows = [], x = d.num, S = BikeProfile.STYLES;
   if(d.size){
     /* Рост по reach показывается как есть; что типичный для стиля дроппер
-       поднимает его нижнюю границу — в подписи. Сама граница и три штыря —
-       строкой «Подседельная». */
-    const z = d.size, seat = d.seat, T = seat && seat.drops[0];
+       поднимает его нижнюю границу — в подписи. Как считается — в справке. */
+    const z = d.size, seat = d.seat;
     const lift = !seat || !seat.raises ? ''
-               : `типичный для стиля дроппер поднимает нижнюю границу до ${r(T.min)} см`
+               : `типичный для стиля дроппер поднимает нижнюю границу до ${r(seat.min)} см`
                  + (seat.raises===2 ? ' — выше всего диапазона по reach: рама коротка по длине и высока по подседельной' : '');
     rows.push({key:'size', label:'Размер по reach', val:z.name, word:`рост ~${r(z.lo)}–${r(z.hi)} см`,
       text:[z.scale==='fs' ? 'по шкале двухподвесов' : '', lift].filter(Boolean).join('; ')});
-    if(seat) rows.push({key:'seat', label:'Подседельная', val:`${r(seat.st)} мм`,
-      word:`с жёстким штырём подходит от ${r(seat.rigid.min)} см, inseam от ${r(seat.rigid.inseam)} см`,
-      text:seat.drops.map(x=>`с дроппером ${x.drop} мм — от ${r(x.min)} см, inseam от ${r(x.inseam)} см`).join('<br>')});
     for(const [s,k] of [['m','муж'],['f','жен']]){
       const R = d.rad[s];
       rows.push({key:'rad'+s, label:`По RAD, ${k} ${BikeProfile.RADMULT[s].toFixed(2)}`,
-        val:`~${r(R.lo)}–${r(R.hi)} см`, word:`подходит от ${r(R.min)} см`, text:''});
+        val:'', word:`подходит от ${r(R.min)} до ${r(R.hi)} см`, text:''});
     }
   } else rows.push({key:'size', label:'Размер', val:'по таблице производителя', word:'',
     text:'reach у таких рам мал, длину добирают выносом — рост по reach не читается'});
-  rows.push({key:'travel', label:'Ход вилки', val:`${x.travel} мм`,
+  rows.push({key:'travel', label:'Ход вилки', val: d.rigid ? 'жёсткая' : `${x.travel} мм`,
     word: d.travel ? S[d.travel.style].name : 'не учитывается',
-    text: d.travel ? d.travel.text : 'у гравийных и городских рам вилка обычно жёсткая'});
+    text: d.travel ? d.travel.text
+        : d.rigid ? 'хода нет — стиль по углу рулевой'
+        : 'у гравийных и городских рам стиль — по углу рулевой: вилка у них бывает и жёсткой, и с ходом'});
   rows.push({key:'hta', label:'Угол рулевой', val:`${x.hta.toFixed(1)}°`, word:S[d.hta.style].name, text:d.hta.text});
+  /* Каретка: слово — по высоте над землёй, а не по drop (у 27.5 ось ниже).
+     У хардтейла модель знает sag и ось педали; двухподвесу — только паспорт, без оценки. */
+  const bb = d.bb;
+  rows.push({key:'bb', label:'Провис каретки (BB drop)', val:`${bb.drop.toFixed(0)} мм`, word: bb.word ? `${bb.word} каретка` : '',
+    text: bb.key
+      ? `С колесом R ${bb.wheelR} над землёй ${r(bb.h)} мм. С шатунами ${bb.crank} в нижней позиции${bb.sag ? ` под sag ${bb.sag}%` : ''} — ${r(bb.pedal)} мм над землёй. ${bb.text}`
+      : `С колесом R ${bb.wheelR} над землёй ${r(bb.h)} мм по паспорту. Под райдером каретка заметно ниже, модель заднюю подвеску не считает, поэтому оценок не даёт.`});
   rows.push({key:'posture', label:'Посадка', val:`stack/reach ${x.srN.toFixed(2)}`, word:d.posture.word, text:d.posture.text});
   rows.push({key:'cs', label:'Перья', val:`${x.cs.toFixed(0)} мм`, word:d.cs.word, text:d.cs.text});
   rows.push({key:'wb', label:'База', val:`${x.wb.toFixed(0)} мм`, word:d.wb.word,
@@ -558,21 +615,21 @@ function buildProfile(){
     if(!d) return `<div class="pcol">${head}<div class="ppur" style="margin-top:6px">—<br><span class="px">${BikeFrame.HINTS.needFrontAxle}</span></div></div>`;
     const st = d.style;
     const edge = st.edgeName ? `<span class="pedge">на границе с «${st.edgeName}»</span>` : '';
-    const rows = R[i].map(x=>`<dl class="prow"><dt>${x.label}</dt><dd><span>${x.val}</span>${x.word ? ` · <span class="pw">${x.word}</span>` : ''}`
+    const rows = R[i].map(x=>`<dl class="prow"><dt>${x.label}</dt><dd>${x.val ? `<span>${x.val}</span>` : ''}${x.word ? `${x.val ? ' · ' : ''}<span class="pw">${x.word}</span>` : ''}`
       + (x.text && !shared.has(x.key) ? `<div class="px">${x.text}</div>` : '') + '</dd></dl>').join('');
     const notes = d.notes.filter(n=>!sharedNotes.includes(n.key)).map(n=>`<div class="pnote">${n.text}</div>`).join('');
     return `<div class="pcol">${head}
       <div class="pstyle${st.kind==='dispute' ? ' pdisp' : ''}">${st.name}${edge}</div>
       <div class="ppur">${st.purpose}</div>
-      <div class="pbase">паспорт${d.travel ? ` с вилкой ${d.num.travel} мм` : ''}, без sag</div>
+      <div class="pbase">${d.rigid ? 'паспорт с жёсткой вилкой' : `паспорт${d.travel ? ` с вилкой ${d.num.travel} мм` : ''}, без sag`}${b.dHta ? `, рулевая ${BikeFrame.dHtaText(b)}` : ''}</div>
       ${rows}${notes}</div>`;
   };
   host.innerHTML = `<div class="prof">${D.map(col).join('')}</div>`
     + (both.length ? `<div class="pboth"><div style="color:var(--mut)">У обеих рам</div>${both.map(t=>`<div>${t}</div>`).join('')}</div>` : '')
-    + `<div class="pfoot">Рост — три ориентира. Размер по reach — по таблицам производителей 2025–2026, у хардтейлов и двухподвесов шкалы разные.
-       Подседельная — с какого роста седло опускается так, что колено внизу хода педали не разогнуто сверх здорового (152°, как в Fit Lab): с жёстким штырём, с дроппером типичного для стиля хода и на 25 мм короче.
-       RAD — альтернативная усреднённая методика Маккормака: RAD = рост × множитель; диапазон — с типичным для стиля кокпитом,
-       «подходит от» — с самым низким и близким кокпитом из каталога Fit Lab, ниже этого роста рама велика при любом кокпите.
+    + `<div class="pfoot">Рост — два ориентира. Размер по reach — по таблицам производителей 2025–2026, у хардтейлов и двухподвесов шкалы разные;
+       если типичный для стиля дроппер не опускает седло так низко, как нужно росту из нижней части диапазона, это сказано в подписи.
+       RAD — альтернативная усреднённая методика Маккормака: RAD = рост × множитель. «Подходит от» — с самым коротким и низким кокпитом из каталога Fit Lab,
+       ниже этого роста рама велика при любом кокпите; «до» — с кокпитом, обычным для стиля, выше RAD добирают деталями, которых на таком велосипеде не ставят.
        Посадка здесь — рамы, без кокпита: вынос, руль и проставки двигают руль сильнее, чем различаются большинство рам.
        Точный ответ по твоим меркам — в Fit Lab, кнопка «Открыть в Fit Lab» в карточке рамы.
        Откуда диапазоны и чего описание не знает — <a href="help.html#profile" style="color:inherit">в справке</a>.</div>`;
@@ -582,16 +639,18 @@ function buildProfile(){
 /* Поля, подписи, шаги, подсказки и раскладка основной сетки рамы — в frame.js,
    общие с Fit Lab. Карточка рамы здесь стоит так же, как там: сетка паспорта,
    слайдеры, «Проверка вилки», «Замена вилки». Своё у этой страницы — цвет рамы,
-   два слота и кнопка переноса в Fit Lab. Радиус колеса один на обе рамы и живёт
-   в меню «Колесо» тулбара, а не в карточке. */
+   два слота и кнопка переноса в Fit Lab. Радиус колеса — поле рамы сразу под
+   сеткой паспорта, таблица радиусов по покрышкам — под раскрывашкой рядом. */
 // поле ввода рамы: четвёртый элемент кортежа — подсказка в пустом поле
 const numInput = (i,b,[k,l,st,ph],def) =>
   `<label>${l}</label><input type="number" step="${st}" data-i="${i}" data-k="${k}" value="${b[k]??''}" placeholder="${ph||def}">`;
+// у поправки угла подпись своя: поправка и угол, который из неё выходит
+const sliderText = (b,k) => k==='dHta' ? BikeFrame.dHtaText(b) : (b[k]??0)+BikeFrame.SLIDERS[k].unit;
 const slider = (i,b,k,id) => { const d=BikeFrame.SLIDERS[k];
   return `<div class="row">
          <span style="color:#191919;min-width:82px">${d.label}</span>
-         <input type="range" min="${d.min}" max="${d.max}" step="${d.step}" data-i="${i}" data-k="${k}" value="${b[k]}">
-         <span class="tval" id="${id}${i}">${b[k]}${d.unit}</span>
+         <input type="range" min="${d.min}" max="${d.max}" step="${d.step}" data-i="${i}" data-k="${k}" value="${b[k]??0}">
+         <span class="tval" id="${id}${i}">${sliderText(b,k)}</span>
        </div>`; };
 
 function esc(s){return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
@@ -624,12 +683,26 @@ function buildInputs(){
      ${BikePresets.rowHTML('geo',i,'Сохраняется под названием, вписанным выше. Такое уже есть — запись обновится.')}
      <div class="grid" style="color:#191919">
        ${BikeFrame.GRID.map(f=>numInput(i,b,f,'')).join('')}
+       ${numInput(i,b,[WHEEL.key, WHEEL.label, WHEEL.step, String(WHEEL.def)],'')}
      </div>
+     <details class="wheelhint">
+       <summary>${WHEEL.summary}</summary>
+       <div class="hint">${WHEEL.hint}</div>
+     </details>
+     <details>
+       <summary>Паспорт модели: бренд, год, размер, назначение</summary>
+       <div class="grid" style="color:#191919">${BikeFrame.metaHTML(b, `data-i="${i}"`)}</div>
+       <div class="hint">${BikeFrame.HINTS.meta}</div>
+     </details>
      <div class="needmsg" data-need="${i}" hidden>${BikeFrame.HINTS.needFrontAxle}</div>
      <div class="travel">
-       ${slider(i,b,'travel','tv')}
-       ${slider(i,b,'sag','sv')}
+       <label class="rigidrow"><input type="checkbox" data-i="${i}" data-k="rigid" ${b.rigid?'checked':''}>${BikeFrame.RIGID.label}</label>
+       <div id="tr${i}">${slider(i,b,'travel','tv')}</div>
+       <div id="sr${i}">${slider(i,b,'sag','sv')}</div>
        <div class="tdelta" id="td${i}"></div>
+       <div class="hint" id="rh${i}" hidden>${BikeFrame.HINTS.rigid}</div>
+       ${slider(i,b,'dHta','hv')}
+       <div class="hint">${BikeFrame.HINTS.dHta}</div>
      </div>
      <details>
        <summary>Проверка вилки</summary>
@@ -663,14 +736,21 @@ function buildInputs(){
     h.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
   });
 
-  host.querySelectorAll('input').forEach(el=>{
-    el.addEventListener('input', e=>{
+  host.querySelectorAll('input, select').forEach(el=>{
+    el.addEventListener(el.tagName==='SELECT' ? 'change' : 'input', e=>{
       const i=+el.dataset.i, k=el.dataset.k;
+      // паспорт модели в расчёт не входит: только в состояние и ссылку
+      if(BikeFrame.META_KEYS.includes(k)){ state.bikes[i][k] = BikeFrame.metaValue(el); syncHash(); return; }
       if(k==='name'){ state.bikes[i].name = el.value; document.getElementById('bs'+i).textContent = bikeSum(state.bikes[i]); }
+      else if(el.type==='checkbox') state.bikes[i][k] = el.checked ? 1 : null;
+      // пустой или нулевой радиус — умолчание; поле при этом не переписывается, пока его правят
+      else if(k==='wheelR') state.bikes[i][k] = parseFloat(el.value) || WHEEL.def;
       else if(el.value==='') state.bikes[i][k] = null;
       else state.bikes[i][k] = parseFloat(el.value);
       if(k==='travel') document.getElementById('tv'+i).textContent = el.value+BikeFrame.SLIDERS.travel.unit;
       if(k==='sag')    document.getElementById('sv'+i).textContent = el.value+BikeFrame.SLIDERS.sag.unit;
+      // поправка угла считается от паспортного: правка поля угла двигает и подпись
+      if(k==='dHta' || k==='hta') document.getElementById('hv'+i).textContent = BikeFrame.dHtaText(state.bikes[i]);
       render(); updateTravelNotes(); updateForkChecks();
     });
   });
@@ -688,16 +768,31 @@ function updateForkChecks(){
     if(!host) return;
     if(!BikeModel.hasFrontAxle(b)){ host.textContent='проверка появится, когда будет задана колёсная база или офсет вилки'; return; }
     try{
-      host.innerHTML=BikeModel.forkReportHTML(b, state.wheelR,
+      host.innerHTML=BikeModel.forkReportHTML(b, WR(b),
         {offset:b.forkOffsetSpec, len:b.forkMeasLen});
     }catch(e){ host.textContent='не удалось посчитать: проверь введённые числа'; }
   });
 }
 
+/* Строка под слайдерами и жёсткая вилка. Карточки на ввод не пересобираются,
+   поэтому галочка переключает строки здесь: слайдеры хода и sag скрыты — на
+   жёсткую вилку они не действуют, — вместо них длина вилки; «Ход по паспорту»
+   выключен. */
 function updateTravelNotes(){
   state.bikes.forEach((b,i)=>{
     const el = document.getElementById('td'+i);
-    if(el) el.textContent = BikeFrame.travelNote(b);
+    if(!el) return;
+    const rigid = !!b.rigid, inp = k => document.querySelector(`#inputs input[data-i="${i}"][data-k="${k}"]`);
+    document.getElementById('tr'+i).hidden = rigid;
+    document.getElementById('sr'+i).hidden = rigid;
+    document.getElementById('rh'+i).hidden = !rigid;
+    const sg = inp('sag'), tf = inp('travelRef');
+    if(sg) sg.disabled = rigid;
+    if(tf) tf.disabled = rigid;
+    document.getElementById('sv'+i).textContent = rigid ? '—' : (b.sag ?? 0)+BikeFrame.SLIDERS.sag.unit;
+    let fork = null;
+    if(BikeModel.hasFrontAxle(b)) try{ fork = BikeModel.solveFrame(b, WR(b)); }catch(e){}
+    el.textContent = BikeFrame.travelNote(b, fork);
   });
 }
 
@@ -721,26 +816,32 @@ function markFrontAxle(){
    раскладывается, а имя пресета — это название рамы в карточке. */
 // встроенные: по умолчанию закреплены вверху списка, удалить можно (presets.js)
 const BUILTIN={
-  geo: Object.fromEntries(Object.values(PRESETS).map(b=>[b.name, BikePresets.pick('geo',{...b,wheelR:368})]))
+  geo: Object.fromEntries(Object.values(PRESETS).map(b=>[b.name, BikePresets.pick('geo',b)]))
 };
 
 BikePresets.init({
   builtin: BUILTIN,
   collect(kind,slot){                             // текущее состояние -> пресет
-    return BikePresets.pick('geo',{...state.bikes[+slot], wheelR:state.wheelR});
+    return BikePresets.pick('geo',{...state.bikes[+slot], wheelR:WR(state.bikes[+slot])});
   },
   apply(kind,slot,d,name){                        // пресет -> состояние
     const i=+slot, b={...state.bikes[i]};
-    BikePresets.KEYS.geo.forEach(k=>{ if(k!=='wheelR') b[k]=d[k]; });
+    // пресет без радиуса (таких не сохраняли, но импорт всё стерпит) оставляет колесо рамы в слоте
+    BikePresets.KEYS.geo.forEach(k=>{ if(k!=='wheelR' || d[k]) b[k]=d[k]; });
     b.name=name;
     state.bikes[i]=b;
-    if(d.wheelR) state.wheelR=d.wheelR;
     buildInputs();
-    const wr=document.getElementById('wr'); if(wr) wr.value=state.wheelR;
     render();
   },
   nameFor(row){                                   // имя пресета = имя рамы в карточке
     return (state.bikes[+row.dataset.slot].name||'').trim();
+  },
+  showSlots: [['→ Рама 1',0],['→ Рама 2',1]],     // кнопки каталога рам: показать, не сохраняя
+  renamed(kind,from,to){                          // пресет переименован в окне управления: рама в слоте идёт за ним,
+    if(kind!=='geo') return;                      // иначе «Сохранить» вернуло бы старое имя
+    let hit=false;
+    state.bikes.forEach(b=>{ if(b.name===from){ b.name=to; hit=true; } });
+    if(hit){ buildInputs(); render(); }
   }
 });
 
@@ -751,7 +852,7 @@ BikePresets.init({
    не передаются — там остаётся то, что у Fit Lab по умолчанию. */
 function fitLabLink(i){
   const b = state.bikes[i];
-  return BikeFrame.fitLabLink(b, state.wheelR, b.name||'Bike '+(i+1));
+  return BikeFrame.fitLabLink(b, WR(b), b.name||'Bike '+(i+1));
 }
 
 function openInFit(i){
@@ -760,13 +861,21 @@ function openInFit(i){
 }
 
 /* ================= сохранение состояния в ссылку ================= */
-const HKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'];
+/* Порядок — формат уже разосланных ссылок: новые поля только в конец.
+   Радиус колеса с 2026-09-27 едет в раме; в старых ссылках он один на обе рамы
+   (ключ w) — тогда он и достаётся обеим. */
+const HKEYS = ['reach','stack','hta','sta','ht','st','cs','bbDrop','wb','offset','travelRef','travel','sag','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen',
+               'rigid','wheelR',
+               // с 2026-09-29: паспорт модели, текст кодирует BikeFrame.toLink
+               'brand','model','year','size','use',
+               // с 2026-10-06: поправка угла рулевой с той же вилкой
+               'dHta'];
 
 function stateToHash(){
   const enc = state.bikes.map(b =>
-    [encodeURIComponent(b.name), ...HKEYS.map(k => b[k]==null||b[k]===''?'':b[k])].join('~')
+    [BikeFrame.encText(b.name||''), ...HKEYS.map(k => BikeFrame.toLink(k, b[k]))].join('~')
   ).join('!');
-  return `#w=${state.wheelR}&b=${enc}`;
+  return `#a=${state.align}&b=${enc}`;
 }
 
 function hashToState(){
@@ -775,17 +884,16 @@ function hashToState(){
   try{
     const q = {};
     h.split('&').forEach(pair=>{ const i=pair.indexOf('='); q[pair.slice(0,i)] = pair.slice(i+1); });
-    if(q.w) state.wheelR = parseFloat(q.w) || 368;
+    // в старых ссылках совмещения нет — тогда остаётся то, что выбрано в этом браузере
+    if(q.a==='rear' || q.a==='bb') state.align = q.a;
     if(!q.b) return false;
     const bikes = q.b.split('!').slice(0,2).map(chunk=>{
       const p = chunk.split('~');
       const b = { name: decodeURIComponent(p[0] || 'Bike') };
-      HKEYS.forEach((k,i)=>{
-        const v = p[i+1];
-        b[k] = (v===undefined || v==='') ? null : parseFloat(v);
-      });
+      HKEYS.forEach((k,i)=>{ b[k] = BikeFrame.fromLink(k, p[i+1]); });
       // обязательные поля — если пусто, подставляем из первого пресета
-      HKEYS.forEach(k=>{ if(b[k]==null && !['wb','offset','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen'].includes(k)) b[k] = PRESETS.B1[k]; });
+      if(b.wheelR==null) b.wheelR = parseFloat(q.w) || WHEEL.def;
+      HKEYS.forEach(k=>{ if(b[k]==null && !['wb','offset','forkA2C','forkA2Cnew','forkOffsetNew','forkOffsetSpec','forkMeasLen','rigid','dHta',...BikeFrame.META_KEYS].includes(k)) b[k] = PRESETS.B1[k]; });
       return b;
     });
     if(bikes.length===2){ state.bikes = bikes; return true; }
@@ -835,43 +943,31 @@ function doPrint(){
   document.getElementById('printhead').innerHTML =
     `<div style="font-size:11px;margin:0 0 8px">` +
     S.map((s,i)=>s
-      ? `<b style="color:${i?'#2b6cb0':'#e8543f'}">${esc(s.b.name)}</b> — ход ${s.b.travel} мм, sag ${s.b.sag ?? 0}% (просадка ${s.sagMM.toFixed(0)} мм), колесо R${state.wheelR}`
+      ? `<b style="color:${i?'#2b6cb0':'#e8543f'}">${esc(s.b.name)}</b> — ${BikeFrame.forkWord(s.b)}${s.b.rigid ? '' : ` (просадка ${s.sagMM.toFixed(0)} мм)`}, колесо R${s.wheelR}`
       : `<b style="color:${i?'#2b6cb0':'#e8543f'}">${esc(state.bikes[i].name)}</b> — не считается: нет ни базы, ни офсета`).join(' &nbsp;·&nbsp; ') +
     `</div><div class="prturl">${esc(currentLink())}</div>`;
   window.print();
 }
 
-/* Радиусы посчитаны как BSD/2 + высота покрышки над ободом; 29"×2.4 = 368 —
-   та же калибровка, что была зашита раньше, просто продлённая на 27.5 и 26. */
-const WHEEL_HINT = (()=>{
-  const rows=[['2.1–2.2',327,343,362],['2.4',337,349,368],['2.6',343,356,375],['2.8','—',362,381]];
-  const c='padding:2px 13px 2px 0;border:none;text-align:right';
-  return 'Радиус накачанного колеса вместе с покрышкой. 26 / 27.5 / 29 модель считает одинаково корректно — важно только задать правильное число.'
-   + '<table style="width:auto;margin:8px 0 6px;font-size:11.5px;border-collapse:collapse">'
-   + `<tr><td style="${c};text-align:left;color:#999">покрышка</td>`
-   + ['26"','27.5"','29"'].map(h=>`<td style="${c};color:#999">${h}</td>`).join('') + '</tr>'
-   + rows.map(r=>`<tr><td style="${c};text-align:left">${r[0]}</td>`
-       + r.slice(1).map(v=>`<td style="${c};font-variant-numeric:tabular-nums">${v}</td>`).join('') + '</tr>').join('')
-   + '</table>'
-   + 'Точнее — обмерь покрышку ниткой по кругу и подели на 6.28. Значение одно на обе рамы и на оба колеса.';
-})();
-
-/* Колесо — меню тулбара. Радиус виден на самой кнопке: он один на обе рамы и
-   двигает высоту каретки, трейл и габарит, поэтому должен читаться без
-   раскрытия меню. Поведение меню (закрыться мимо, по Escape) — в nav.js. */
-document.getElementById('wrhint').innerHTML = WHEEL_HINT;
-function wheelSync(){
-  const w = document.getElementById('wr');
-  if(w && document.activeElement !== w) w.value = state.wheelR;
-  document.getElementById('wrsum').textContent = 'R ' + state.wheelR;
+/* Совмещение рам на схеме — вид, а не рама: в пресеты не идёт, едет в ссылке
+   (получатель видит ту же картинку) и запоминается в браузере — кто смотрит
+   от каретки, смотрит так всегда. Ссылка сильнее запомненного. */
+const ALIGN_KEY='bikelab.geo.align.v1';
+try{ const a=localStorage.getItem(ALIGN_KEY); if(a==='rear'||a==='bb') state.align=a; }catch(e){}
+function syncAlign(){
+  document.querySelectorAll('#align button').forEach(el=>
+    el.setAttribute('aria-pressed', el.dataset.align===state.align));
 }
-document.getElementById('wr').addEventListener('input', e=>{
-  state.wheelR = parseFloat(e.target.value)||368; wheelSync(); render();
-});
+document.querySelectorAll('#align button').forEach(el=>el.addEventListener('click', ()=>{
+  if(state.align === el.dataset.align) return;
+  state.align = el.dataset.align;
+  try{ localStorage.setItem(ALIGN_KEY, state.align); }catch(e){}
+  track('geo-align-'+state.align);
+  render();
+}));
 
 // восстановление из ссылки при загрузке
 hashToState();
-wheelSync();
 
 buildInputs();
 render();
@@ -879,7 +975,6 @@ render();
 // переход по другой ссылке в том же окне
 window.addEventListener('hashchange', ()=>{
   if(location.hash !== stateToHash() && hashToState()){
-    wheelSync();
     buildInputs(); render();
   }
 });

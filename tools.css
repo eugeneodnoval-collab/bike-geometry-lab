@@ -73,6 +73,9 @@ button:hover{background:#f2f2f2}
 
 /* Поле, без которого расчёт не идёт: рамка и фон, а под сеткой — объяснение.
    Подсветка, а не блокировка ввода: человек дописывает число, и всё оживает. */
+/* паспорт модели (frame.js — metaHTML): текст и выпадашка шире числовых полей и выровнены влево */
+.grid .meta,.grid input.meta[type=number]{width:150px;padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:13px;font-family:inherit;background:#fff;text-align:left}
+.grid .meta:focus{outline:2px solid rgba(0,0,0,.12);border-color:#aaa}
 .grid input.need[type=number]{border-color:#b3261e;background:#fff5f4}
 .needmsg{font-size:12px;color:#b3261e;line-height:1.5;margin-top:8px}
 .needmsg[hidden]{display:none}
@@ -134,3 +137,70 @@ thead th{background:#fafafa;border-bottom:1px solid #ddd;font-weight:600}
 
 /* Виден только на печати — заголовок листа настроек. */
 .printonly{display:none}
+
+/* Каталог рам (catalog.js): модальное окно из меню «Пресеты». На телефоне —
+   во весь экран, список прокручивается внутри, фильтры и кнопка остаются видны. */
+.catdlg{width:min(720px,calc(100vw - 32px));height:min(680px,calc(100vh - 48px));max-height:calc(100vh - 48px);padding:0;border:1px solid #ddd;border-radius:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.18);color:#191919;background:#fff}
+.catdlg[open]{display:flex;flex-direction:column}
+.catdlg::backdrop{background:rgba(0,0,0,.35)}
+.cathead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px}
+.cathead h2{margin:0;font-size:17px}
+.catclose{border:none;background:none;font-size:16px;padding:4px 8px;cursor:pointer;color:var(--mut)}
+.catbody{display:flex;flex-direction:column;min-height:0;flex:1;padding:0 18px 14px}
+.catfilters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end}
+.catf{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--mut)}
+.catf select{padding:4px 7px;border:1px solid #d5d5d5;border-radius:5px;font-size:13px;font-family:inherit;background:#fff;min-width:110px}
+.catcount{font-size:12px;color:var(--mut);margin:10px 0 4px}
+.catlist{overflow-y:auto;min-height:120px;flex:1;border-top:1px solid #eee;border-bottom:1px solid #eee}
+.catrow{display:flex;gap:10px;align-items:flex-start;padding:9px 8px;border-bottom:1px solid #f2f2f2;cursor:pointer;transition:background .12s}
+.catrow:hover,.catrow:focus-within{background:#eef3f9}
+.catrow.have{cursor:default}
+.catrow:last-child{border-bottom:none}
+.catpick{margin-top:3px}
+.catpickph{display:inline-block;width:13px;flex:none}
+.catmain{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.catname{font-weight:600;font-size:13.5px}
+.catnamerow{display:flex;align-items:flex-start;gap:4px 10px}
+.catnamerow .catname{flex:1;min-width:0}
+.catshows{display:inline-flex;flex:none;gap:4px;margin-left:auto}
+.catshow{white-space:nowrap;font-size:11.5px;padding:2px 8px;border:1px solid #d5d5d5;border-radius:5px;background:#fff;cursor:pointer;color:#333}
+.catshow:hover{background:#eceff3}
+.catshow.on{border-color:#0a7d33;color:#0a7d33;background:#eef8f1}
+.catgeo{font-size:12px;color:var(--mut)}
+.catsrc{color:var(--mut)}
+.catst{font-size:12px;margin-top:2px}
+.catst.ok{color:#0a7d33}.catst.warn{color:#9a5b00}.catst.info{color:#2b6cb0}
+.catas{color:var(--mut)}
+.catdiff{font-size:12px;margin-top:4px}
+.catdiff summary{cursor:pointer;color:var(--mut)}
+.catdiff ul{margin:4px 0 6px;padding-left:18px}
+.catdiffh{margin-top:4px;color:var(--mut)}
+.cattake,.catlink{margin-top:4px}
+.catfoot{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:10px}
+/* Управление пресетами (presets-manager.js): оболочка и строки — от каталога, здесь вкладки видов,
+   поиск, отметки и поле переименования. */
+.pmtabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pmtab{font-size:13px;padding:4px 11px;border:1px solid #d5d5d5;border-radius:999px;background:#fff;cursor:pointer;color:#333;font-family:inherit}
+.pmtab:hover{background:#eceff3}
+.pmtab.on{border-color:#2b6cb0;background:#eef3f9;color:#1d4f87}
+.pmn{color:var(--mut);font-size:11.5px}
+.pmtools{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.pmtools[hidden]{display:none}
+.pmq{flex:1;min-width:160px;padding:5px 9px;border:1px solid #d5d5d5;border-radius:5px;font-size:13px;font-family:inherit}
+.pmall{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--mut);cursor:pointer}
+.pmbtn{white-space:nowrap;font-size:11.5px;padding:2px 8px;border:1px solid #d5d5d5;border-radius:5px;background:#fff;cursor:pointer;color:#333;font-family:inherit}
+.pmbtn:hover{background:#eceff3}
+.pmrow .catshows{align-self:center}
+.pmrow .catnamerow{align-items:center;flex-wrap:wrap}
+.pmrow .catnamerow .catname{flex:none}
+.pmrow .catpick,.pmrow .pmpick{margin-top:3px}
+.pmtag{font-size:11px;color:var(--mut);border:1px solid #e1e1e1;border-radius:4px;padding:0 5px;white-space:nowrap}
+.pmtag.pin{color:#2b6cb0;border-color:#c9d9ec}
+.pmrow.editing{cursor:default;background:#f7f9fc}
+.pmedit{width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #2b6cb0;border-radius:5px;font-size:13.5px;font-family:inherit}
+.pmerr{font-size:12px;color:#b3261e;min-height:0}
+.pmerr:empty{display:none}
+.pmdel{color:#b3261e}
+.pmdel:disabled{color:inherit}
+@media (max-width:560px){ .catdlg{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0;border:none} }

@@ -55,11 +55,136 @@
     ['forkMeasLen', 'Замер: низ чашки → ось', 1, 'не задан']
   ];
 
-  // ход и просадка — слайдеры: их крутят, разглядывая результат
+  /* Жёсткая вилка — галочка над слайдерами. Гравийники бывают и с жёсткой, и с
+     амортизационной вилкой, по углу их не различить, а гадать в подсказках модель
+     не должна: с галочкой sag и ход на вилку не действуют (model.js), слайдеры
+     хода и sag скрыты, вместо них показана длина вилки от низа стакана до оси, а
+     тексты, где упомянут sag, говорят про жёсткую вилку. Хранится как 1 или
+     пусто — ссылки несут только числа. */
+  const RIGID = { key: 'rigid', label: 'Жёсткая вилка' };
+
+  /* Радиус колеса — свойство рамы, а не страницы: гравийник меряют на 2.0, трейл
+     на 2.4, и высота каретки у каждого имеет смысл только со своим колесом. Раньше
+     на сравнении он был один на обе рамы, и у второй рамы каретка, трейл и габарит
+     считались по чужому колесу. В паспортную сетку не входит: в ссылке Fit Lab он
+     едет отдельным ключом w, а не среди полей f. Пустое поле — 368 (29"×2.4), как
+     и раньше: без радиуса раму не нарисовать, а подсветка тут ничего не объяснит.
+
+     Радиусы в подсказке — BSD/2 + высота покрышки над ободом; 29"×2.4 = 368.
+     Строка 2.0 (гравийные покрышки, 700c — тот же обод, что 29") выведена из
+     2.1–2.2: высота над ободом уменьшена пропорционально ширине, 2.0/2.2. */
+  const WHEEL = (() => {
+    const rows = [['2.0', 323, 338, 357], ['2.1–2.2', 327, 343, 362], ['2.4', 337, 349, 368], ['2.6', 343, 356, 375], ['2.8', '—', 362, 381]];
+    const c = 'padding:2px 13px 2px 0;border:none;text-align:right';
+    return {
+      key: 'wheelR', label: 'Радиус колеса', step: 1, def: 368,
+      summary: 'Радиус по размеру покрышки',
+      hint: 'Радиус накачанного колеса вместе с покрышкой. 26 / 27.5 / 29 модель считает одинаково корректно — важно только задать правильное число.'
+        + '<table style="width:auto;margin:8px 0 6px;font-size:11.5px;border-collapse:collapse">'
+        + `<tr><td style="${c};text-align:left;color:#999">покрышка</td>`
+        + ['26"', '27.5"', '29"'].map(h => `<td style="${c};color:#999">${h}</td>`).join('') + '</tr>'
+        + rows.map(r => `<tr><td style="${c};text-align:left">${r[0]}</td>`
+            + r.slice(1).map(v => `<td style="${c};font-variant-numeric:tabular-nums">${v}</td>`).join('') + '</tr>').join('')
+        + '</table>'
+        + 'Точнее — обмерь покрышку ниткой по кругу и подели на 6.28.'
+    };
+  })();
+
+  /* Паспорт модели: кто сделал раму, какой это год и размер и для чего её
+     задумал производитель. В расчёт не входит ничего — это подписи для каталога
+     рам и для того, кто через год откроет свои пресеты. Поэтому блок свёрнут:
+     посадку он не меняет.
+
+     Назначение — ключ из списка, а не слова производителя: каталог фильтрует по
+     нему и сверяет со стилем, который профиль выводит из геометрии, а «Trail 29»,
+     «All-Mountain» и «Enduro-lite» по строке не сравнить. Ключи совпадают с
+     BikeProfile.STYLES там, где стиль тот же (xc, dc, trail, dh); свои у
+     асфальта — профиль складывает его в одну группу, а паспорт различает. У
+     олл-маунтина ключ am, как у профиля, хотя производители чаще пишут «эндуро».
+
+     Бренд, модель и размер — текст: «M/L», «S3», «54» числом не записать. Год —
+     число, чтобы каталог мог отсортировать по нему. */
+  const USES = [
+    ['road', 'Шоссе'], ['gravel', 'Гравел'], ['city', 'Город / фитнес'], ['touring', 'Туринг / треккинг'],
+    ['xc', 'XC'], ['dc', 'Даункантри'], ['trail', 'Трейл'], ['am', 'Эндуро / олл-маунтин'],
+    ['dh', 'DH / фрирайд'], ['dj', 'Дерт / стрит']
+  ];
+  const META = [
+    { key: 'brand', label: 'Бренд', type: 'text', max: 40, ph: 'Canyon' },
+    { key: 'model', label: 'Модель', type: 'text', max: 60, ph: 'Grand Canyon' },
+    { key: 'year', label: 'Год модели', type: 'num', step: 1, min: 1980, max: 2100, ph: '2026' },
+    { key: 'size', label: 'Размер по паспорту', type: 'text', max: 12, ph: 'L, M/L, 54' },
+    { key: 'use', label: 'Назначение по паспорту', type: 'enum' }
+  ];
+  const META_KEYS = META.map(m => m.key);
+  const TEXT_KEYS = META.filter(m => m.type !== 'num').map(m => m.key);
+  const useLabel = k => (USES.find(u => u[0] === k) || [])[1] || k || '';
+
+  const escA = s => String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+  /* Поля паспорта модели для карточки рамы. attrs — чем страница помечает свои
+     поля ввода (data-i="0" на сравнении, data-g="bike" в Fit Lab): обработчик
+     ввода остаётся у страницы, значение она читает через metaValue. Незнакомое
+     назначение — из файла новой версии — показывается как есть, а не теряется
+     при следующем сохранении. */
+  function metaHTML(b, attrs) {
+    return META.map(m => {
+      const v = b[m.key], id = `${attrs} data-k="${m.key}"`;
+      let input;
+      if (m.type === 'enum') {
+        const known = v == null || USES.some(u => u[0] === v);
+        input = `<select class="meta" ${id}><option value="">не задано</option>`
+          + USES.map(u => `<option value="${u[0]}"${u[0] === v ? ' selected' : ''}>${u[1]}</option>`).join('')
+          + (known ? '' : `<option value="${escA(v)}" selected>${escA(v)}</option>`) + '</select>';
+      } else if (m.type === 'num') {
+        input = `<input type="number" class="meta" step="${m.step}" min="${m.min}" max="${m.max}" ${id} value="${v == null ? '' : v}" placeholder="${m.ph}">`;
+      } else {
+        input = `<input type="text" class="meta" maxlength="${m.max}" ${id} value="${v == null ? '' : escA(v)}" placeholder="${escA(m.ph)}">`;
+      }
+      return `<label>${m.label}</label>${input}`;
+    }).join('');
+  }
+
+  /* Значение поля паспорта модели для состояния: пусто — null, год — число,
+     остальное — строка без пробелов по краям. */
+  function metaValue(el) {
+    const v = el.value.trim();
+    if (!v) return null;
+    if (TEXT_KEYS.includes(el.dataset.k)) return v;
+    const n = parseFloat(v);
+    return isFinite(n) ? n : null;
+  }
+
+  /* Значение поля в ссылке и обратно. Числа идут как есть, текст — через
+     encodeURIComponent, и дополнительно кодируются «~» и «!»: ими ссылки
+     разделяют поля и рамы, а encodeURIComponent их не трогает. Поэтому же
+     название рамы кодируется здесь: раньше «~» в названии сдвигал все поля. */
+  const encText = s => encodeURIComponent(s).replace(/[~!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+  const toLink = (k, v) => v == null || v === '' ? '' : TEXT_KEYS.includes(k) ? encText(v) : v;
+  function fromLink(k, s) {
+    if (s === undefined || s === '') return null;
+    if (TEXT_KEYS.includes(k)) { try { return decodeURIComponent(s); } catch (e) { return s; } }
+    return parseFloat(s);
+  }
+
+  /* Ход, просадка и поправка угла рулевой — слайдеры: их крутят, разглядывая
+     результат. Поправка угла — эксперимент «а если положе» с той же вилкой
+     (model.js); паспортный угол остаётся в поле. ±3° перекрывают наклонные
+     чашки (до 2°) и разницу между соседними поколениями рам. */
   const SLIDERS = {
     travel: { label: 'Ход вилки', min: 60, max: 180, step: 5, unit: ' мм' },
-    sag:    { label: 'SAG вилки', min: 0,  max: 40,  step: 1, unit: '%' }
+    sag:    { label: 'SAG вилки', min: 0,  max: 40,  step: 1, unit: '%' },
+    dHta:   { label: 'Поправка угла рулевой', min: -3, max: 3, step: 0.1, unit: '°' }
   };
+
+  /* Подпись у слайдера угла: поправка и угол, который из неё выходит на
+     паспорте (без sag и хода — их видно в таблице). */
+  function dHtaText(b) {
+    const d = +(b.dHta || 0);
+    if (!d) return 'паспорт';
+    const sgn = d > 0 ? '+' : '−';
+    return `${sgn}${Math.abs(d).toFixed(1)}° → ${(+b.hta + d).toFixed(1)}°`;
+  }
 
   const HINTS = {
     needFrontAxle: 'Рама не считается: нет ни колёсной базы, ни офсета вилки. Без одного из них переднюю ось не поставить, '
@@ -73,7 +198,14 @@
       + 'и неверно при смене модели: у двух вилок с одним ходом A2C расходится на 10–18 мм. '
       + 'Заполни оба A2C — и в расчёт пойдёт их разность. Именно разность: A2C меряется от кольца короны, а модель от низа стакана, '
       + 'и неизвестная высота нижней чашки в разности сокращается. Офсет подставляется напрямую. '
-      + 'Ход при этом продолжает работать — но только на sag.'
+      + 'Ход при этом продолжает работать — но только на sag.',
+    meta: 'Необязательно и в расчёт не входит — ни одно число от этих полей не меняется. Это подписи рамы: по ним её найдут '
+      + 'в каталоге и узнают в своих пресетах через год. Всё берётся из таблицы производителя: размер — как он назван там, '
+      + 'назначение — то, для чего раму задумал производитель, даже если геометрия говорит другое.',
+    dHta: 'Та же рама и та же вилка, рулевая положе (минус) или круче (плюс) — как с наклонной чашкой. '
+      + 'Поле «Угол рулевой» выше — паспорт: его правка у рамы, заданной базой, держит базу и меняет офсет вилки.',
+    rigid: 'Вилка без амортизатора: не проседает, хода нет, геометрия всегда паспортная. Длина — от низа рулевого стакана до оси, '
+      + 'её модель выводит из паспорта. Меняешь жёсткую вилку на другую — задай оба A2C в «Замене вилки».'
   };
 
   /* Порядок полей рамы в ссылке Fit Lab (ключ f). Это формат уже разосланных
@@ -83,7 +215,13 @@
   const LINK_KEYS = ['reach', 'stack', 'hta', 'sta', 'ht', 'st', 'cs', 'bbDrop', 'wb', 'travelRef', 'travel', 'sag',
                      'forkA2C', 'forkA2Cnew', 'forkOffsetNew', 'forkOffsetSpec', 'forkMeasLen',
                      // с 2026-09-17: Fit Lab принимает офсет как альтернативу базе
-                     'offset'];
+                     'offset',
+                     // с 2026-09-26: жёсткая вилка (1 или пусто)
+                     'rigid',
+                     // с 2026-09-29: паспорт модели (текст — через toLink/fromLink)
+                     'brand', 'model', 'year', 'size', 'use',
+                     // с 2026-10-06: поправка угла рулевой с той же вилкой
+                     'dHta'];
 
   /* Основная сетка карточки рамы — одна на обе страницы: таблица геометрии
      сверху вниз, офсет сразу за базой, потому что это два способа задать одно и
@@ -91,22 +229,32 @@
   const GRID = [...PASSPORT.slice(0, 9), OFFSET, ...PASSPORT.slice(9)];
 
   const ALL = [...PASSPORT, OFFSET, ...FORK_SWAP, ...FORK_CHECK];
-  const KEYS = [...ALL.map(f => f[0]), 'travel', 'sag'];
+  const KEYS = [...ALL.map(f => f[0]), 'travel', 'sag', 'dHta', 'rigid', ...META_KEYS];
   const field = key => ALL.find(f => f[0] === key) || null;
-  const label = key => (SLIDERS[key] ? SLIDERS[key].label : (field(key) || [])[1]) || key;
+  const meta = key => META.find(m => m.key === key) || null;
+  const label = key => (SLIDERS[key] ? SLIDERS[key].label : key === 'rigid' ? RIGID.label
+    : meta(key) ? meta(key).label : (field(key) || [])[1]) || key;
 
   /* Ссылка, открывающая раму в Fit Lab. Уходит то, что ввёл человек: рама,
      заданная офсетом, приезжает с офсетом, а не с базой, выведенной за него.
      Кокпит, тело и посадка в ссылку не идут: там остаётся то, что у Fit Lab по
      умолчанию или в его пресетах. */
   function fitLabLink(b, wheelR, name) {
-    const f = LINK_KEYS.map(k => b[k] == null || b[k] === '' ? '' : b[k]).join('~');
-    return `fit-lab.html#w=${wheelR}&n=${encodeURIComponent(name || '')}&f=${f}`;
+    const f = LINK_KEYS.map(k => toLink(k, b[k])).join('~');
+    return `fit-lab.html#w=${wheelR}&n=${encText(name || '')}&f=${f}`;
   }
 
   /* Строка под слайдерами: насколько ход отличается от паспортного и сколько
-     миллиметров съедает просадка. Одна на обе страницы. */
-  function travelNote(b) {
+     миллиметров съедает просадка. Одна на обе страницы. У жёсткой вилки хода и
+     просадки нет — вместо них длина вилки; её считает модель, страница передаёт
+     готовое число (fork — решение solveFrame), физики здесь нет. */
+  function travelNote(b, fork) {
+    if (b.rigid) {
+      const len = fork ? `от низа стакана до оси ${fork.a2cNew.toFixed(0)} мм` : 'длина по паспорту';
+      return fork && Math.abs(fork.dA2C) > 0.05
+        ? `${len} · по замене вилки ${fork.dA2C > 0 ? '+' : ''}${fork.dA2C.toFixed(0)} мм к штатной`
+        : `${len} · не проседает = паспортная геометрия`;
+    }
     const d = b.travel - b.travelRef;
     return [
       d === 0 ? 'ход паспортный' : `ход ${d > 0 ? '+' : ''}${d} мм от паспортного (${b.travelRef})`,
@@ -114,7 +262,13 @@
     ].join(' · ');
   }
 
-  global.BikeFrame = { PASSPORT, OFFSET, GRID, FORK_SWAP, FORK_CHECK, SLIDERS, HINTS, LINK_KEYS, KEYS,
-                       field, label, fitLabLink, travelNote };
+  /* Sag и ход для подписей: у жёсткой вилки их нет, что бы ни стояло в слайдерах.
+     Считает модель; это только то, что показать словами. */
+  const sagOf = b => b.rigid ? 0 : (b.sag || 0);
+  const forkWord = b => b.rigid ? 'вилка жёсткая' : `ход ${b.travel} мм, sag ${b.sag || 0}%`;
+
+  global.BikeFrame = { PASSPORT, OFFSET, GRID, FORK_SWAP, FORK_CHECK, SLIDERS, RIGID, WHEEL, HINTS, LINK_KEYS, KEYS,
+                       META, META_KEYS, TEXT_KEYS, USES, useLabel, metaHTML, metaValue, encText, toLink, fromLink,
+                       field, label, fitLabLink, travelNote, dHtaText, sagOf, forkWord };
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);

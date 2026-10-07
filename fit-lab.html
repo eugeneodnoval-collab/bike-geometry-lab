@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fit Lab — райдер на геометрии</title>
+<title>Fit Lab — примерь раму по райдеру</title>
 <link rel="stylesheet" href="site.css?v=d77220fe">
-<link rel="stylesheet" href="tools.css?v=cfccfee0">
+<link rel="stylesheet" href="tools.css?v=68841690">
 <style>
 
 .card h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:600}
@@ -39,6 +39,11 @@
 .slider{margin-top:12px;padding-top:11px;border-top:1px dashed #ddd}
 .slider .row{display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:7px}
 .slider input[type=range]{flex:1;accent-color:var(--c1)}
+.slider input[type=range]:disabled{opacity:.35}
+/* .row задаёт display:flex и перебивает атрибут hidden — у жёсткой вилки ход и sag скрыты */
+.slider .row[hidden]{display:none}
+.rigidrow{display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;cursor:pointer}
+.rigidrow input{accent-color:var(--c1);margin:0}
 .tval{font-variant-numeric:tabular-nums;font-weight:650;min-width:72px;text-align:right}
 details{margin-top:10px;font-size:13px}
 
@@ -46,9 +51,28 @@ button.on{background:#1f1f1f;color:#fff;border-color:#1f1f1f}
 
 table{border-collapse:collapse;font-size:12.5px;width:100%;font-variant-numeric:tabular-nums}
 
-.spec{color:#9a9a9a;font-size:11.5px;text-align:left}
+.spec{color:var(--mut);font-size:11.5px;text-align:left}
 .ok{color:#0a7d33}.amb{color:#8a5a00}.bad{color:#b3261e}
 .val{font-weight:650}
+
+/* Полная таблица. Название параметра и значение не переносятся: разорванное
+   «Высота седла вдоль / подседельной» читается хуже, чем длинная строка, а
+   сжимать эти колонки ради комментария незачем — он и так в свободной третьей.
+   Уже 720 px комментарию в третьей колонке остаётся меньше 280 px, поэтому строка
+   раскладывается в две: название и значение в первой, комментарий под ними во
+   всю ширину. Название там может перенестись — но только если не влезает в
+   ширину экрана целиком, а не в треть его. */
+#table td:first-child,#table td.val{white-space:nowrap}
+@media(max-width:719px){
+  #table table,#table tbody,#table tr.grp,#table tr.grp td{display:block}
+  #table thead{display:none}
+  #table tr:not(.grp){display:grid;grid-template-columns:1fr auto;column-gap:12px;align-items:baseline;
+    padding:6px 8px;border-bottom:1px solid #ededed}
+  #table tr:not(.grp) td{border:none;padding:0}
+  #table td:first-child{white-space:normal}
+  #table td.spec{grid-column:1 / -1;margin-top:2px}
+  #table td.spec:empty{display:none}
+}
 
 .toolbar .okmsg{color:#0a7d33;font-size:12.5px}
 .warn{font-size:12.5px;line-height:1.55;color:#8a5a00;background:#fff8e6;border:1px solid #f0dfae;border-radius:6px;padding:9px 11px;margin-top:10px}
@@ -97,7 +121,7 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .sumr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:2px 0}
 .sumr .k{font-size:12.5px;color:#4a4f57}
 .sumr .v{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.sumn{font-size:11.5px;color:#9aa1ac;margin-top:5px;line-height:1.45}
+.sumn{font-size:11.5px;color:var(--mut);margin-top:5px;line-height:1.45}
 
 /* ---- конверт кокпита ----
    Вердикт крупно, потому что за ним и приходят; всё остальное — обоснование
@@ -105,12 +129,35 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .envv{font-size:15px;line-height:1.5;font-weight:600;padding:11px 13px;border-radius:9px;
       border:1px solid #d9e6dd;background:#f1f8f3;color:#1c4c31}
 .envv.bad{border-color:#f3c4bf;background:#fdecea;color:#8c1d18}
-.envmeta{font-size:11.5px;color:#9aa1ac;margin:8px 0 4px;line-height:1.5}
-.envcrit{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px;color:#4a4f57;
-         border:1px solid #e8eaee;border-radius:9px;padding:8px 11px;margin-bottom:10px;background:#fcfcfd}
-.envcrit b{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;font-weight:600}
-.envcrit input{width:52px;padding:3px 5px;border:1px solid #d5d5d5;border-radius:5px;font:inherit;
-               font-size:12.5px;text-align:right;background:#fff}
+/* Оговорки свёрнуты под раскрывашки с понятным названием: читают их один раз,
+   а стоя в тексте, они занимали больше места, чем сам ответ. */
+.envmeta{font-size:11.5px;color:var(--mut);line-height:1.5;margin:4px 0 2px}
+.envmeta p{margin:0 0 5px}
+.envmeta p:last-child{margin-bottom:0}
+.envmore{margin-top:4px}
+.envmore > summary{list-style:none;display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;font-size:11.5px;color:var(--mut)}
+.envmore > summary::-webkit-details-marker{display:none}
+.envmore .lnk{border-bottom:1px dashed #c5cad2;line-height:1.35}
+.envmore > summary:hover .lnk{color:#191919;border-bottom-color:var(--mut)}
+.envmore .lnk::after{content:' ▸'}
+.envmore[open] .lnk::after{content:' ▾'}
+/* Легенда шкалы стоит в заголовке раскрывашки «Как читать шкалу»: одна строка
+   на то и другое, а клик по легенде раскрывает её объяснение. */
+.envleg{display:flex;gap:12px;flex-wrap:wrap}
+.envleg > span{display:inline-flex;align-items:center;gap:5px}
+.envleg i{display:inline-block;width:14px;height:7px;border-radius:4px}
+.envleg i.mk{width:3px;height:11px;border-radius:1px}
+/* Варианты конфигураций — свёрнуты, заголовок как кнопка во всю ширину. */
+.envopts{margin-top:10px}
+.envopts > summary{list-style:none;display:flex;align-items:center;gap:8px;padding:8px 11px;
+  border:1px solid #e8eaee;border-radius:9px;background:#fcfcfd;color:#191919;font-size:13px;font-weight:600}
+.envopts > summary::-webkit-details-marker{display:none}
+.envopts > summary::before{content:'';width:6px;height:6px;flex:0 0 auto;border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;transform:rotate(-45deg);margin:0 2px}
+.envopts[open] > summary::before{transform:rotate(45deg);margin:0 2px 3px}
+.envopts > summary:hover{background:#f2f2f2}
+.envopts > summary .cnt{font-weight:400;color:var(--mut);font-size:12px;white-space:nowrap;margin-left:4px}
+.envfoot{margin-top:8px}
 /* Карточка — грид-элемент колонки результатов, а грид-элементы по умолчанию не
    ужимаются уже своего содержимого (min-width:auto). Без этой строки
    прокручиваемая линейка ниже растягивала не себя, а всю колонку, и на телефоне
@@ -121,7 +168,7 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 /* Линейка — единственный элемент карточки, который нельзя переносить по словам:
    ужимаясь вместе с шириной экрана, она превращает подписи в 6 пикселей. Ниже
    600 px она прокручивается вбок, а не мельчает. */
-.envruler{margin:2px 0 6px;overflow-x:auto}
+.envruler{margin:8px 0 2px;overflow-x:auto;padding-bottom:6px}
 .envruler svg{width:100%;min-width:600px;height:auto;display:block}
 /* Секторы в ряд по той же логике, что и сводка: 300px минимума дают 3 колонки
    на широкой панели, 2 на средней, 1 на телефоне — без своих брейкпоинтов. */
@@ -129,8 +176,8 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .envsec{border:1px solid #e8eaee;border-radius:9px;padding:9px 11px;background:#fcfcfd}
 .envsec .sh{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:6px}
 .envsec .sh b{font-size:13px}
-.envsec .sh .disc{font-size:11.5px;color:#8b93a1}
-.envsec .sh .cnt{font-size:11.5px;color:#8b93a1;margin-left:auto;white-space:nowrap}
+.envsec .sh .disc{font-size:11.5px;color:var(--mut)}
+.envsec .sh .cnt{font-size:11.5px;color:var(--mut);margin-left:auto;white-space:nowrap}
 .envcfg{list-style:none;margin:0;padding:0;display:grid;gap:7px}
 /* Уровни называются lvl-*, а не ok/warn/bad: последние на этой странице уже
    заняты — .warn это жёлтая плашка предупреждения, .ok и .bad красят текст.
@@ -141,11 +188,10 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 .envcfg li.lvl-warn{border-left-color:#b8860b}
 .envcfg li.lvl-bad{border-left-color:#b3261e}
 .envcfg .cl{font-size:12.5px;line-height:1.45}
-.envcfg .cn{font-size:11.5px;color:#8b93a1;font-variant-numeric:tabular-nums;margin-top:2px}
-.envcfg .cf{font-size:11.5px;margin-top:2px;color:#8b93a1}
+.envcfg .cn{font-size:11.5px;color:var(--mut);font-variant-numeric:tabular-nums;margin-top:2px}
+.envcfg .cf{font-size:11.5px;margin-top:2px;color:var(--mut)}
 .envcfg li.lvl-warn .cf{color:#8a5a00}
 .envcfg li.lvl-bad .cf{color:#b3261e}
-.envnote{font-size:11.5px;color:#9aa1ac;line-height:1.45;margin-top:7px}
 .envcur{margin-top:10px;border:1px solid #e8eaee;border-radius:9px;padding:9px 11px;background:#fff}
 .envcur .t{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8b93a1;margin-bottom:5px}
 .envcur p{margin:0 0 5px;font-size:12.5px;line-height:1.5}
@@ -156,6 +202,8 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
   body{padding:0;background:#fff;font-size:11px}
   .toolbar,#inputs,details,.noprint{display:none!important}
   .printonly{display:block}
+  /* варианты конфигураций печатаются раскрытыми (beforeprint), оговорки — нет */
+  #envcard details.envopts{display:block!important}
   .layout{display:block}
   .panel{position:static;max-height:none;overflow:visible}
   #side svg,#top svg{max-width:100%!important}
@@ -170,8 +218,10 @@ input[type=range].vslider{writing-mode:vertical-lr;direction:rtl;width:24px;flex
 main.results.blocked > .card{display:none}
 .blockednote{background:#fff5f4;border:1px solid #f0c8c3;border-radius:10px;padding:14px 16px;font-size:13.5px;margin:0 0 14px}
 
-/* Отличия этой страницы от общей основы (site.css). */
-.sub{max-width:900px;line-height:1.5}
+/* Заголовок, подпись и тулбар — только из site.css и tools.css, своих правил у
+   страницы нет: при переходе между страницами шапка не должна прыгать. Здесь
+   была межстрочка 1.5 у подписи — от времён, когда подпись была в три строки, —
+   и тулбар с карточками стоял на 4.5 px ниже, чем на сравнении. */
 </style>
 
 <script>
@@ -207,8 +257,8 @@ window.goatcounter.path = function(){
 
 <script src="nav.js?v=fe891a9a"></script>
 
-<h1>Fit Lab — райдер на геометрии</h1>
-<div class="sub">Считает, где именно окажутся седло и ручки руля, и в какую позу это поставит человека с заданными пропорциями. Рама решается под ход вилки и sag, кокпит — цепочкой от рулевого стакана до центра хвата, тело — обратной кинематикой от контактных точек. Свободная степень одна: наклон корпуса. Её задаёшь ты, всё остальное считается.</div>
+<h1>Fit Lab — примерь раму по райдеру</h1>
+<div class="sub">Укажи размеры тела, рамы и кокпита и узнай, какой будет посадка</div>
 
 <!-- Тулбар как на сравнении геометрий: «Поделиться» и «Пресеты» — выпадающие
      меню (стили в tools.css, поведение в nav.js), порядок блоков — кнопка. -->
@@ -225,6 +275,31 @@ window.goatcounter.path = function(){
     <div class="menulist">
       <button type="button" onclick="BikePresets.exportFile()">Скачать в файл</button>
       <button type="button" onclick="document.getElementById('psfile').click()">Загрузить из файла</button>
+      <button type="button" onclick="BikePresetManager.open()">Управление пресетами</button>
+    </div>
+  </details>
+  <!-- Каталог рам — отдельной кнопкой сразу за «Пресетами», а не пунктом внутри:
+       из меню его никто не находил, пока не заходил туда за другим. -->
+  <button type="button" id="catbtn" onclick="BikeCatalog.open()">Каталог рам</button>
+  <!-- Критерии посадки — в тулбаре третьей кнопкой: «Поделиться» и «Пресеты»
+       стоят первыми и на тех же местах, что на сравнении. Критерии — не рама и не
+       тело, а требования, с которыми карточка «Что эта рама позволяет» сверяет
+       каждую конфигурацию, и значения видны прямо на кнопке. Разметка
+       статическая, а не внутри #env: тот пересобирается на каждый рендер, и
+       поле теряло бы фокус на первом же введённом символе. -->
+  <details class="menu" id="critmenu">
+    <summary>Критерии посадки <span class="msum" id="critsum"></span></summary>
+    <div class="menupanel">
+      <div class="grid">
+        <label>Рука, % длины</label><input type="number" step="1" data-g="crit" data-k="armTarget">
+        <label>Залом запястья до, °</label><input type="number" step="1" data-g="crit" data-k="wristMax">
+        <label>Наклон корпуса от, °</label><input type="number" step="1" data-g="crit" data-k="torsoLo">
+        <label>…до, °</label><input type="number" step="1" data-g="crit" data-k="torsoHi">
+      </div>
+      <div class="hint">Под каждую конфигурацию ищется посадка, в которой рука выходит на заданную долю длины
+        (92% — верхняя граница зелёной зоны). Залом сверх порога — красная пометка, сверх половины — жёлтая.
+        Наклон корпуса модель не судит, только помечает выход за границы. Критерии едут в ссылке, но не в пресетах.</div>
+      <div style="margin-top:8px"><button type="button" id="critreset">Вернуть исходные</button></div>
     </div>
   </details>
   <input type="file" id="psfile" accept=".json,application/json" style="display:none"
@@ -250,15 +325,6 @@ window.goatcounter.path = function(){
 
 <div class="card" id="envcard">
   <h3>Что эта рама позволяет</h3>
-  <!-- Критерии живут в статической разметке, а не внутри #env: тот пересобирается
-       на каждый рендер, и поле теряло бы фокус на первом же введённом символе.
-       Обработчик делегирован на document по той же причине. -->
-  <div class="envcrit noprint" id="envcrit">
-    <b>Критерии посадки:</b>
-    <span>рука <input type="number" step="1" data-g="crit" data-k="armTarget"> %</span>
-    <span>залом до <input type="number" step="1" data-g="crit" data-k="wristMax"> °</span>
-    <span>наклон корпуса <input type="number" step="1" data-g="crit" data-k="torsoLo">–<input type="number" step="1" data-g="crit" data-k="torsoHi"> °</span>
-  </div>
   <div id="env"></div>
 </div>
 
@@ -379,11 +445,14 @@ window.goatcounter.path = function(){
 </main>
 </div>
 
-<script src="model.js?v=fe050aac"></script>
+<script src="model.js?v=64a6bb64"></script>
 <script src="cockpit.js?v=e26f6d23"></script>
 <script src="rider.js?v=15e4c776"></script>
-<script src="frame.js?v=ee21854d"></script>
-<script src="presets.js?v=81fd17a7"></script>
+<script src="frame.js?v=b2155151"></script>
+<script src="presets.js?v=e16ba6c0"></script>
+<script src="catalog-data.js?v=f9464424"></script>
+<script src="catalog.js?v=e9456586"></script>
+<script src="presets-manager.js?v=228fab00"></script>
 <script>
 /* Событие в GoatCounter. Скрипт грузится async и может не загрузиться вовсе
    (блокировщик), поэтому вызов всегда защищён и молча ничего не делает.
@@ -1566,7 +1635,8 @@ function drawStand(M,ST){
   g.push(ln([sat[0],sat[1]],[sat[0],crotch],TEAL,5,'10 8'));
   g.push(tx(sat[0]-30,(sat[1]+crotch)/2,`над седлом ${ST.clear>0?'+':''}${ST.clear.toFixed(0)}`,TEAL,34,'end',700));
   if(ST.pitch) g.push(tx(P.front[0],-(P.front[1]+R+70),
-    ST.pitch>0?`наклон ${ST.pitch}° · вилка разжата`:`спуск ${-ST.pitch}° · вилка под sag`,MUT,34,'middle',600));
+    state.bike.rigid ? `${ST.pitch>0?'наклон':'спуск'} ${Math.abs(ST.pitch)}° · вилка жёсткая`
+    : ST.pitch>0?`наклон ${ST.pitch}° · вилка разжата`:`спуск ${-ST.pitch}° · вилка под sag`,MUT,34,'middle',600));
   // центр масс
   g.push(`<circle cx="${ST.CoM[0].toFixed(1)}" cy="${(-ST.CoM[1]).toFixed(1)}" r="40" fill="none" stroke="${VIO}" stroke-width="5"/><circle cx="${ST.CoM[0].toFixed(1)}" cy="${(-ST.CoM[1]).toFixed(1)}" r="18" fill="${VIO}"/>`);
   g.push(ln(ST.CoM,[ST.CoM[0],-200],VIO,4,'16 13',.85));
@@ -1654,28 +1724,30 @@ function buildTable(M,ST){
   const grp=t=>`<tr class="grp"><td colspan="3">${t}</td></tr>`;
   const sg=v=>(v>0?'+':'')+v.toFixed(0);
   let h='<table><thead><tr><th>Параметр</th><th>Значение</th><th style="text-align:left">Норма / комментарий</th></tr></thead><tbody>';
-  h+=grp('Рама под ходом и sag');
-  h+=r('Reach факт', F.reach.toFixed(0)+' мм', `паспорт ${state.bike.reach}`);
-  h+=r('Stack факт', F.stack.toFixed(0)+' мм', `паспорт ${state.bike.stack}`);
+  h+=grp(state.bike.rigid ? 'Рама с жёсткой вилкой' : 'Рама под ходом и sag');
+  h+=r('Reach', F.reach.toFixed(0)+' мм', `паспорт ${state.bike.reach}`);
+  h+=r('Stack', F.stack.toFixed(0)+' мм', `паспорт ${state.bike.stack}`);
   h+=r('Угол рулевой / подседельной', F.hta.toFixed(1)+'° / '+F.sta.toFixed(1)+'°', `паспорт ${state.bike.hta} / ${state.bike.sta}`);
-  h+=r('Высота каретки', F.bbH.toFixed(0)+' мм', `просадка вилки ${F.sagMM.toFixed(0)} мм`);
+  h+=r('Высота каретки', F.bbH.toFixed(0)+' мм', state.bike.rigid ? 'вилка жёсткая, не проседает' : `просадка вилки ${F.sagMM.toFixed(0)} мм`);
   h+=grp('Кокпит');
   h+=r('Подъём выноса от горизонта', M.CO.elev.toFixed(1)+'°', `(90 − ${F.hta.toFixed(1)}°) + ${state.ck.stemFlip?-state.ck.stemAngle:state.ck.stemAngle}° — вынос «0°» уже смотрит вверх`);
-  h+=r('Ручка от каретки (x / y / z)', `${G[0].toFixed(0)} / ±${G[1].toFixed(0)} / ${G[2].toFixed(0)}`,'начало координат — каретка, земля z=0');
-  h+=r('Высота седла вдоль подседельной', M.satH.toFixed(0)+' мм','ход по оси трубы от каретки; подобрана под целевой угол колена в НМТ');
-  /* Ход — вниз с шагом 5 мм, как их продают; то же округление в предупреждении. */
+  h+=r('Ручка: x / y / z', `${G[0].toFixed(0)} / ±${G[1].toFixed(0)} / ${G[2].toFixed(0)}`,'x — вперёд от каретки, y — вбок от оси велосипеда, z — вверх от земли');
+  h+=r('Высота седла вдоль подседельной', M.satH.toFixed(0)+' мм','по оси подседельной от центра каретки; подобрана под целевой угол колена в НМТ');
+  /* Ход — вниз с шагом 5 мм, как их продают; то же округление в предупреждении.
+     Это граница только по высоте над трубой: глубину вставки ограничивают изгиб
+     трубы и бонки, а их паспорт не описывает — поэтому строка отсылает к раме. */
   if(state.bike.st>0){
     const ext=M.satH-state.bike.st, dmax=BikeRider.maxDropper(ext), rigidMin=BikeRider.minAbove(0);
     h+=r('Седло над подседельной трубой', ext.toFixed(0)+' мм',
          ext<rigidMin ? `так низко не опустить: жёсткий штырь с седлом занимают не меньше ${rigidMin} мм`
          : dmax<25 ? 'хватит только на жёсткий штырь'
-         : `влезет дроппер ходом до ${Math.floor(dmax/5)*5} мм — с самым низким штырём (стек ${BikeRider.POST.dropper} мм), у других меньше`,
+         : `по высоте влезет дроппер до ${Math.floor(dmax/5)*5} мм — с самым низким штырём (стек ${BikeRider.POST.dropper} мм), у других меньше; по глубине решает рама — смотри минимальную вставку у производителя`,
          ext<rigidMin ? 'bad' : dmax<100 ? 'amb' : '');
   }
   h+=r('Прямая каретка → седло', M.satStraight.toFixed(0)+' мм',
-       M.setback ? `то, что меряется рулеткой; сетбек ${sg(M.setback)} смещает на ${sg(M.satStraight-M.satH)} от хода по трубе`
-                 : 'то, что меряется рулеткой; без сетбека совпадает с ходом по трубе');
-  h+=r('Сетбек седла от каретки', (-M.sat[0]).toFixed(0)+' мм', `штырь ${state.fit.postOffset} + рельсы ${state.fit.railPos>=0?'+':''}${state.fit.railPos}`);
+       M.setback ? `то, что меряется рулеткой; сетбек ${sg(M.setback)} даёт ${sg(M.satStraight-M.satH)} к высоте вдоль подседельной`
+                 : 'то, что меряется рулеткой; без сетбека совпадает с высотой вдоль подседельной');
+  h+=r('Сетбек седла от каретки', (-M.sat[0]).toFixed(0)+' мм', `офсет штыря ${state.fit.postOffset} + рельсы ${state.fit.railPos>=0?'+':''}${state.fit.railPos}`);
   h+=r('Седло → ручка, гориз.', M.s2gX.toFixed(0)+' мм','главное число кокпита');
   h+=r('Перепад седло → ручка', (M.s2gZ>0?'+':'')+M.s2gZ.toFixed(0)+' мм','+ = руль выше седла');
   h+=grp('Кокпит целиком — от каретки до ручки');
@@ -1689,8 +1761,8 @@ function buildTable(M,ST){
        zone(Math.abs(M.radDelta),[0,10],[0,25]));
   h+=r('Угол RAD (RAAD)', M.raad.toFixed(1)+'°','круче — больше запаса хода рук на спуске, положе — выгоднее в подъём');
   h+=grp('Углы тела');
-  h+=r('Колено в НМТ', M.kneeBDC.toFixed(0)+'°','140–150 — задано целью, проверь что достижимо', zone(M.kneeBDC,BikeRider.KNEE_BDC.good,BikeRider.KNEE_BDC.ok));
-  h+=r('Колено в ВМТ', M.kneeTDC.toFixed(0)+'°','65–80', zone(M.kneeTDC,[65,80],[58,90]));
+  h+=r('Колено в НМТ', M.kneeBDC.toFixed(0)+'°','140–150 — задано целью, проверь, что достижимо', zone(M.kneeBDC,BikeRider.KNEE_BDC.good,BikeRider.KNEE_BDC.ok));
+  h+=r('Колено в ВМТ', M.kneeTDC.toFixed(0)+'°','65–80 — рабочий диапазон', zone(M.kneeTDC,[65,80],[58,90]));
   h+=r('Бедро в ВМТ', M.hipTDC.toFixed(0)+'°','&lt;45° — зажим в паху, спина уходит в компенсацию', zone(M.hipTDC,[55,110],[45,120]));
   h+=r('Наклон корпуса', M.torso.toFixed(0)+'°','задан тобой: 40–45 XC, 50–60 трейл, 65+ комфорт; это угол хорды таз → плечо');
   h+=r('Хорда торса', S.trunkChord.toFixed(0)+' мм', `анатомический торс ${S.trunk.toFixed(0)} при скруглении спины ${S.spineFlex.toFixed(0)}° (сгиб на ${(100*(S.spineA/S.trunk)).toFixed(0)}% от таза)`);
@@ -1704,7 +1776,7 @@ function buildTable(M,ST){
   h+=r('Использование длины руки', M.armUse.toFixed(0)+' %',`по 3D: плечо → ручка ${M.armD3.toFixed(0)} − протракция ${M.shExtUsed.toFixed(0)} при руке ${S.armMax.toFixed(0)}. &gt;96% — руки в замок`, zone(M.armUse,[0,92],[0,96]));
   h+=grp('Плановая геометрия и баланс');
   h+=r('Ширина хвата', M.gripW.toFixed(0)+' мм', `руль ${state.ck.barWidth}, отступ хвата ${state.ck.gripInset} с каждой стороны`);
-  h+=r('Хват / плечи', (M.gripW/S.shoulderW).toFixed(2)+'×','1.3–1.6 обычный диапазон для МТБ', zone(M.gripW/S.shoulderW,[1.30,1.62],[1.20,1.75]));
+  h+=r('Хват / плечи', (M.gripW/S.shoulderW).toFixed(2)+'×','1.3–1.6 — обычный диапазон для МТБ', zone(M.gripW/S.shoulderW,[1.30,1.62],[1.20,1.75]));
   if(state.body.sitBoneW!=null)
     h+=r('Ширина седла под бугры', '≈ '+(state.body.sitBoneW+25).toFixed(0)+' мм', `бугры ${state.body.sitBoneW} + 20–30 мм; чем сильнее наклон корпуса, тем уже допустимо`);
   h+=r('Предплечье в плане / загиб ручки', `${M.forearmPlan.toFixed(0)}° / ${M.sweepPlan.toFixed(0)}°`,
@@ -1746,7 +1818,8 @@ function buildSummary(M,ST){
     +row('Цель по росту', M.radTarget.toFixed(0)+' мм')
     +row('Δ', sg(M.radDelta)+' мм', zone(Math.abs(M.radDelta),[0,10],[0,25]))
     +row('RAAD', M.raad.toFixed(1)+'°'),
-    'считается на текущей просадке; для сверки с опубликованными ставь sag 0');
+    state.bike.rigid ? 'вилка жёсткая, просадки нет — сверяется с опубликованными напрямую'
+                     : 'считается на текущей просадке; для сверки с опубликованными ставь sag 0');
   h+=grp('Поза',
     row('Наклон корпуса', M.torso.toFixed(0)+'°')
     +row('Длина руки', M.armUse.toFixed(0)+' %', zone(M.armUse,[0,92],[0,96])),
@@ -1762,10 +1835,45 @@ function buildSummary(M,ST){
 }
 
 /* Карточка «Что эта рама позволяет» — вид для конверта из §4c.
-   Порядок подачи: сначала вердикт словами, потом линейка, потом конкретные
-   конфигурации, и только в конце — где на этой шкале стоит текущий кокпит.
+   Порядок подачи: вердикт словами, шкала углов, твой кокпит на ней — и всё.
+   Конкретные конфигурации и оговорки свёрнуты: конфигурации нужны, когда уже
+   решил что-то менять, а оговорки читают один раз. Раньше всё это стояло
+   раскрытым, и карточка занимала 930 px, из которых ответ — меньше сотни;
+   «Твой кокпит», самый полезный блок, оказывался в самом низу.
    Обратный порядок («вот твои числа, разбирайся») уже есть в сводке и таблице;
    смысл этой карточки именно в том, что ответ идёт первым. */
+
+/* Что раскрыто в карточке. #env пересобирается на каждом рендере, в том числе
+   от позных слайдеров, и без этой памяти раскрытое схлопывалось бы от первого
+   же движения. Только в памяти вкладки, а не в localStorage: свежая страница
+   нарочно открывается компактной (решение владельца). */
+const ENV_OPEN=new Set();
+let envPrinting=false;
+{ const env=document.getElementById('env');
+  /* toggle не всплывает, поэтому слушатель — в фазе захвата. Он же приходит,
+     когда пересобранный details родился с open: тогда это не новое раскрытие,
+     и в аналитику оно не идёт. */
+  if(env) env.addEventListener('toggle',e=>{
+    const d=e.target, k=d&&d.dataset&&d.dataset.k; if(!k||envPrinting) return;
+    if(d.open){ if(!ENV_OPEN.has(k)) track('fit-env-'+k); ENV_OPEN.add(k); }
+    else ENV_OPEN.delete(k);
+  },true); }
+/* Раскрывашка карточки. Заголовок говорит, что откроется, — а не «подробнее». */
+function envMore(k,title,body,lead=''){
+  return `<details class="envmore" data-k="${k}"${ENV_OPEN.has(k)?' open':''}>`
+       + `<summary>${lead}<span class="lnk">${title}</span></summary><div class="envmeta">${body}</div></details>`;
+}
+/* Варианты — то, что берут к велосипеду, поэтому в распечатку они попадают
+   раскрытыми, как и свёрнутые карточки. Оговорки остаются за бортом. Пока идёт
+   печать, раскрытие не человеческое: ни в память, ни в аналитику оно не идёт. */
+window.addEventListener('beforeprint',()=>{ envPrinting=true;
+  document.querySelectorAll('#env details.envopts').forEach(d=>{ d.dataset.pr=d.open?'1':''; d.open=true; }); });
+window.addEventListener('afterprint',()=>{
+  document.querySelectorAll('#env details.envopts').forEach(d=>{
+    if('pr' in d.dataset){ d.open=d.dataset.pr==='1'; delete d.dataset.pr; } });
+  /* toggle приходит задачей после смены open — флаг снимается следом за ним */
+  setTimeout(()=>{ envPrinting=false; },0); });
+
 function buildEnvelope(M){
   const el=document.getElementById('env'); if(!el) return;
   let E;
@@ -1776,29 +1884,31 @@ function buildEnvelope(M){
 
   /* Оговорка про просадку — числом, а не словом «примерно»: разница берётся
      из двух настоящих прогонов, конверта (sag 0) и текущего состояния. */
-  const sagNote = state.bike.sag
-    ? ` При твоём рабочем sag ${n0(state.bike.sag)} % те же углы читаются на ${Math.abs(M.raad-E.current.raad).toFixed(1)}° меньше — конверт считается на стоящем велосипеде, как и опубликованные ориентиры.`
+  const sagNote = BikeFrame.sagOf(state.bike)
+    ? `<p>Шкала считается на стоящем велосипеде (sag 0), как и опубликованные ориентиры. При твоём рабочем sag ${n0(state.bike.sag)} % те же углы читаются на ${Math.abs(M.raad-E.current.raad).toFixed(1)}° меньше.</p>`
     : '';
-  h+=`<div class="envmeta">Перебрано ${E.envelope.n} комбинаций каталога: вынос 35–60 мм, проставки 0–40 мм, `
-   + `руль rise 0–38 мм с загибом 8–16° и <b>подъёмом ${E.catalog.us}°</b> у всех. `
-   + `Ширина руля, отступ хвата и чашка рулевой — твои, руль в нейтрали. `
-   + `Достижимый RAD ${n0(E.envelope.radMin)}–${n0(E.envelope.radMax)} мм при целевых ${n0(E.target)}.${sagNote}</div>`;
-
+  const V=E.verdict.raadMin!=null;
   h+=envRuler(E);
-  h+=`<div class="envmeta" style="margin-top:0">Наклон корпуса у каждой конфигурации — не настройка, а <b>результат</b>: `
-   + `это поза, в которой рука выходит на заданные ${n0(state.crit.armTarget)} % длины. `
-   + `RAAD — свойство велосипеда, наклон корпуса — свойство райдера на нём, и совпадать они не обязаны. `
-   + `Стойка считается на дефолтных критериях (колено 140°, локоть 130°), поэтому позные слайдеры на карточку не влияют.</div>`;
-  h+='<div class="envmeta" style="margin-top:0">Залиты сектора, в которые попадание есть. '
-   + 'Тёмная полоса внутри сектора — опубликованный ориентир Маккормака, остальная ширина сектора — '
-   + 'наша интерполяция между его тремя точками.</div>';
+  h+=envMore('scale','Как читать шкалу',
+       '<p>Залиты сектора, в которые есть попадание в целевой RAD. Тёмная полоса внутри сектора — опубликованный '
+     + 'ориентир Маккормака (XC 55–56°, трейл 58–60°, DH 62–63°), остальная ширина сектора — наша интерполяция между его тремя точками. '
+     + 'Угол вертикального сектора — экстраполяция той же логики «выше угол = вертикальнее», а не опубликованное значение.</p>'
+     + '<p>Полоса под секторами — углы, до которых вообще дотягивается каталог кокпита; плотная часть — те, что попадают '
+     + `в целевой RAD ${n0(E.target)} ± ${E.verdict.tol} мм. Красная метка — твой кокпит.</p>`+sagNote,
+       '<span class="envleg"><span><i style="background:#ece6fa"></i>достижимо</span>'
+     + (V?`<span><i style="background:${VIO}"></i>в целевом RAD</span>`:'')
+     + `<span><i class="mk" style="background:${ACC}"></i>твой кокпит</span></span>`);
+
+  h+=envCurrent(E,M);
 
   const live=E.sectors.filter(s=>s.n>0);
   if(live.length){
-    h+='<div class="envsecs">';
+    h+=`<details class="envopts" data-k="opts"${ENV_OPEN.has('opts')?' open':''}>`
+     + `<summary><span>Посмотреть варианты рабочих конфигураций <span class="cnt">${E.verdict.inTarget} в целевом RAD</span></span></summary>`
+     + '<div class="envsecs">';
     for(const s of live){
       h+=`<div class="envsec"><div class="sh"><b>${esc(s.name)}</b>`
-       + `<span class="disc">${esc(s.disc)}</span><span class="cnt">${s.n} конфиг.</span></div>`;
+       + `<span class="disc">${esc(s.disc)}${s.extrapolated?' · экстраполяция':''}</span><span class="cnt">${s.n} конфиг.</span></div>`;
       h+='<ul class="envcfg">';
       for(const p of s.picks){
         h+=`<li class="lvl-${p.body.level}"><div class="cl">${esc(p.label)}</div>`
@@ -1808,28 +1918,38 @@ function buildEnvelope(M){
          + (p.body.flags.length?`<div class="cf">${esc(p.body.flags.join(', '))}</div>`:'')
          + '</li>';
       }
-      h+='</ul>';
-      if(s.extrapolated)
-        h+='<div class="envnote">Угол для этого сектора — экстраполяция той же логики «выше угол = вертикальнее», а не опубликованное значение.</div>';
-      h+='</div>';
+      h+='</ul></div>';
     }
-    h+='</div>';
+    h+='</div></details>';
   }
 
-  h+=envCurrent(E,M);
-
-  h+='<div class="hint" style="margin-top:10px">Множитель RAD и границы секторов — эмпирические правила одного специалиста, '
-   + 'а не физический закон: у отдельных райдеров удобный RAD лежит на 30–40 мм в стороне от формулы. '
-   + 'Карточка показывает, что рама <b>позволяет</b>, и чем за это платит тело; выбирает человек.</div>';
+  h+='<div class="envfoot">'
+   + envMore('catalog','Что перебрано и при каких условиях',
+       `<p>Перебрано ${E.envelope.n} комбинаций каталога: вынос 35–60 мм, проставки 0–40 мм, `
+     + `руль rise 0–38 мм с загибом 8–16° и <b>подъёмом ${E.catalog.us}°</b> у всех. `
+     + `Ширина руля, отступ хвата и чашка рулевой — твои, руль в нейтрали. `
+     + `Достижимый RAD ${n0(E.envelope.radMin)}–${n0(E.envelope.radMax)} мм при целевых ${n0(E.target)}.</p>`)
+   + envMore('trust','Насколько этому верить',
+       '<p>Множитель RAD и границы секторов — эмпирические правила одного специалиста, '
+     + 'а не физический закон: у отдельных райдеров удобный RAD лежит на 30–40 мм в стороне от формулы. '
+     + 'Карточка показывает, что рама <b>позволяет</b>, и чем за это платит тело; выбирает человек.</p>')
+   + '</div>';
   el.innerHTML=h;
+  /* На телефоне шкала шире экрана и прокручивается; без этого метка твоего
+     кокпита могла стоять за краем, и шкала выглядела бы как шкала без ответа. */
+  const ru=el.querySelector&&el.querySelector('.envruler');
+  if(ru&&ru.scrollWidth>ru.clientWidth) ru.scrollLeft=ru.dataset.at*ru.scrollWidth-ru.clientWidth/2;
 }
 
-/* Линейка RAAD. Одна картинка вместо трёх абзацев: видно и куда рама вообще
+/* Шкала RAAD. Одна картинка вместо трёх абзацев: видно и куда рама вообще
    дотягивается, и какая часть этого попадает в целевой RAD, и где на этой
    шкале стоит текущий кокпит. Зелёным залиты сектора, в которые попадание
-   есть, — цвет здесь несёт данные, а не украшает. */
+   есть, — цвет здесь несёт данные, а не украшает.
+   Одна полоса, а не четыре яруса: подписи «достижимо / в целевом RAD» ушли в
+   легенду под шкалой, подпись метки — в строку градусов, отдельная ось не
+   нужна. Высота вдвое меньше прежней при той же информации. */
 function envRuler(E){
-  const W=1000, H=162;
+  const W=1000, H=84;
   const vals=E.sectors.flatMap(s=>[s.lo,s.hi]).filter(isFinite)
     .concat([E.envelope.raadMin,E.envelope.raadMax,E.current.raad]);
   const lo=Math.floor(Math.min(...vals,54)-1), hi=Math.ceil(Math.max(...vals,64)+1);
@@ -1842,39 +1962,40 @@ function envRuler(E){
   for(const s of E.sectors){
     const a=Math.max(s.lo,lo), b=Math.min(s.hi,hi);
     if(b-a<=0) continue;
-    rect(a,b,8,46,s.n?'#e3f0e8':'#eef0f3','rx="4" stroke="#fff" stroke-width="3"');
+    rect(a,b,4,32,s.n?'#e3f0e8':'#eef0f3','rx="4" stroke="#fff" stroke-width="3"');
     // опубликованный ориентир — тёмная полоса внутри сектора
-    if(s.anchor) rect(s.anchor[0],s.anchor[1],8,46,s.n?'rgba(31,138,82,.16)':'rgba(0,0,0,.05)','rx="4"');
+    if(s.anchor) rect(s.anchor[0],s.anchor[1],4,32,s.n?'rgba(31,138,82,.16)':'rgba(0,0,0,.05)','rx="4"');
     /* Ширина подписи прикидывается по числу букв: обрезанное «ь распласта…»
        читается как поломка вёрстки, а пустой сектор — просто как пустой. */
-    if(x(b)-x(a) > s.name.length*10.5+16) txt((x(a)+x(b))/2,37,esc(s.name),s.n?'#1f6b45':'#98a0ab','19');
+    if(x(b)-x(a) > s.name.length*10+16) txt((x(a)+x(b))/2,26,esc(s.name),s.n?'#1f6b45':'#98a0ab','18');
   }
   // достижимое: весь конверт бледно, попадающее в целевой RAD — плотно
-  rect(E.envelope.raadMin,E.envelope.raadMax,64,14,'#ece6fa','rx="7"');
-  if(E.verdict.raadMin!=null) rect(E.verdict.raadMin,E.verdict.raadMax,64,14,VIO,'rx="7"');
-  txt(x(E.envelope.raadMin),96,'достижимо','#9aa1ac','16','start',500);
-  if(E.verdict.raadMin!=null)
-    txt(x(E.verdict.raadMax),96,'в целевом RAD','#7c5cd6','16','end',600);
+  rect(E.envelope.raadMin,E.envelope.raadMax,42,10,'#ece6fa','rx="5"');
+  if(E.verdict.raadMin!=null) rect(E.verdict.raadMin,E.verdict.raadMax,42,10,VIO,'rx="5"');
 
-  // текущий кокпит
-  const cx=x(E.current.raad);
-  g.push(`<line x1="${cx.toFixed(1)}" y1="4" x2="${cx.toFixed(1)}" y2="78" stroke="${ACC}" stroke-width="4"/>`);
-  g.push(`<circle cx="${cx.toFixed(1)}" cy="78" r="7" fill="${ACC}"/>`);
-  txt(cx, 118, `твой кокпит ${E.current.raad.toFixed(1)}°`, ACC, '19',
-      cx>W*0.8?'end':(cx<W*0.2?'start':'middle'), 700);
+  // текущий кокпит: метка сквозь обе полосы, число — в строке градусов
+  const cx=x(E.current.raad), lbl=E.current.raad.toFixed(1)+'°', lw=lbl.length*10.5;
+  const anch=cx>W-lw?'end':(cx<lw?'start':'middle');
+  const l0=anch==='end'?cx-lw:(anch==='start'?cx:cx-lw/2), l1=l0+lw;
+  g.push(`<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="58" stroke="${ACC}" stroke-width="4"/>`);
+  g.push(`<circle cx="${cx.toFixed(1)}" cy="47" r="6" fill="${ACC}"/>`);
+  txt(cx,79,lbl,ACC,'18',anch,700);
 
-  // ось
-  g.push(`<line x1="0" y1="134" x2="${W}" y2="134" stroke="#d8dce2" stroke-width="3"/>`);
+  // градусы — без тех, на которые налезла бы подпись метки
   for(let a=Math.ceil(lo);a<=hi;a++){
     if(a%2) continue;
-    g.push(`<line x1="${x(a).toFixed(1)}" y1="134" x2="${x(a).toFixed(1)}" y2="141" stroke="#d8dce2" stroke-width="3"/>`);
-    txt(x(a),159,a+'°','#aab1bb','17','middle',500);
+    const ax=x(a);
+    g.push(`<line x1="${ax.toFixed(1)}" y1="58" x2="${ax.toFixed(1)}" y2="63" stroke="#d8dce2" stroke-width="2"/>`);
+    if(ax>l0-28&&ax<l1+28) continue;
+    txt(ax,79,a+'°','#aab1bb','16','middle',500);
   }
-  return `<div class="envruler"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Достижимые углы посадки">${g.join('')}</svg></div>`;
+  return `<div class="envruler" data-at="${(cx/W).toFixed(3)}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Достижимые углы посадки">${g.join('')}</svg></div>`;
 }
 
 /* Блок про введённый кокпит: где он на той же шкале, чем расплачивается тело,
-   что торчит за рабочие диапазоны и что подвинуть, чтобы попасть в цель. */
+   что торчит за рабочие диапазоны и что подвинуть, чтобы попасть в цель.
+   В тексте — только факты про этот кокпит; почему они посчитаны так, а не
+   иначе, — под раскрывашкой в конце блока. */
 function envCurrent(E,M){
   const C=E.current, n0=v=>v.toFixed(0), sg=v=>(v>0?'+':'')+v.toFixed(0);
   let h='<div class="envcur"><div class="t">Твой кокпит на этой раме</div>';
@@ -1887,11 +2008,9 @@ function envCurrent(E,M){
    + '</p>';
   if(C.rollEffect)
     h+=`<p>Доворот руля на ${n0(state.ck.barRoll)}° укорачивает твой RAD на <b>${Math.abs(C.rollEffect).toFixed(0)} мм</b> `
-     + 'относительно нейтрали, на которой считается конверт. Ролл выставляют по запястьям, а не по RAD, '
-     + 'поэтому в перебор он не входит — но знать, сколько он уже съел, надо.</p>';
+     + 'относительно нейтрали, на которой считается конверт.</p>';
   if(C.offCatalog.length)
-    h+=`<p class="flag">За рабочими диапазонами: ${esc(C.offCatalog.join('; '))}. `
-     + 'Само по себе это не запрет, но именно так выглядит компенсация неверного размера рамы кокпитом.</p>';
+    h+=`<p class="flag">За рабочими диапазонами: ${esc(C.offCatalog.join('; '))}.</p>`;
   if(C.inTarget)
     h+='<p>По RAD ты уже в цели — дальше вопрос только в угле и в том, что говорит тело.</p>';
   else if(C.nearest){
@@ -1903,6 +2022,18 @@ function envCurrent(E,M){
     h+=`<p>Ближайшее попадание в цель по количеству деталей: <b>${esc(C.nearest.label)}</b> `
      + `→ RAD ${n0(C.nearest.rad)}, RAAD ${C.nearest.raad.toFixed(1)}°. Подвинуть: ${esc(mv)}.</p>`;
   }
+  h+=envMore('cur','Как читать этот блок',
+       `<p>Наклон корпуса — не настройка, а <b>результат</b>: это поза, в которой рука выходит на заданные `
+     + `${n0(state.crit.armTarget)} % длины (критерии — в меню «Критерии посадки» над страницей). `
+     + 'RAAD — свойство велосипеда, наклон корпуса — свойство райдера на нём, и совпадать они не обязаны. '
+     + 'Стойка считается на дефолтных критериях (колено 140°, локоть 130°), поэтому позные слайдеры на карточку не влияют. '
+     + 'Так же посчитана поза у каждого варианта конфигурации.</p>'
+     + (C.rollEffect?'<p>Ролл выставляют по запястьям, а не по RAD, поэтому в перебор он не входит — '
+       + 'но знать, сколько он уже съел, надо.</p>':'')
+     + (C.offCatalog.length?'<p>Деталь за рабочим диапазоном сама по себе не запрет, но именно так выглядит '
+       + 'компенсация неверного размера рамы кокпитом.</p>':'')
+     + (!C.inTarget&&C.nearest?'<p>Ближайшее попадание считается в деталях, а не в миллиметрах: вынос — одна покупка '
+       + 'независимо от того, на сколько он другой, а проставки уже лежат на штоке и не стоят ничего.</p>':''));
   return h+'</div>';
 }
 
@@ -1911,8 +2042,9 @@ function buildStandTable(M,ST){
   const el=document.getElementById('standtable'); if(!el) return;
   const r=(l,v,n,cls)=>`<tr><td>${l}</td><td class="val ${cls||''}">${v}</td><td class="spec">${n||''}</td></tr>`;
   let h='<table><thead><tr><th>Параметр</th><th>Значение</th><th style="text-align:left">Норма / комментарий</th></tr></thead><tbody>';
-  if(ST.pitch>0) h+=r('Наклон велосипеда', '+'+ST.pitch+'°','отрыв: вращение вокруг задней оси, вилка разжата (sag 0); поза — форма стойки, не физика полёта');
-  else if(ST.pitch<0) h+=r('Спуск', (-ST.pitch)+'°','земля наклонена вместе с велосипедом, оба колеса на склоне, вилка под рабочим sag; статика без торможения');
+  const rg=state.bike.rigid;
+  if(ST.pitch>0) h+=r('Наклон велосипеда', '+'+ST.pitch+'°',`отрыв: вращение вокруг задней оси, ${rg?'вилка жёсткая':'вилка разжата (sag 0)'}; поза — форма стойки, не физика полёта`);
+  else if(ST.pitch<0) h+=r('Спуск', (-ST.pitch)+'°',`земля наклонена вместе с велосипедом, оба колеса на склоне, ${rg?'вилка жёсткая':'вилка под рабочим sag'}; статика без торможения`);
   h+=r('Колено: переднее / заднее', ST.kneeF.toFixed(0)+'° / '+ST.kneeR.toFixed(0)+'°',
        `цель по среднему ${ST.kneeT}°; заднее прямее, потому что таз позади каретки`);
   h+=r('Таз назад от каретки', ST.hipBack.toFixed(0)+' мм',
@@ -2038,6 +2170,21 @@ function bodyChecks(S){
 }
 
 /* ===================== 7. рендер и ввод ===================== */
+/* Жёсткая вилка: слайдеры хода и sag скрыты, вместо них — длина вилки в строке
+   под ними, «Ход по паспорту» выключен. Ни sag, ни ход на неё не действуют
+   (model.js), выключенные поля лишь говорят об этом. Карточка на ввод не
+   пересобирается, поэтому переключается здесь, на каждом пересчёте. */
+function rigidUI(miss){
+  const b=state.bike, rigid=!!b.rigid;
+  const tr=document.getElementById('row_travel'); if(tr) tr.hidden=rigid;
+  const sr=document.getElementById('row_sag'); if(sr) sr.hidden=rigid;
+  const rh=document.getElementById('rigidhint'); if(rh) rh.hidden=!rigid;
+  const sg=document.querySelector('#card-frame input[data-k="sag"]'); if(sg) sg.disabled=rigid;
+  const tf=document.querySelector('#card-frame input[data-k="travelRef"]'); if(tf) tf.disabled=rigid;
+  const sv=document.getElementById('v_sag'); if(sv) sv.textContent=rigid?'—':(b.sag??0)+'%';
+  const td=document.getElementById('v_tdelta');
+  if(td) td.textContent=BikeFrame.travelNote(b, miss?null:BikeModel.solveFrame(b, state.wheelR));
+}
 function render(){
   /* Без базы и без офсета переднюю ось не поставить — рама не считается. Карточки
      результатов прячутся целиком: их содержимое осталось бы от прошлой рамы и
@@ -2045,7 +2192,7 @@ function render(){
   const miss=!BikeModel.hasFrontAxle(state.bike);
   document.querySelectorAll('#card-frame input[data-k="wb"],#card-frame input[data-k="offset"]').forEach(el=>el.classList.toggle('need',miss));
   const na=document.getElementById('needaxle'); if(na) na.hidden=!miss;
-  const td=document.getElementById('v_tdelta'); if(td) td.textContent=BikeFrame.travelNote(state.bike);
+  rigidUI(miss);
   const res=document.querySelector('main.results'); if(res) res.classList.toggle('blocked',miss);
   const bn=document.getElementById('blockednote'); if(bn) bn.hidden=!miss;
   if(miss){ syncHash(); return; }
@@ -2087,23 +2234,16 @@ function render(){
     'Модель статическая: две позы, сидя и стойка на педалях, без динамики переноса веса. Голеностоп зафиксирован относительно оси педали, запястье своей степени свободы не имеет. '
     +'Локоть выводится двумя углами: анатомический — в плоскости самой руки, в профиль — то, что видно сбоку и на фото. Разводит их разведение локтей. '
     +'Высота седла выводится из целевого угла колена в НМТ, поэтому длина шатуна работает физически, а не через поправочный коэффициент. '
-    +'RAD считается на текущей геометрии, то есть с учётом просадки вилки. Опубликованные значения обычно меряют на велосипеде, стоящем у стены, — чтобы сравнивать с ними, поставь sag на 0.';
+    +(state.bike.rigid
+      ? 'Вилка жёсткая: просадки нет, RAD считается на паспортной геометрии — так же, как меряют опубликованные значения.'
+      : 'RAD считается на текущей геометрии, то есть с учётом просадки вилки. Опубликованные значения обычно меряют на велосипеде, стоящем у стены, — чтобы сравнивать с ними, поставь sag на 0.');
   syncHash();
 }
 
-/* Радиусы посчитаны как BSD/2 + высота покрышки над ободом; 29"×2.4 = 368. */
-const WHEEL_HINT=(()=>{
-  const rows=[['2.1–2.2',327,343,362],['2.4',337,349,368],['2.6',343,356,375],['2.8','—',362,381]];
-  const c='padding:2px 13px 2px 0;border:none;text-align:right';
-  return 'Радиус накачанного колеса вместе с покрышкой. 26 / 27.5 / 29 считаются одинаково корректно.'
-   + '<table style="width:auto;margin:8px 0 6px;font-size:11.5px;border-collapse:collapse">'
-   + `<tr><td style="${c};text-align:left;color:#999">покрышка</td>`
-   + ['26"','27.5"','29"'].map(h=>`<td style="${c};color:#999">${h}</td>`).join('') + '</tr>'
-   + rows.map(r=>`<tr><td style="${c};text-align:left">${r[0]}</td>`
-       + r.slice(1).map(v=>`<td style="${c};font-variant-numeric:tabular-nums">${v}</td>`).join('') + '</tr>').join('')
-   + '</table>'
-   + 'На посадку радиус не влияет вообще — только на высоту каретки, трейл и рисунок. Все углы тела, RAD и высота седла считаются относительно каретки.';
-})();
+/* Таблица радиусов по покрышкам — общая со сравнением (frame.js); своё здесь —
+   что посадки радиус не касается. */
+const WHEEL=BikeFrame.WHEEL;
+const WHEEL_HINT=WHEEL.hint+' На посадку радиус не влияет вообще — только на высоту каретки, трейл и рисунок. Все углы тела, RAD и высота седла считаются относительно каретки.';
 
 /* Поля рамы, подписи, шаги и подсказки описаны один раз в frame.js — общие со
    страницей сравнения. Здесь только имена, под которыми их знает эта страница. */
@@ -2164,11 +2304,21 @@ function buildInputs(){
     <h3>Рама</h3>
     ${BikePresets.rowHTML('geo',null,'Сохраняется под названием рамы. Список общий со страницей сравнения геометрий.',
                 {id:'bikename', ph:'название рамы', value:state.bike.name})}
-    <div class="grid">${fields(F_FRAME,'bike')}</div>
+    <div class="grid">${fields(F_FRAME,'bike')}<label>${WHEEL.label}</label><input type="number" step="${WHEEL.step}" data-g="root" data-k="wheelR" value="${state.wheelR}" placeholder="${WHEEL.def}"></div>
+    <details><summary>${WHEEL.summary}</summary><div class="hint">${WHEEL_HINT}</div></details>
+    <details><summary>Паспорт модели: бренд, год, размер, назначение</summary>
+      <div class="grid">${BikeFrame.metaHTML(state.bike,'data-g="bike"')}</div>
+      <div class="hint">${BikeFrame.HINTS.meta}</div></details>
     <div class="needmsg" id="needaxle" hidden>${BikeFrame.HINTS.needFrontAxle}</div>
-    <div class="slider">${['travel','sag'].map(k=>{ const d=BikeFrame.SLIDERS[k];
-      return `<div class="row"><span style="min-width:82px">${d.label}</span><input type="range" min="${d.min}" max="${d.max}" step="${d.step}" data-g="bike" data-k="${k}" value="${state.bike[k]}"><span class="tval" id="v_${k}">${state.bike[k]}${d.unit}</span></div>`; }).join('')}
+    <div class="slider">
+      <label class="rigidrow"><input type="checkbox" data-g="bike" data-k="rigid" ${state.bike.rigid?'checked':''}>${BikeFrame.RIGID.label}</label>
+      ${['travel','sag'].map(k=>{ const d=BikeFrame.SLIDERS[k];
+      return `<div class="row" id="row_${k}"><span style="min-width:82px">${d.label}</span><input type="range" min="${d.min}" max="${d.max}" step="${d.step}" data-g="bike" data-k="${k}" value="${state.bike[k]}"><span class="tval" id="v_${k}">${state.bike[k]}${d.unit}</span></div>`; }).join('')}
       <div class="tdelta" id="v_tdelta"></div>
+      <div class="hint" id="rigidhint" hidden>${BikeFrame.HINTS.rigid}</div>
+      ${(()=>{ const d=BikeFrame.SLIDERS.dHta;
+      return `<div class="row" id="row_dHta"><span style="min-width:82px">${d.label}</span><input type="range" min="${d.min}" max="${d.max}" step="${d.step}" data-g="bike" data-k="dHta" value="${state.bike.dHta??0}"><span class="tval" id="v_dHta">${BikeFrame.dHtaText(state.bike)}</span></div>`; })()}
+      <div class="hint">${BikeFrame.HINTS.dHta}</div>
     </div>
     <details><summary>Проверка вилки</summary>
       <div class="grid" style="margin-top:8px">${fields(F_FORKCHK,'bike')}</div>
@@ -2177,8 +2327,6 @@ function buildInputs(){
     <details><summary>Замена вилки</summary>
       <div class="grid" style="margin-top:8px">${fields(F_FORK,'bike')}</div>
       <div class="hint">${BikeFrame.HINTS.forkSwap}</div></details>
-    <details><summary>Колесо</summary><div class="grid" style="margin-top:8px"><label>Радиус колеса, мм</label><input type="number" step="1" data-g="root" data-k="wheelR" value="${state.wheelR}"></div>
-      <div class="hint">${WHEEL_HINT}</div></details>
   </div>
 
   <div class="card" id="card-bar">
@@ -2239,16 +2387,22 @@ function buildInputs(){
   const nm=document.getElementById('bikename');
   nm.addEventListener('input',()=>{ state.bike.name=nm.value; syncHash(); });
 
+  /* Паспорт модели в расчёт не входит: только состояние и ссылка, без render. */
+  document.querySelectorAll('#inputs select[data-k]').forEach(el=>el.addEventListener('change',()=>{
+    state.bike[el.dataset.k]=BikeFrame.metaValue(el); syncHash(); }));
   document.querySelectorAll('#inputs input[data-k]').forEach(el=>{
     el.addEventListener('input',()=>{
       const g=el.dataset.g,k=el.dataset.k;
+      if(g==='bike'&&BikeFrame.META_KEYS.includes(k)){ state.bike[k]=BikeFrame.metaValue(el); syncHash(); return; }
       let v;
       if(el.type==='checkbox') v=el.checked?1:0;
       else if(el.value==='') v=null;
       else v=parseFloat(el.value);
-      if(g==='root') state[k]=v||368; else state[g][k]=v;
+      if(g==='root') state[k]=v||WHEEL.def; else state[g][k]=v;
       const lbl=document.getElementById('v_'+k);
-      if(lbl) lbl.textContent=el.value+(k==='sag'?'%':k==='torso'?'°':' мм');
+      if(lbl) lbl.textContent=k==='dHta'?BikeFrame.dHtaText(state.bike):el.value+(k==='sag'?'%':k==='torso'?'°':' мм');
+      // поправка угла считается от паспортного: правка поля угла двигает и подпись
+      if(g==='bike'&&k==='hta'){ const h=document.getElementById('v_dHta'); if(h) h.textContent=BikeFrame.dHtaText(state.bike); }
       render();
     });
   });
@@ -2261,22 +2415,30 @@ function buildInputs(){
 }
 function setTorso(v){ track('fit-torso-'+v); state.fit.torso=v; render(); }
 
-/* Критерии карточки. Делегированный обработчик, потому что блок стоит в карточке
-   результатов; критерии нарочно не попадают в пресеты рамы, кокпита и райдера —
-   это не замер и не железо, а требования, с которыми сверяют. В ссылку они
-   входят, иначе присланный расчёт читался бы с чужими порогами. */
+/* Критерии карточки — меню «Критерии посадки» в тулбаре. Обработчик делегирован
+   на document, как и был; критерии нарочно не попадают в пресеты рамы, кокпита
+   и райдера — это не замер и не железо, а требования, с которыми сверяют. В
+   ссылку они входят, иначе присланный расчёт читался бы с чужими порогами. */
 document.addEventListener('input',e=>{
-  const el=e.target.closest&&e.target.closest('#envcrit input[data-k]'); if(!el) return;
+  const el=e.target.closest&&e.target.closest('#critmenu input[data-k]'); if(!el) return;
   const k=el.dataset.k;
   state.crit[k]=el.value===''?REQ.crit[k]:parseFloat(el.value);
   if(!isFinite(state.crit[k])) state.crit[k]=REQ.crit[k];
   render();
 });
+document.addEventListener('click',e=>{
+  if(!(e.target.closest&&e.target.closest('#critreset'))) return;
+  state.crit={...REQ.crit}; track('fit-crit-reset'); render();
+});
+/* Значения видны на самой кнопке меню: по ним читается вердикт, и открывать
+   меню ради того, чтобы узнать пороги, не нужно. */
 function critSync(){
-  document.querySelectorAll('#envcrit input[data-k]').forEach(el=>{
+  document.querySelectorAll('#critmenu input[data-k]').forEach(el=>{
     if(el===document.activeElement) return;      // не перебивать то, что печатают
     el.value=state.crit[el.dataset.k];
   });
+  const c=state.crit, sm=document.getElementById('critsum');
+  if(sm) sm.textContent=`${c.armTarget} % · ${c.wristMax}° · ${c.torsoLo}–${c.torsoHi}°`;
 }
 
 /* ==================== пресеты ====================
@@ -2355,6 +2517,12 @@ BikePresets.init({
     if(row.dataset.kind==='geo') return (state.bike.name||'').trim();
     const nm=row.closest('.psbox').querySelector('.psname');
     return nm?nm.value.trim():'';
+  },
+  showSlots: [['Открыть в Fit Lab',null]],        // кнопка каталога рам: показать раму, не сохраняя
+  renamed(kind,from,to){                          // пресет переименован в окне управления: рама идёт за ним,
+    if(kind==='geo' && state.bike.name===from){   // иначе «Сохранить» вернуло бы старое имя
+      state.bike.name=to; buildInputs(); render();
+    }
   }
 });
 
@@ -2370,8 +2538,8 @@ const HK={bike:BikeFrame.LINK_KEYS,
        'kneeStand','elbowStand','handShareStand','bikePitch','hipBackStand','elbowFlare'],
   crit:['armTarget','wristMax','torsoLo','torsoHi']};
 function stateToHash(){
-  const enc=g=>HK[g].map(k=>state[g][k]==null?'':state[g][k]).join('~');
-  return `#w=${state.wheelR}&n=${encodeURIComponent(state.bike.name||'')}&f=${enc('bike')}&c=${enc('ck')}&b=${enc('body')}&t=${enc('fit')}&r=${enc('crit')}`;
+  const enc=g=>HK[g].map(k=>BikeFrame.toLink(k,state[g][k])).join('~');
+  return `#w=${state.wheelR}&n=${BikeFrame.encText(state.bike.name||'')}&f=${enc('bike')}&c=${enc('ck')}&b=${enc('body')}&t=${enc('fit')}&r=${enc('crit')}`;
 }
 function hashToState(hs){
   const h=(hs!=null?hs:location.hash).replace(/^#/,''); if(!h) return false;
@@ -2388,7 +2556,7 @@ function hashToState(hs){
       /* Ключи, которых в старой ссылке не было, обнуляем: иначе переход по ссылке
          без блока вилки молча оставил бы вилку от предыдущего расчёта. Обязательные
          поля тут же вернёт fixReq(). */
-      HK[g].forEach((k,i)=>{ const v=parts[i]; state[g][k]=(v===undefined||v==='')?null:parseFloat(v); });
+      HK[g].forEach((k,i)=>{ state[g][k]=BikeFrame.fromLink(k,parts[i]); });
     });
     fixReq();
     return true;
@@ -2411,10 +2579,11 @@ function doPrint(){
   track('fit-pdf');
   const M=solveFit();
   document.getElementById('printhead').innerHTML=
-    `<div style="font-size:11px;margin:0 0 8px"><b>${esc(state.bike.name)}</b> — ход ${state.bike.travel} мм, sag ${state.bike.sag}% · `
+    `<div style="font-size:11px;margin:0 0 8px"><b>${esc(state.bike.name)}</b> — ${BikeFrame.forkWord(state.bike)} · `
     +`райдер ${state.body.height} мм, inseam ${state.body.inseam} · шатун ${state.fit.crank} · `
     +`вынос ${state.ck.stemLen}/${state.ck.stemFlip?'−':'+'}${Math.abs(state.ck.stemAngle)}° + ${state.ck.spacers} мм проставок · `
-    +`руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°/${state.ck.upsweep}°</div>`
+    +`руль ${state.ck.barWidth}/${state.ck.barRise}/${state.ck.backsweep}°/${state.ck.upsweep}° · `
+    +`критерии: рука ${state.crit.armTarget} %, залом до ${state.crit.wristMax}°, наклон ${state.crit.torsoLo}–${state.crit.torsoHi}°</div>`
     +`<div style="font-size:8px;color:#999;word-break:break-all">${esc(currentLink())}</div>`;
   window.print();
 }
@@ -2580,7 +2749,7 @@ const LBL={};
  [F_BODY_FOOT,'body'],[F_BODY_PELVIS,'body'],[F_BODY_HAND,'body'],[F_BODY_MISC,'body'],
  [F_FIT_HAND,'fit'],[F_FIT_MISC,'fit'],[F_STAND,'fit']]
  .forEach(([l,g])=>l.forEach(([k,lab])=>LBL[g+'.'+k]=lab));
-LBL['fit.torso']='Наклон корпуса'; LBL['fit.kneeTarget']='Целевой угол колена в НМТ'; LBL['bike.travel']=BikeFrame.label('travel'); LBL['bike.sag']=BikeFrame.label('sag');
+LBL['fit.torso']='Наклон корпуса'; LBL['fit.kneeTarget']='Целевой угол колена в НМТ'; LBL['bike.travel']=BikeFrame.label('travel'); LBL['bike.sag']=BikeFrame.label('sag'); LBL['bike.rigid']=BikeFrame.label('rigid'); LBL['bike.dHta']=BikeFrame.label('dHta');
 /* ===================== 11. журнал итераций ===================== */
 /* Снимок = хэш состояния (тот же формат, что в ссылке) + свободный текст ощущений.
    Хранение — localStorage, экспорт/импорт JSON (localStorage не общий между
@@ -2670,7 +2839,7 @@ function parseHash(hs){
     const q={}; h.split('&').forEach(p=>{const i=p.indexOf('='); q[p.slice(0,i)]=p.slice(i+1);});
     [['f','bike'],['c','ck'],['b','body'],['t','fit']].forEach(([key,g])=>{
       if(!q[key]) return; const parts=q[key].split('~');
-      HK[g].forEach((k,i)=>{ const v=parts[i]; if(v!==undefined) o[g][k]=(v===''?null:parseFloat(v)); });
+      HK[g].forEach((k,i)=>{ const v=parts[i]; if(v!==undefined) o[g][k]=BikeFrame.fromLink(k,v); });
     });
     return o;
   }catch(e){ return null; }
@@ -2687,7 +2856,7 @@ function buildSetup(M){
   h+=li('Вынос', `${c.stemLen} мм · угол ${c.stemFlip?'−':'+'}${Math.abs(c.stemAngle)}°${c.stemFlip?' (перевёрнут)':''}`);
   h+=li('Руль', `${c.barWidth} мм · rise ${c.barRise} · back ${c.backsweep}° · up ${c.upsweep}° · ролл ${c.barRoll}°`);
   h+=li('Шатуны / Q-factor', `${f.crank} / ${f.qFactor} мм`);
-  h+=li('Вилка', `ход ${b.travel} мм · sag ${b.sag}%`);
+  h+=li('Вилка', b.rigid ? 'жёсткая' : `ход ${b.travel} мм · sag ${b.sag}%`);
   h+='</tbody></table>';
   const base=jrBaseline();
   if(base){
@@ -2705,7 +2874,7 @@ function buildSetup(M){
       };
       HK.ck.forEach(k=>cmp('ck',k));
       ['crank','qFactor','postOffset','railPos','kneeTarget'].forEach(k=>cmp('fit',k));
-      ['travel','sag'].forEach(k=>cmp('bike',k));
+      ['travel','sag','dHta','rigid'].forEach(k=>cmp('bike',k));
       h+=`<div class="hint" style="margin-top:10px"><b>Что поменять относительно базы</b> — «${esc(base.name||'без имени')}», ${new Date(base.t).toLocaleDateString('ru-RU')}:</div>`;
       h+=rows.length?`<table style="margin-top:4px"><tbody>${rows.join('')}</tbody></table>`
                     :'<div class="hint" style="margin-top:4px">железо совпадает с базовой записью — менять нечего</div>';
